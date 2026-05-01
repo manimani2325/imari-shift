@@ -388,189 +388,203 @@ export default function App(){
 
   // ── スタイル
   const C={
-    bg:"#030712",card:"#0f172a",border:"#1e2a3a",
-    accent:"#6366f1",text:"#f0f4ff",muted:"#64748b",
+    bg:"#080c18",text:"#e2e8f0",muted:"#475569",accent:"#6366f1",
   };
   const btn=(on,c=C.accent)=>({
-    padding:"7px 14px",borderRadius:8,border:"none",cursor:"pointer",
-    fontFamily:"inherit",fontSize:12,fontWeight:700,transition:"all .15s",
-    background:on?c:"#1e2a3a",color:on?"#fff":C.muted,
+    padding:"8px 16px",borderRadius:999,border:on?"none":"1px solid rgba(255,255,255,0.07)",
+    cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,transition:"all .2s",
+    background:on?c:"rgba(255,255,255,0.04)",color:on?"#fff":C.muted,
+    boxShadow:on?`0 2px 16px ${c}55`:"none",
   });
-  const card={background:C.card,borderRadius:14,border:`1px solid ${C.border}`,padding:16};
+  const glass={background:"rgba(13,19,35,0.82)",backdropFilter:"blur(18px)",WebkitBackdropFilter:"blur(18px)",borderRadius:18,border:"1px solid rgba(99,102,241,0.15)",padding:18};
 
-  // GM/スタッフモード表示制御
-  const showGmTabs=gmMode;
-  const availSid=gmMode?null:loginStaff?.id; // GMはタブで切替、スタッフは自分のID
-
-  // 候補日入力で表示するスタッフ（GMは全員タブ、スタッフは自分のみ）
   const [selectedStaffTab,setSelectedStaffTab]=useState(null);
   const availViewStaff=gmMode
     ?(selectedStaffTab?staff.find(s=>s.id===selectedStaffTab):staff[0])
     :loginStaff;
 
-  if(loading) return(<div style={{minHeight:"100vh",background:"#030712",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12}}><div style={{fontSize:36}}>🍶</div><div style={{color:"#64748b",fontSize:13}}>データを読み込み中...</div></div>);
+  if(loading) return(
+    <div style={{minHeight:"100vh",background:"#080c18",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:16}}>
+      <div style={{position:"relative",width:72,height:72}}>
+        <div style={{width:72,height:72,borderRadius:36,background:"linear-gradient(135deg,#6366f1,#8b5cf6)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:32,boxShadow:"0 0 48px #6366f155"}}>🍶</div>
+        <div style={{position:"absolute",inset:-5,borderRadius:41,border:"2px solid rgba(99,102,241,0.4)",animation:"spin 1.8s linear infinite"}}/>
+      </div>
+      <div style={{color:"#475569",fontSize:12,letterSpacing:3,fontFamily:"sans-serif"}}>LOADING...</div>
+    </div>
+  );
 
   return(
     <div style={{fontFamily:"'Zen Kaku Gothic New',sans-serif",minHeight:"100vh",background:C.bg,color:C.text}}>
       <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&display=swap" rel="stylesheet"/>
+      <style>{`
+        *{box-sizing:border-box}
+        body{background:#080c18;background-image:radial-gradient(ellipse 80% 60% at 10% 10%,rgba(99,102,241,0.07) 0%,transparent 60%),radial-gradient(ellipse 60% 50% at 90% 90%,rgba(139,92,246,0.06) 0%,transparent 60%)}
+        button{transition:all .2s;font-family:inherit}
+        button:active{transform:scale(.92)!important}
+        button:hover{filter:brightness(1.15)}
+        .fi{animation:fi .28s cubic-bezier(.22,1,.36,1)}
+        @keyframes fi{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        .sth{position:sticky;top:0;background:rgba(10,14,26,0.95);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);z-index:5}
+        .avail-row:hover td{background:rgba(99,102,241,0.04)!important}
+        .inp{outline:none;transition:border-color .2s,box-shadow .2s}
+        .inp:focus{border-color:#6366f1!important;box-shadow:0 0 0 3px rgba(99,102,241,0.18)!important}
+        ::-webkit-scrollbar{width:4px;height:4px}
+        ::-webkit-scrollbar-track{background:transparent}
+        ::-webkit-scrollbar-thumb{background:rgba(99,102,241,0.25);border-radius:4px}
+      `}</style>
+
       {/* GMパスワードモーダル */}
       {pwModal&&(
-        <div style={{position:"fixed",inset:0,background:"#000000cc",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center"}}
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",backdropFilter:"blur(10px)",WebkitBackdropFilter:"blur(10px)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center"}}
           onClick={e=>{if(e.target===e.currentTarget){setPwModal(false);setPwInput("");setPwError(false);}}}>
-          <div style={{background:"#0f172a",borderRadius:16,padding:"28px 24px",width:300,border:"1px solid #6366f140",boxShadow:"0 8px 40px #0008"}}>
-            <div style={{fontSize:14,fontWeight:800,marginBottom:4,color:"#e879f9"}}>🔐 GMモード</div>
-            <div style={{fontSize:11,color:"#64748b",marginBottom:16}}>パスワードを入力してください</div>
-            <input
-              type="password"
-              value={pwInput}
+          <div className="fi" style={{...glass,padding:"32px 28px",width:320,boxShadow:"0 32px 64px rgba(0,0,0,0.6),0 0 0 1px rgba(99,102,241,0.2)"}}>
+            <div style={{textAlign:"center",marginBottom:22}}>
+              <div style={{width:52,height:52,borderRadius:26,background:"linear-gradient(135deg,#e879f9,#8b5cf6)",display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:22,marginBottom:12,boxShadow:"0 0 28px #e879f955"}}>🔐</div>
+              <div style={{fontSize:16,fontWeight:900,color:"#e879f9"}}>GMモード</div>
+              <div style={{fontSize:11,color:C.muted,marginTop:4}}>パスワードを入力してください</div>
+            </div>
+            <input className="inp" type="password" value={pwInput}
               onChange={e=>{setPwInput(e.target.value);setPwError(false);}}
               onKeyDown={e=>e.key==="Enter"&&handleGmLogin()}
-              placeholder="パスワード"
-              autoFocus
-              style={{width:"100%",padding:"10px 14px",borderRadius:8,border:`1px solid ${pwError?"#ef4444":"#1e2a3a"}`,
-                background:"#07080f",color:"#f0f4ff",fontFamily:"inherit",fontSize:14,marginBottom:8,outline:"none"}}/>
-            {pwError&&<div style={{fontSize:11,color:"#ef4444",marginBottom:8}}>パスワードが違います</div>}
-            <div style={{display:"flex",gap:8,marginTop:4}}>
+              placeholder="パスワード" autoFocus
+              style={{width:"100%",padding:"12px 16px",borderRadius:12,border:`1.5px solid ${pwError?"#ef4444":"rgba(255,255,255,0.1)"}`,
+                background:"rgba(255,255,255,0.04)",color:C.text,fontSize:14,marginBottom:8}}/>
+            {pwError&&<div style={{fontSize:11,color:"#ef4444",marginBottom:10,textAlign:"center"}}>パスワードが違います</div>}
+            <div style={{display:"flex",gap:8,marginTop:8}}>
               <button onClick={()=>{setPwModal(false);setPwInput("");setPwError(false);}}
-                style={{flex:1,padding:"9px",borderRadius:8,border:"1px solid #1e2a3a",background:"transparent",color:"#64748b",cursor:"pointer",fontFamily:"inherit",fontSize:13,fontWeight:700}}>
-                キャンセル
-              </button>
+                style={{...btn(false),flex:1,padding:"11px",borderRadius:12,fontSize:13}}>キャンセル</button>
               <button onClick={handleGmLogin}
-                style={{flex:1,padding:"9px",borderRadius:8,border:"none",background:"#e879f9",color:"#fff",cursor:"pointer",fontFamily:"inherit",fontSize:13,fontWeight:700}}>
+                style={{flex:1,padding:"11px",borderRadius:12,border:"none",background:"linear-gradient(135deg,#e879f9,#8b5cf6)",color:"#fff",cursor:"pointer",fontSize:13,fontWeight:800,boxShadow:"0 4px 20px #e879f945"}}>
                 ログイン
               </button>
             </div>
           </div>
         </div>
       )}
-      <style>{`
-        *{box-sizing:border-box} button:active{transform:scale(.95)}
-        @keyframes fi{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-        .fi{animation:fi .2s ease}
-        .sth{position:sticky;top:0;background:#0f172a;z-index:5}
-      `}</style>
 
       {/* ── ヘッダー */}
-      <div style={{background:"#07080f",borderBottom:`1px solid ${C.border}`,padding:"12px 16px",position:"sticky",top:0,zIndex:30}}>
+      <div style={{background:"rgba(8,12,24,0.88)",backdropFilter:"blur(24px)",WebkitBackdropFilter:"blur(24px)",borderBottom:"1px solid rgba(99,102,241,0.1)",padding:"12px 16px",position:"sticky",top:0,zIndex:30}}>
         <div style={{maxWidth:900,margin:"0 auto"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:(gmMode||(!gmMode&&loginStaff)||(!gmMode&&!loginStaff))?10:0}}>
             <div style={{display:"flex",alignItems:"center",gap:10}}>
-              <span style={{fontSize:22}}>🍶</span>
+              <div style={{width:38,height:38,borderRadius:11,background:"linear-gradient(135deg,#6366f1,#8b5cf6)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,boxShadow:"0 0 18px #6366f145",flexShrink:0}}>🍶</div>
               <div>
-                <div style={{fontSize:8,letterSpacing:5,color:C.accent,textTransform:"uppercase"}}>Shift Master</div>
-                <div style={{fontSize:17,fontWeight:900}}>{year}年{month+1}月</div>
+                <div style={{fontSize:8,letterSpacing:5,fontWeight:800,textTransform:"uppercase",background:"linear-gradient(90deg,#6366f1,#8b5cf6)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>Shift Master</div>
+                <div style={{fontSize:18,fontWeight:900,lineHeight:1.15}}>{year}年{month+1}月</div>
               </div>
-              <button onClick={prevMonth} style={{...btn(false),padding:"5px 10px",fontSize:15,marginLeft:4}}>‹</button>
-              <button onClick={nextMonth} style={{...btn(false),padding:"5px 10px",fontSize:15}}>›</button>
+              <div style={{display:"flex",gap:3,marginLeft:2}}>
+                <button onClick={prevMonth} style={{...btn(false),padding:"5px 12px",fontSize:16,borderRadius:10}}>‹</button>
+                <button onClick={nextMonth} style={{...btn(false),padding:"5px 12px",fontSize:16,borderRadius:10}}>›</button>
+              </div>
             </div>
             <div style={{display:"flex",gap:6,alignItems:"center"}}>
-              {/* GM/スタッフ切替 */}
-              <div style={{display:"flex",background:"#1e2a3a",borderRadius:8,padding:2,gap:2}}>
-                <button onClick={()=>{if(gmMode)return; setPwModal(true);}} style={{...btn(gmMode,"#e879f9"),fontSize:11,padding:"5px 10px"}}>GM</button>
-                <button onClick={()=>{setGmMode(false);setView("avail");setLoginStaff(null);}} style={{...btn(!gmMode,"#60a5fa"),fontSize:11,padding:"5px 10px"}}>スタッフ</button>
+              <div style={{display:"flex",background:"rgba(255,255,255,0.04)",borderRadius:999,padding:3,gap:2,border:"1px solid rgba(255,255,255,0.06)"}}>
+                <button onClick={()=>{if(gmMode)return;setPwModal(true);}} style={{...btn(gmMode,"linear-gradient(135deg,#e879f9,#8b5cf6)"),fontSize:11,padding:"5px 14px",borderRadius:999}}>GM</button>
+                <button onClick={()=>{setGmMode(false);setView("avail");setLoginStaff(null);}} style={{...btn(!gmMode,"linear-gradient(135deg,#3b82f6,#6366f1)"),fontSize:11,padding:"5px 14px",borderRadius:999}}>スタッフ</button>
               </div>
-              {gmMode&&<button onClick={()=>setStaffPanelOpen(v=>!v)} style={{...btn(staffPanelOpen,"#374151"),fontSize:11,padding:"6px 12px"}}>👥 スタッフ</button>}
+              {gmMode&&<button onClick={()=>setStaffPanelOpen(v=>!v)} style={{...btn(staffPanelOpen,"rgba(99,102,241,0.35)"),fontSize:11,padding:"7px 14px",border:staffPanelOpen?"none":"1px solid rgba(255,255,255,0.07)"}}>👥 スタッフ</button>}
             </div>
           </div>
 
-          {/* スタッフモード: 自分を選ぶ */}
           {!gmMode&&!loginStaff&&(
-            <div style={{padding:"8px 0"}}>
-              <div style={{fontSize:11,color:C.muted,marginBottom:6}}>名前を選んでください</div>
+            <div style={{paddingBottom:6}}>
+              <div style={{fontSize:11,color:C.muted,marginBottom:8}}>名前を選んでください</div>
               <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                 {staffModeStaff.map(s=>(
-                  <button key={s.id} onClick={()=>setLoginStaff(s)}
-                    style={{...btn(false),fontSize:12,padding:"7px 14px"}}>{s.name}</button>
+                  <button key={s.id} onClick={()=>setLoginStaff(s)} style={{...btn(false),fontSize:12,padding:"8px 18px",borderRadius:999}}>{s.name}</button>
                 ))}
               </div>
             </div>
           )}
           {!gmMode&&loginStaff&&(
-            <div style={{display:"flex",alignItems:"center",gap:8}}>
-              <span style={{fontSize:12,color:C.muted}}>ログイン中：</span>
-              <span style={{fontWeight:700,fontSize:13}}>{loginStaff.name}</span>
-              <button onClick={()=>setLoginStaff(null)} style={{...btn(false),fontSize:10,padding:"3px 8px"}}>変更</button>
+            <div style={{display:"flex",alignItems:"center",gap:8,paddingBottom:4}}>
+              <div style={{width:7,height:7,borderRadius:4,background:"#34d399",boxShadow:"0 0 8px #34d399"}}/>
+              <span style={{fontSize:11,color:C.muted}}>ログイン中：</span>
+              <span style={{fontWeight:800,fontSize:13}}>{loginStaff.name}</span>
+              <button onClick={()=>setLoginStaff(null)} style={{...btn(false),fontSize:10,padding:"3px 10px"}}>変更</button>
             </div>
           )}
 
-          {/* GMタブ */}
           {gmMode&&(
-            <div style={{display:"flex",gap:4,marginTop:8}}>
-              {[["slots","①夜枠設定"],["avail","②候補日入力"],["result","③シフト表"]].map(([v,l])=>(
-                <button key={v} onClick={()=>setView(v)} style={{...btn(view===v),flex:1,fontSize:11,padding:"7px 4px"}}>{l}</button>
+            <div style={{display:"flex",gap:3,marginTop:8,background:"rgba(255,255,255,0.03)",borderRadius:13,padding:3,border:"1px solid rgba(255,255,255,0.05)"}}>
+              {[["slots","① 夜枠設定"],["avail","② 候補日入力"],["result","③ シフト表"]].map(([v,l])=>(
+                <button key={v} onClick={()=>setView(v)}
+                  style={{flex:1,padding:"9px 4px",borderRadius:11,border:"none",cursor:"pointer",fontSize:11,fontWeight:700,transition:"all .2s",
+                    background:view===v?"linear-gradient(135deg,#6366f1,#8b5cf6)":"transparent",
+                    color:view===v?"#fff":C.muted,
+                    boxShadow:view===v?"0 2px 14px #6366f145":"none"}}>
+                  {l}
+                </button>
               ))}
             </div>
           )}
         </div>
       </div>
 
-      <div style={{maxWidth:900,margin:"0 auto",padding:"14px 12px"}}>
+      <div style={{maxWidth:900,margin:"0 auto",padding:"16px 12px"}}>
 
-        {/* ── スタッフ管理パネル（GMのみ） */}
+        {/* ── スタッフ管理パネル */}
         {gmMode&&staffPanelOpen&&(
-          <div className="fi" style={{...card,marginBottom:14}}>
-            <div style={{fontSize:12,color:C.accent,fontWeight:700,marginBottom:12}}>スタッフ管理</div>
-            <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
-              <input placeholder="名前" value={newStaff.name} onChange={e=>setNewStaff(p=>({...p,name:e.target.value}))}
-                style={{flex:"1 1 130px",padding:"9px 12px",borderRadius:8,border:`1px solid ${C.border}`,background:"#111827",color:C.text,fontFamily:"inherit",fontSize:13}}/>
+          <div className="fi" style={{...glass,marginBottom:16}}>
+            <div style={{fontSize:13,fontWeight:900,background:"linear-gradient(90deg,#6366f1,#8b5cf6)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",marginBottom:14}}>スタッフ管理</div>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12,padding:14,background:"rgba(99,102,241,0.04)",borderRadius:12,border:"1px solid rgba(99,102,241,0.1)"}}>
+              <input className="inp" placeholder="名前" value={newStaff.name} onChange={e=>setNewStaff(p=>({...p,name:e.target.value}))}
+                style={{flex:"1 1 130px",padding:"10px 14px",borderRadius:10,border:"1.5px solid rgba(255,255,255,0.08)",background:"rgba(255,255,255,0.04)",color:C.text,fontSize:13}}/>
               <select value={newStaff.grade} onChange={e=>setNewStaff(p=>({...p,grade:e.target.value}))}
-                style={{padding:"9px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:"#111827",color:C.text,fontFamily:"inherit",fontSize:13}}>
+                style={{padding:"10px 12px",borderRadius:10,border:"1.5px solid rgba(255,255,255,0.08)",background:"rgba(20,30,50,0.95)",color:C.text,fontSize:13}}>
                 {GRADES.map(g=><option key={g} value={g}>{g}</option>)}
               </select>
               <label style={{display:"flex",alignItems:"center",gap:6,fontSize:12,color:C.muted,cursor:"pointer"}}>
-                <input type="checkbox" checked={newStaff.aisaniOK} onChange={e=>setNewStaff(p=>({...p,aisaniOK:e.target.checked}))}/>
-                アイサニOK
+                <input type="checkbox" checked={newStaff.aisaniOK} onChange={e=>setNewStaff(p=>({...p,aisaniOK:e.target.checked}))}/>アイサニOK
               </label>
-              <button onClick={addStaff} style={{...btn(true,C.accent),padding:"9px 18px"}}>追加</button>
+              <button onClick={addStaff} style={{padding:"10px 20px",borderRadius:10,border:"none",background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"#fff",cursor:"pointer",fontSize:13,fontWeight:800,boxShadow:"0 4px 16px #6366f145"}}>追加</button>
             </div>
-            <div style={{display:"flex",flexDirection:"column",gap:7}}>
+            <div style={{display:"flex",flexDirection:"column",gap:6}}>
               {staff.map(s=>(
-                <div key={s.id} style={{display:"flex",alignItems:"center",gap:8,padding:"9px 14px",background:"#07080f",borderRadius:10,border:`1px solid ${C.border}`,flexWrap:"wrap"}}>
+                <div key={s.id} style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",background:"rgba(255,255,255,0.02)",borderRadius:12,border:"1px solid rgba(255,255,255,0.05)",flexWrap:"wrap"}}>
                   <span style={{flex:1,fontWeight:700,fontSize:13,minWidth:80}}>{s.name}</span>
-                  <span style={{fontSize:10,padding:"2px 8px",borderRadius:20,fontWeight:700,background:GRADE_COLOR[s.grade]+"25",color:GRADE_COLOR[s.grade]}}>{s.grade}</span>
-                  {/* 等級変更(GMのみ) */}
+                  <span style={{fontSize:10,padding:"3px 10px",borderRadius:999,fontWeight:700,background:GRADE_COLOR[s.grade]+"22",color:GRADE_COLOR[s.grade],border:`1px solid ${GRADE_COLOR[s.grade]}40`}}>{s.grade}</span>
                   <div style={{display:"flex",gap:3}}>
                     {GRADES.map(g=>(
                       <button key={g} onClick={()=>updateStaff(staff.map(x=>x.id===s.id?{...x,grade:g}:x))}
-                        style={{...btn(s.grade===g,GRADE_COLOR[g]),fontSize:10,padding:"3px 7px"}}>{g}</button>
+                        style={{...btn(s.grade===g,GRADE_COLOR[g]),fontSize:10,padding:"3px 8px",borderRadius:999}}>{g}</button>
                     ))}
                   </div>
                   <label style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:s.aisaniOK?"#34d399":C.muted,cursor:"pointer"}}>
-                    <input type="checkbox" checked={!!s.aisaniOK} onChange={e=>updateStaff(staff.map(x=>x.id===s.id?{...x,aisaniOK:e.target.checked}:x))}/>
-                    アイサニ
+                    <input type="checkbox" checked={!!s.aisaniOK} onChange={e=>updateStaff(staff.map(x=>x.id===s.id?{...x,aisaniOK:e.target.checked}:x))}/>アイサニ
                   </label>
                   <button onClick={()=>updateStaff(staff.filter(x=>x.id!==s.id))}
-                    style={{padding:"3px 9px",borderRadius:6,border:"1px solid #ef444430",background:"transparent",color:"#ef4444",cursor:"pointer",fontSize:11,fontFamily:"inherit"}}>削除</button>
+                    style={{padding:"4px 10px",borderRadius:999,border:"1px solid rgba(239,68,68,0.3)",background:"rgba(239,68,68,0.06)",color:"#ef4444",cursor:"pointer",fontSize:11,fontWeight:700}}>削除</button>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* ── ① 夜枠設定（GMのみ） */}
+        {/* ── ① 夜枠設定 */}
         {gmMode&&view==="slots"&&(
           <div className="fi">
-            <div style={{...card,marginBottom:12}}>
-              <div style={{fontSize:13,fontWeight:700,color:C.accent,marginBottom:4}}>日ごとの夜・アイサニ枠を設定</div>
-              <div style={{fontSize:11,color:C.muted}}>夜枠（複数可）とアイサニ（系列店ヘルプ）を日ごとに設定</div>
-            </div>
-            {/* 凡例 */}
-            <div style={{display:"flex",gap:10,marginBottom:10,flexWrap:"wrap"}}>
-              {NIGHT_TIMES.map(t=>(
-                <span key={t} style={{fontSize:10,display:"flex",alignItems:"center",gap:4}}>
-                  <span style={{width:8,height:8,borderRadius:2,background:NIGHT_TC[t],display:"inline-block"}}/>
-                  <span style={{color:C.muted}}>{t}</span>
+            <div style={{...glass,marginBottom:14}}>
+              <div style={{fontSize:14,fontWeight:900,background:"linear-gradient(90deg,#6366f1,#8b5cf6)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",marginBottom:4}}>日ごとの夜・アイサニ枠を設定</div>
+              <div style={{fontSize:11,color:C.muted,marginBottom:12}}>夜枠（複数可）とアイサニ（系列店ヘルプ）を日ごとに設定</div>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                {NIGHT_TIMES.map(t=>(
+                  <span key={t} style={{fontSize:10,display:"flex",alignItems:"center",gap:5,padding:"3px 10px",borderRadius:999,background:NIGHT_TC[t]+"14",border:`1px solid ${NIGHT_TC[t]}30`}}>
+                    <span style={{width:6,height:6,borderRadius:3,background:NIGHT_TC[t],display:"inline-block",boxShadow:`0 0 6px ${NIGHT_TC[t]}`}}/>
+                    <span style={{color:NIGHT_TC[t],fontWeight:700}}>{t}</span>
+                  </span>
+                ))}
+                <span style={{fontSize:10,display:"flex",alignItems:"center",gap:5,padding:"3px 10px",borderRadius:999,background:"#34d39914",border:"1px solid #34d39930"}}>
+                  <span style={{width:6,height:6,borderRadius:3,background:"#34d399",display:"inline-block",boxShadow:"0 0 6px #34d399"}}/>
+                  <span style={{color:"#34d399",fontWeight:700}}>アイサニ</span>
                 </span>
-              ))}
-              <span style={{fontSize:10,color:"#34d399",display:"flex",alignItems:"center",gap:4}}>
-                <span style={{width:8,height:8,borderRadius:2,background:"#34d399",display:"inline-block"}}/>
-                アイサニ
-              </span>
+              </div>
             </div>
-            {/* カレンダーグリッド */}
-            <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:10}}>
+
+            <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3,marginBottom:12}}>
               {DOW_JP.map((d,i)=>(
-                <div key={i} style={{textAlign:"center",fontSize:10,padding:"4px 0",fontWeight:700,color:i===0?"#f87171":i===6?"#60a5fa":C.muted}}>{d}</div>
+                <div key={i} style={{textAlign:"center",fontSize:10,padding:"6px 0",fontWeight:800,color:i===0?"#f87171":i===6?"#60a5fa":C.muted}}>{d}</div>
               ))}
               {Array(firstDow).fill(null).map((_,i)=><div key={`e${i}`}/>)}
               {Array(days).fill(null).map((_,i)=>{
@@ -578,11 +592,14 @@ export default function App(){
                 const closed=isClosed(year,month,d);
                 const slots=nightSlotConfig[d]||[];
                 const aiOn=aisaniConfig[d]?.enabled;
+                const active=slots.length>0||aiOn;
                 return(
-                  <div key={d} style={{borderRadius:8,padding:"5px 3px",background:closed?"#07080f":C.card,
-                    border:`1px solid ${hol?"#6366f140":dow===0?"#f8717120":dow===6?"#60a5fa20":C.border}`,
-                    minHeight:72,opacity:closed?0.35:1}}>
-                    <div style={{textAlign:"center",fontSize:11,fontWeight:700,marginBottom:3,
+                  <div key={d} style={{borderRadius:12,padding:"5px 3px",transition:"all .2s",
+                    background:closed?"rgba(255,255,255,0.01)":active?"rgba(99,102,241,0.07)":"rgba(13,19,35,0.7)",
+                    border:`1px solid ${closed?"rgba(255,255,255,0.03)":active?"rgba(99,102,241,0.3)":hol?"rgba(99,102,241,0.15)":dow===0?"rgba(248,113,113,0.15)":dow===6?"rgba(96,165,250,0.15)":"rgba(255,255,255,0.05)"}`,
+                    minHeight:74,opacity:closed?0.22:1,
+                    boxShadow:active?"0 0 12px rgba(99,102,241,0.12)":"none"}}>
+                    <div style={{textAlign:"center",fontSize:11,fontWeight:800,marginBottom:3,
                       color:closed?"#374151":hol?"#818cf8":dow===0?"#f87171":dow===6?"#60a5fa":C.text}}>
                       {d}{hol?"🎌":""}{closed?"🔒":""}
                     </div>
@@ -593,8 +610,9 @@ export default function App(){
                             const on=slots.includes(t);
                             return(
                               <button key={t} onClick={()=>toggleNightSlot(d,t)}
-                                style={{padding:"2px 3px",borderRadius:4,border:"none",cursor:"pointer",fontSize:8,fontWeight:700,fontFamily:"inherit",
-                                  background:on?NIGHT_TC[t]:"#1e2a3a",color:on?"#fff":"#4b5563",transition:"all .1s"}}>
+                                style={{padding:"2px 3px",borderRadius:5,border:"none",cursor:"pointer",fontSize:7,fontWeight:800,
+                                  background:on?NIGHT_TC[t]:"rgba(255,255,255,0.06)",color:on?"#fff":"#4b5563",
+                                  boxShadow:on?`0 0 8px ${NIGHT_TC[t]}70`:"none",transition:"all .15s"}}>
                                 {t}
                               </button>
                             );
@@ -602,8 +620,9 @@ export default function App(){
                         </div>
                         <div style={{textAlign:"center"}}>
                           <button onClick={()=>toggleAisani(d)}
-                            style={{padding:"2px 6px",borderRadius:4,border:"none",cursor:"pointer",fontSize:8,fontWeight:700,fontFamily:"inherit",
-                              background:aiOn?"#34d399":"#1e2a3a",color:aiOn?"#07080f":"#4b5563",transition:"all .1s"}}>
+                            style={{padding:"2px 7px",borderRadius:5,border:"none",cursor:"pointer",fontSize:7,fontWeight:800,
+                              background:aiOn?"#34d399":"rgba(255,255,255,0.06)",color:aiOn?"#07080f":"#4b5563",
+                              boxShadow:aiOn?"0 0 8px #34d39970":"none",transition:"all .15s"}}>
                             アイサニ
                           </button>
                         </div>
@@ -613,9 +632,9 @@ export default function App(){
                 );
               })}
             </div>
-            {/* 一括 */}
-            <div style={{...card}}>
-              <div style={{fontSize:11,color:C.muted,marginBottom:8}}>一括設定</div>
+
+            <div style={{...glass,marginBottom:14}}>
+              <div style={{fontSize:11,color:C.muted,marginBottom:8,fontWeight:600}}>一括設定</div>
               <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                 {NIGHT_TIMES.map(t=>(
                   <button key={t} onClick={()=>{
@@ -626,27 +645,28 @@ export default function App(){
                       next[d]=cur.includes(t)?cur.filter(x=>x!==t):[...cur,t].sort();
                     }
                     updateNightSlot(next);
-                  }} style={{...btn(false,NIGHT_TC[t]),color:NIGHT_TC[t],background:NIGHT_TC[t]+"18",border:`1px solid ${NIGHT_TC[t]}40`,fontSize:10}}>
+                  }} style={{fontSize:10,padding:"6px 12px",borderRadius:999,border:`1px solid ${NIGHT_TC[t]}40`,background:NIGHT_TC[t]+"12",color:NIGHT_TC[t],cursor:"pointer",fontWeight:700}}>
                     {t} 全日切替
                   </button>
                 ))}
-                <button onClick={()=>updateNightSlot({})} style={{...btn(false),fontSize:10}}>全クリア</button>
+                <button onClick={()=>updateNightSlot({})} style={{...btn(false),fontSize:10,padding:"6px 14px"}}>全クリア</button>
               </div>
             </div>
-            <button onClick={()=>setView("avail")} style={{width:"100%",marginTop:12,padding:"13px",borderRadius:12,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:14,fontWeight:800,background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"#fff",boxShadow:"0 4px 20px #6366f138"}}>
+
+            <button onClick={()=>setView("avail")} style={{width:"100%",padding:"15px",borderRadius:14,border:"none",cursor:"pointer",fontSize:14,fontWeight:900,background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"#fff",boxShadow:"0 8px 28px #6366f148"}}>
               次へ：候補日入力 →
             </button>
           </div>
         )}
 
-        {/* ── ② 候補日入力（GM: スタッフ切替タブ / スタッフ: 自分のみ） */}
+        {/* ── ② 候補日入力 */}
         {(gmMode?view==="avail":(!gmMode&&loginStaff))&&(
           <div className="fi">
             {gmMode&&(
-              <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:12}}>
+              <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:14}}>
                 {staff.map(s=>(
                   <button key={s.id} onClick={()=>setSelectedStaffTab(s.id)}
-                    style={{...btn((selectedStaffTab===s.id)||(selectedStaffTab===null&&s.id===staff[0]?.id),GRADE_COLOR[s.grade]),fontSize:12}}>
+                    style={{...btn((selectedStaffTab===s.id)||(selectedStaffTab===null&&s.id===staff[0]?.id),GRADE_COLOR[s.grade]),fontSize:12,padding:"7px 16px",borderRadius:999}}>
                     {s.name}
                   </button>
                 ))}
@@ -659,73 +679,73 @@ export default function App(){
               const isJ=isJunior(availViewStaff.grade);
               return(
                 <div>
-                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10,flexWrap:"wrap"}}>
-                    <span style={{fontWeight:800,fontSize:15}}>{availViewStaff.name}</span>
-                    {gmMode&&<span style={{fontSize:10,padding:"2px 8px",borderRadius:20,fontWeight:700,background:GRADE_COLOR[availViewStaff.grade]+"25",color:GRADE_COLOR[availViewStaff.grade]}}>{availViewStaff.grade}</span>}
-                    {isJ&&<span style={{fontSize:10,color:"#f87171",background:"#f8717115",borderRadius:6,padding:"2px 8px"}}>金土日祝の夜は原則NG</span>}
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,flexWrap:"wrap"}}>
+                    <span style={{fontWeight:900,fontSize:16}}>{availViewStaff.name}</span>
+                    {gmMode&&<span style={{fontSize:10,padding:"3px 10px",borderRadius:999,fontWeight:700,background:GRADE_COLOR[availViewStaff.grade]+"20",color:GRADE_COLOR[availViewStaff.grade],border:`1px solid ${GRADE_COLOR[availViewStaff.grade]}40`}}>{availViewStaff.grade}</span>}
+                    {isJ&&<span style={{fontSize:10,color:"#f87171",background:"rgba(248,113,113,0.08)",borderRadius:999,padding:"3px 10px",border:"1px solid rgba(248,113,113,0.2)"}}>金土日祝の夜は原則NG</span>}
                   </div>
-                  {/* 一括 */}
-                  <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:10}}>
-                    <button onClick={()=>setAllAvail(sid,"morning",true)} style={{...btn(false),background:"#f59e0b18",color:"#f59e0b",border:"1px solid #f59e0b30",fontSize:10}}>朝 全ON</button>
-                    <button onClick={()=>setAllAvail(sid,"prep",true)} style={{...btn(false),background:"#10b98118",color:"#10b981",border:"1px solid #10b98130",fontSize:10}}>朝仕込 全ON</button>
-                    {NIGHT_TIMES.map(t=>(
-                      <button key={t} onClick={()=>setAllAvail(sid,`night_${t}`,true)}
-                        style={{...btn(false),background:NIGHT_TC[t]+"18",color:NIGHT_TC[t],border:`1px solid ${NIGHT_TC[t]}30`,fontSize:10}}>
-                        夜{t} 全ON
+                  <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:12}}>
+                    {[
+                      {label:"朝 全ON",color:"#f59e0b",onClick:()=>setAllAvail(sid,"morning",true)},
+                      {label:"朝仕込 全ON",color:"#10b981",onClick:()=>setAllAvail(sid,"prep",true)},
+                      ...NIGHT_TIMES.map(t=>({label:`夜${t} 全ON`,color:NIGHT_TC[t],onClick:()=>setAllAvail(sid,`night_${t}`,true)})),
+                      ...(availViewStaff.aisaniOK?[{label:"アイサニ 全ON",color:"#34d399",onClick:()=>setAllAvail(sid,"aisani",true)}]:[]),
+                    ].map(({label,color,onClick})=>(
+                      <button key={label} onClick={onClick}
+                        style={{fontSize:10,padding:"5px 12px",borderRadius:999,border:`1px solid ${color}30`,background:color+"10",color,cursor:"pointer",fontWeight:700}}>
+                        {label}
                       </button>
                     ))}
-                    {availViewStaff.aisaniOK&&(
-                      <button onClick={()=>setAllAvail(sid,"aisani",true)} style={{...btn(false),background:"#34d39918",color:"#34d399",border:"1px solid #34d39930",fontSize:10}}>アイサニ 全ON</button>
-                    )}
-                    <button onClick={()=>setAvail(p=>({...p,[sid]:{}}))} style={{...btn(false),fontSize:10}}>クリア</button>
+                    <button onClick={()=>setAvail(p=>({...p,[sid]:{}}))} style={{...btn(false),fontSize:10,padding:"5px 12px"}}>クリア</button>
                   </div>
-                  {/* テーブル（ヘッダー固定） */}
-                  <div style={{overflowX:"auto",overflowY:"auto",maxHeight:"58vh",borderRadius:10,border:`1px solid ${C.border}`}}>
+                  <div style={{overflowX:"auto",overflowY:"auto",maxHeight:"58vh",borderRadius:14,border:"1px solid rgba(99,102,241,0.15)"}}>
                     <table style={{borderCollapse:"collapse",width:"100%",minWidth:540}}>
                       <thead>
                         <tr>
-                          <th className="sth" style={{fontSize:10,color:C.muted,fontWeight:400,padding:"7px 4px",textAlign:"center",width:28}}>日</th>
-                          <th className="sth" style={{fontSize:10,color:C.muted,fontWeight:400,width:22,textAlign:"center"}}>曜</th>
-                          <th className="sth" style={{fontSize:10,color:"#f59e0b",fontWeight:700,padding:"7px 8px",textAlign:"center"}}>朝<br/><span style={{fontSize:8,opacity:.7}}>7:00〜</span></th>
-                          <th className="sth" style={{fontSize:10,color:"#10b981",fontWeight:700,padding:"7px 8px",textAlign:"center"}}>朝仕込<br/><span style={{fontSize:8,opacity:.7}}>8:30〜</span></th>
+                          <th className="sth" style={{fontSize:10,color:C.muted,fontWeight:600,padding:"9px 4px",textAlign:"center",width:30}}>日</th>
+                          <th className="sth" style={{fontSize:10,color:C.muted,fontWeight:600,width:22,textAlign:"center"}}>曜</th>
+                          <th className="sth" style={{fontSize:10,color:"#f59e0b",fontWeight:700,padding:"9px 8px",textAlign:"center"}}>朝<br/><span style={{fontSize:8,opacity:.6}}>7:00〜</span></th>
+                          <th className="sth" style={{fontSize:10,color:"#10b981",fontWeight:700,padding:"9px 8px",textAlign:"center"}}>朝仕込<br/><span style={{fontSize:8,opacity:.6}}>8:30〜</span></th>
                           {NIGHT_TIMES.map(t=>(
-                            <th key={t} className="sth" style={{fontSize:10,color:NIGHT_TC[t],fontWeight:700,padding:"7px 4px",textAlign:"center"}}>
-                              {t}〜<br/><span style={{fontSize:8,opacity:.7}}>夜</span>
+                            <th key={t} className="sth" style={{fontSize:10,color:NIGHT_TC[t],fontWeight:700,padding:"9px 4px",textAlign:"center"}}>
+                              {t}〜<br/><span style={{fontSize:8,opacity:.6}}>夜</span>
                             </th>
                           ))}
                           {availViewStaff.aisaniOK&&(
-                            <th className="sth" style={{fontSize:10,color:"#34d399",fontWeight:700,padding:"7px 4px",textAlign:"center"}}>
-                              アイサニ<br/><span style={{fontSize:8,opacity:.7}}>系列店</span>
+                            <th className="sth" style={{fontSize:10,color:"#34d399",fontWeight:700,padding:"9px 4px",textAlign:"center"}}>
+                              アイサニ<br/><span style={{fontSize:8,opacity:.6}}>系列店</span>
                             </th>
                           )}
                         </tr>
                       </thead>
                       <tbody>
                         {Array.from({length:days},(_,i)=>i+1).map(d=>{
-                          const dow=getDow(year,month,d),hol=isHol(year,month,d),spec=isSpec(year,month,d);
+                          const dow=getDow(year,month,d),hol=isHol(year,month,d);
                           const closed=isClosed(year,month,d);
                           const slots=nightSlotConfig[d]||[];
-                          const rowBg=closed?"#07080f":hol?"#818cf80a":dow===0?"#f871710a":dow===6?"#60a5fa0a":"transparent";
+                          const rowBg=closed?"rgba(255,255,255,0.005)":hol?"rgba(129,140,248,0.04)":dow===0?"rgba(248,113,113,0.04)":dow===6?"rgba(96,165,250,0.04)":"transparent";
                           return(
-                            <tr key={d} style={{background:rowBg,borderBottom:`1px solid ${C.border}`,opacity:closed?0.3:1}}>
-                              <td style={{textAlign:"center",fontSize:12,fontWeight:700,padding:"4px 2px",
+                            <tr key={d} className="avail-row" style={{borderBottom:"1px solid rgba(255,255,255,0.04)",opacity:closed?0.28:1}}>
+                              <td style={{background:rowBg,textAlign:"center",fontSize:12,fontWeight:800,padding:"5px 2px",
                                 color:closed?"#374151":hol?"#818cf8":dow===0?"#f87171":dow===6?"#60a5fa":C.text}}>
                                 {d}{hol?"🎌":""}{closed?"🔒":""}
                               </td>
-                              <td style={{textAlign:"center",fontSize:10,color:closed?"#374151":C.muted}}>{DOW_JP[dow]}</td>
+                              <td style={{background:rowBg,textAlign:"center",fontSize:10,color:closed?"#374151":C.muted}}>{DOW_JP[dow]}</td>
                               {closed?(
-                                <td colSpan={availViewStaff.aisaniOK?7:6} style={{textAlign:"center",fontSize:10,color:"#374151",padding:"5px"}}>定休日</td>
+                                <td colSpan={availViewStaff.aisaniOK?7:6} style={{background:rowBg,textAlign:"center",fontSize:10,color:"#374151",padding:"6px"}}>定休日</td>
                               ):(
                                 <>
                                   {["morning","prep"].map(type=>{
                                     const on=!!a[`${d}_${type}`];
+                                    const col=type==="morning"?"#f59e0b":"#10b981";
                                     return(
-                                      <td key={type} style={{textAlign:"center",padding:"3px 5px"}}>
+                                      <td key={type} style={{background:rowBg,textAlign:"center",padding:"3px 5px"}}>
                                         <button onClick={()=>toggleAvail(sid,`${d}_${type}`)}
-                                          style={{width:34,height:26,borderRadius:6,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:11,fontWeight:700,
-                                            background:on?(type==="morning"?"#f59e0b":"#10b981"):"#1e2a3a",
-                                            color:on?"#07080f":C.muted,transition:"all .1s"}}>
-                                          {on?"✓":"　"}
+                                          style={{width:34,height:28,borderRadius:8,border:"none",cursor:"pointer",fontSize:13,fontWeight:800,
+                                            background:on?col:"rgba(255,255,255,0.05)",
+                                            color:on?"#fff":"rgba(255,255,255,0.18)",
+                                            boxShadow:on?`0 0 12px ${col}55`:"none",transition:"all .15s"}}>
+                                          {on?"✓":""}
                                         </button>
                                       </td>
                                     );
@@ -735,36 +755,34 @@ export default function App(){
                                     const slotExists=slots.includes(t);
                                     const on=!!a[key]&&slotExists;
                                     const otherOn=slots.some(ot=>ot!==t&&!!a[`${d}_night_${ot}`]);
-                                    const disabledByOther=!on&&otherOn;
+                                    const dis=!on&&otherOn;
                                     return(
-                                      <td key={t} style={{textAlign:"center",padding:"3px 3px"}}>
+                                      <td key={t} style={{background:rowBg,textAlign:"center",padding:"3px 3px"}}>
                                         {slotExists?(
-                                          <button onClick={()=>!disabledByOther&&toggleNightAvail(sid,d,t)}
-                                            style={{width:34,height:26,borderRadius:6,border:"none",
-                                              cursor:disabledByOther?"not-allowed":"pointer",
-                                              fontFamily:"inherit",fontSize:11,fontWeight:700,transition:"all .1s",
-                                              background:on?NIGHT_TC[t]:disabledByOther?"#0d1020":"#1e2a3a",
-                                              color:on?"#fff":disabledByOther?"#1e2a3a":C.muted,
-                                              opacity:disabledByOther?0.2:1}}>
-                                            {on?"✓":"　"}
+                                          <button onClick={()=>!dis&&toggleNightAvail(sid,d,t)}
+                                            style={{width:34,height:28,borderRadius:8,border:"none",cursor:dis?"not-allowed":"pointer",
+                                              fontSize:13,fontWeight:800,transition:"all .15s",
+                                              background:on?NIGHT_TC[t]:dis?"rgba(255,255,255,0.01)":"rgba(255,255,255,0.05)",
+                                              color:on?"#fff":dis?"rgba(255,255,255,0.04)":"rgba(255,255,255,0.18)",
+                                              boxShadow:on?`0 0 12px ${NIGHT_TC[t]}55`:"none",opacity:dis?0.3:1}}>
+                                            {on?"✓":""}
                                           </button>
                                         ):(
-                                          <div style={{width:34,height:26,borderRadius:6,background:"#07080f",margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                                            <span style={{fontSize:8,color:"#1e2a3a"}}>—</span>
+                                          <div style={{width:34,height:28,borderRadius:8,background:"rgba(255,255,255,0.01)",margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                                            <span style={{fontSize:9,color:"rgba(255,255,255,0.07)"}}>—</span>
                                           </div>
                                         )}
                                       </td>
                                     );
                                   })}
-                                  {/* アイサニ列 - aisaniOKスタッフのみ表示 */}
                                   {availViewStaff.aisaniOK&&(
-                                    <td style={{textAlign:"center",padding:"3px 3px"}}>
+                                    <td style={{background:rowBg,textAlign:"center",padding:"3px 3px"}}>
                                       <button onClick={()=>toggleAvail(sid,`${d}_aisani`)}
-                                        style={{width:34,height:26,borderRadius:6,border:"none",cursor:"pointer",
-                                          fontFamily:"inherit",fontSize:11,fontWeight:700,transition:"all .1s",
-                                          background:!!a[`${d}_aisani`]?"#34d399":"#1e2a3a",
-                                          color:!!a[`${d}_aisani`]?"#07080f":C.muted}}>
-                                        {!!a[`${d}_aisani`]?"✓":"　"}
+                                        style={{width:34,height:28,borderRadius:8,border:"none",cursor:"pointer",fontSize:13,fontWeight:800,transition:"all .15s",
+                                          background:!!a[`${d}_aisani`]?"#34d399":"rgba(255,255,255,0.05)",
+                                          color:!!a[`${d}_aisani`]?"#fff":"rgba(255,255,255,0.18)",
+                                          boxShadow:!!a[`${d}_aisani`]?"0 0 12px #34d39955":"none"}}>
+                                        {!!a[`${d}_aisani`]?"✓":""}
                                       </button>
                                     </td>
                                   )}
@@ -776,69 +794,68 @@ export default function App(){
                       </tbody>
                     </table>
                   </div>
-                  <div style={{marginTop:7,fontSize:10,color:"#374151"}}>— は夜枠未設定 ／ 夜は1日1枠のみ選択可</div>
+                  <div style={{marginTop:8,fontSize:10,color:C.muted,opacity:.5}}>— は夜枠未設定 ／ 夜は1日1枠のみ選択可</div>
                 </div>
               );
             })()}
 
             {gmMode&&(
               <button onClick={handleGenerate} disabled={generating}
-                style={{width:"100%",marginTop:18,padding:"14px",borderRadius:12,border:"none",cursor:generating?"not-allowed":"pointer",
-                  fontFamily:"inherit",fontSize:15,fontWeight:800,
-                  background:generating?"#1e2a3a":"linear-gradient(135deg,#6366f1,#8b5cf6)",
-                  color:generating?"#64748b":"#fff",boxShadow:generating?"none":"0 4px 20px #6366f138",transition:"all .2s"}}>
+                style={{width:"100%",marginTop:20,padding:"16px",borderRadius:14,border:"none",cursor:generating?"not-allowed":"pointer",
+                  fontSize:15,fontWeight:900,transition:"all .3s",
+                  background:generating?"rgba(255,255,255,0.04)":"linear-gradient(135deg,#6366f1,#8b5cf6)",
+                  color:generating?"#475569":"#fff",boxShadow:generating?"none":"0 8px 28px #6366f150"}}>
                 {generating?"⏳ 生成中...":"✨ シフトを自動生成する"}
               </button>
             )}
             {!gmMode&&loginStaff&&(
-              <div style={{marginTop:14,padding:"12px 14px",borderRadius:10,background:"#10b98110",border:"1px solid #10b98130",fontSize:12,color:"#10b981",textAlign:"center"}}>
-                ✅ 入力内容は自動で保存されます
+              <div style={{marginTop:14,padding:"13px 16px",borderRadius:12,background:"rgba(52,211,153,0.06)",border:"1px solid rgba(52,211,153,0.2)",fontSize:12,color:"#34d399",textAlign:"center",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+                <div style={{width:7,height:7,borderRadius:4,background:"#34d399",boxShadow:"0 0 8px #34d399"}}/>
+                入力内容は自動で保存されます
               </div>
             )}
           </div>
         )}
 
-        {/* スタッフモードで名前未選択 */}
         {!gmMode&&!loginStaff&&(
-          <div style={{textAlign:"center",padding:"60px 20px",color:C.muted}}>
-            <div style={{fontSize:48,marginBottom:12}}>👤</div>
-            <div>上のリストから名前を選んでください</div>
+          <div style={{textAlign:"center",padding:"80px 20px",color:C.muted}}>
+            <div style={{width:80,height:80,borderRadius:40,background:"rgba(99,102,241,0.07)",display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:34,marginBottom:18,border:"1px solid rgba(99,102,241,0.15)"}}>👤</div>
+            <div style={{fontSize:14}}>上のリストから名前を選んでください</div>
           </div>
         )}
 
-        {/* ── ③ シフト表（GMのみ） */}
+        {/* ── ③ シフト表 */}
         {gmMode&&view==="result"&&(
           <div className="fi">
             {!result?(
-              <div style={{textAlign:"center",padding:"60px 20px",color:C.muted}}>
-                <div style={{fontSize:48,marginBottom:12}}>📋</div>
-                <div style={{marginBottom:16}}>シフトがまだ生成されていません</div>
-                <button onClick={()=>setView("slots")} style={{...btn(true),padding:"10px 24px",fontSize:13}}>夜枠を設定する</button>
+              <div style={{textAlign:"center",padding:"80px 20px",color:C.muted}}>
+                <div style={{width:80,height:80,borderRadius:40,background:"rgba(99,102,241,0.07)",display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:34,marginBottom:18,border:"1px solid rgba(99,102,241,0.15)"}}>📋</div>
+                <div style={{marginBottom:20,fontSize:14}}>シフトがまだ生成されていません</div>
+                <button onClick={()=>setView("slots")} style={{padding:"11px 28px",borderRadius:999,border:"none",background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"#fff",cursor:"pointer",fontSize:13,fontWeight:800,boxShadow:"0 4px 16px #6366f148"}}>夜枠を設定する</button>
               </div>
             ):(
               <div>
-                <div style={{display:"flex",gap:8,marginBottom:14}}>
-                  <button onClick={handleGenerate} style={{flex:1,padding:"11px",borderRadius:10,border:`1px solid ${C.accent}30`,background:"transparent",color:C.accent,cursor:"pointer",fontFamily:"inherit",fontSize:13,fontWeight:700}}>
+                <div style={{display:"flex",gap:8,marginBottom:16}}>
+                  <button onClick={handleGenerate} style={{flex:1,padding:"12px",borderRadius:12,border:"1px solid rgba(99,102,241,0.3)",background:"rgba(99,102,241,0.06)",color:"#818cf8",cursor:"pointer",fontSize:13,fontWeight:700}}>
                     🔄 再生成
                   </button>
                   <button onClick={handleExport} disabled={exporting}
-                    style={{flex:1,padding:"11px",borderRadius:10,border:"none",cursor:exporting?"wait":"pointer",fontFamily:"inherit",fontSize:13,fontWeight:700,
-                      background:exporting?"#1e2a3a":"linear-gradient(135deg,#0ea5e9,#6366f1)",color:"#fff"}}>
+                    style={{flex:1,padding:"12px",borderRadius:12,border:"none",cursor:exporting?"wait":"pointer",fontSize:13,fontWeight:700,
+                      background:exporting?"rgba(255,255,255,0.04)":"linear-gradient(135deg,#0ea5e9,#6366f1)",
+                      color:exporting?"#475569":"#fff",boxShadow:exporting?"none":"0 4px 16px rgba(14,165,233,0.35)"}}>
                     {exporting?"⏳ 出力中...":"📷 画像で保存"}
                   </button>
                 </div>
 
-                <div ref={shiftRef} style={{background:C.bg,padding:14,borderRadius:14}}>
-                  {/* タイトル */}
-                  <div style={{textAlign:"center",marginBottom:14}}>
-                    <div style={{fontSize:10,letterSpacing:5,color:C.accent,marginBottom:3}}>🍶 SHIFT TABLE</div>
-                    <div style={{fontSize:20,fontWeight:900}}>{year}年{month+1}月 シフト表</div>
+                <div ref={shiftRef} style={{background:C.bg,padding:16,borderRadius:18}}>
+                  <div style={{textAlign:"center",marginBottom:18}}>
+                    <div style={{fontSize:10,letterSpacing:6,fontWeight:700,background:"linear-gradient(90deg,#6366f1,#8b5cf6)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",marginBottom:4}}>🍶 SHIFT TABLE</div>
+                    <div style={{fontSize:22,fontWeight:900}}>{year}年{month+1}月 シフト表</div>
                   </div>
 
-                  {/* サマリー */}
-                  <div style={{...card,marginBottom:14}}>
-                    <div style={{fontSize:11,color:C.accent,fontWeight:700,marginBottom:10}}>勤務実績 / 候補ウェイト（達成率）</div>
-                    <div style={{display:"flex",flexWrap:"wrap",gap:7}}>
+                  <div style={{...glass,marginBottom:16}}>
+                    <div style={{fontSize:11,fontWeight:700,background:"linear-gradient(90deg,#6366f1,#8b5cf6)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",marginBottom:12}}>勤務実績 / 候補ウェイト（達成率）</div>
+                    <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
                       {staff.map(s=>{
                         const w=result.worked[s.id]||0;
                         const c=result.candW[s.id]||0;
@@ -846,21 +863,18 @@ export default function App(){
                         const avg=result.avgRate;
                         const dc=pct>avg?"#34d399":pct<avg?"#f87171":C.muted;
                         return(
-                          <div key={s.id} style={{background:"#07080f",borderRadius:10,padding:"9px 12px",textAlign:"center",border:`1px solid ${C.border}`,minWidth:84}}>
+                          <div key={s.id} style={{background:"rgba(255,255,255,0.03)",borderRadius:12,padding:"10px 14px",textAlign:"center",border:`1px solid ${GRADE_COLOR[s.grade]}22`,minWidth:84}}>
                             <div style={{fontSize:10,fontWeight:700,color:GRADE_COLOR[s.grade]}}>{s.name}</div>
-                            <div style={{fontSize:17,fontWeight:900,color:C.text,marginTop:3}}>
-                              {w}<span style={{fontSize:10,color:C.muted,fontWeight:400}}>/{c}</span>
-                            </div>
-                            <div style={{fontSize:11,fontWeight:700,color:dc}}>{pct}%</div>
-                            <div style={{fontSize:8,color:"#374151"}}>実績/候補</div>
+                            <div style={{fontSize:19,fontWeight:900,marginTop:4}}>{w}<span style={{fontSize:10,color:C.muted,fontWeight:400}}>/{c}</span></div>
+                            <div style={{fontSize:12,fontWeight:800,color:dc}}>{pct}%</div>
+                            <div style={{fontSize:8,color:C.muted,opacity:.6,marginTop:2}}>実績/候補</div>
                           </div>
                         );
                       })}
                     </div>
-                    <div style={{fontSize:10,color:"#374151",marginTop:8}}>平均達成率：{result.avgRate}%</div>
+                    <div style={{fontSize:10,color:C.muted,marginTop:10,opacity:.6}}>平均達成率：{result.avgRate}%</div>
                   </div>
 
-                  {/* 日別カード */}
                   {Array.from({length:days},(_,i)=>i+1).map(d=>{
                     const dow=getDow(year,month,d),hol=isHol(year,month,d);
                     if(isClosed(year,month,d)) return null;
@@ -871,20 +885,19 @@ export default function App(){
                     const sh=result.shortage[d]||{};
                     const warns=result.warnings[d]||[];
                     const totalS=(sh.morning||0)+(sh.prep||0)+slots.reduce((s,t)=>s+(sh.night?.[t]||0),0)+(aiOn?sh.aisani||0:0);
-
+                    const bc=totalS>0?"rgba(239,68,68,0.3)":warns.length?"rgba(245,158,11,0.22)":hol?"rgba(99,102,241,0.22)":dow===0?"rgba(248,113,113,0.14)":dow===6?"rgba(96,165,250,0.14)":"rgba(255,255,255,0.05)";
                     return(
-                      <div key={d} style={{...card,marginBottom:8,
-                        borderColor:totalS>0?"#ef444440":warns.length?"#f59e0b30":hol?"#6366f130":dow===0?"#f8717120":dow===6?"#60a5fa20":C.border}}>
+                      <div key={d} style={{background:"rgba(13,19,35,0.72)",borderRadius:14,border:`1px solid ${bc}`,padding:14,marginBottom:8}}>
                         <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:8,flexWrap:"wrap"}}>
-                          <span style={{fontWeight:800,fontSize:14,color:hol?"#818cf8":dow===0?"#f87171":dow===6?"#60a5fa":C.text}}>
+                          <span style={{fontWeight:900,fontSize:15,color:hol?"#818cf8":dow===0?"#f87171":dow===6?"#60a5fa":C.text}}>
                             {month+1}/{d}（{DOW_JP[dow]}）{hol?"🎌":""}
                           </span>
-                          {isSpec(year,month,d)&&<span style={{fontSize:9,padding:"2px 6px",borderRadius:20,background:"#6366f118",color:"#818cf8",fontWeight:700}}>特別夜</span>}
-                          {totalS>0&&<span style={{fontSize:9,padding:"2px 7px",borderRadius:20,background:"#ef444420",color:"#ef4444",fontWeight:700}}>⚠ 不足{totalS}名</span>}
-                          {warns.length>0&&<span style={{fontSize:9,padding:"2px 7px",borderRadius:20,background:"#f59e0b15",color:"#f59e0b",fontWeight:700}}>⚡ 例外あり</span>}
+                          {isSpec(year,month,d)&&<span style={{fontSize:9,padding:"3px 8px",borderRadius:999,background:"rgba(99,102,241,0.1)",color:"#818cf8",fontWeight:700,border:"1px solid rgba(99,102,241,0.2)"}}>特別夜</span>}
+                          {totalS>0&&<span style={{fontSize:9,padding:"3px 8px",borderRadius:999,background:"rgba(239,68,68,0.1)",color:"#ef4444",fontWeight:700,border:"1px solid rgba(239,68,68,0.2)"}}>⚠ 不足{totalS}名</span>}
+                          {warns.length>0&&<span style={{fontSize:9,padding:"3px 8px",borderRadius:999,background:"rgba(245,158,11,0.08)",color:"#f59e0b",fontWeight:700,border:"1px solid rgba(245,158,11,0.2)"}}>⚡ 例外あり</span>}
                         </div>
                         {warns.length>0&&(
-                          <div style={{marginBottom:8,padding:"6px 10px",background:"#f59e0b08",borderRadius:8,border:"1px solid #f59e0b1a"}}>
+                          <div style={{marginBottom:8,padding:"8px 12px",background:"rgba(245,158,11,0.05)",borderRadius:10,border:"1px solid rgba(245,158,11,0.15)"}}>
                             {warns.map((w,i)=><div key={i} style={{fontSize:10,color:"#f59e0b"}}>⚡ {w}</div>)}
                           </div>
                         )}
@@ -895,9 +908,7 @@ export default function App(){
                             const p=day.night[t];
                             return <SRow key={t} label={`夜 ${t}〜`} time="" color={NIGHT_TC[t]} people={p?[staffMap[p]].filter(Boolean):[]} shortage={sh.night?.[t]||0}/>;
                           })}
-                          {aiOn&&(
-                            <SRow label="アイサニ" time="系列店" color="#34d399" people={day.aisani?[staffMap[day.aisani]].filter(Boolean):[]} shortage={sh.aisani||0}/>
-                          )}
+                          {aiOn&&<SRow label="アイサニ" time="系列店" color="#34d399" people={day.aisani?[staffMap[day.aisani]].filter(Boolean):[]} shortage={sh.aisani||0}/>}
                         </div>
                       </div>
                     );
@@ -915,20 +926,20 @@ export default function App(){
 function SRow({label,time,color,people,shortage=0}){
   return(
     <div style={{display:"flex",alignItems:"center",gap:7,flexWrap:"wrap"}}>
-      <div style={{minWidth:66,fontSize:10,fontWeight:700,color,background:color+"18",borderRadius:6,padding:"3px 8px",textAlign:"center",flexShrink:0}}>{label}</div>
-      {time&&<div style={{fontSize:9,color:"#64748b",minWidth:76,flexShrink:0}}>{time}</div>}
+      <div style={{minWidth:70,fontSize:10,fontWeight:700,color,background:color+"16",borderRadius:999,padding:"3px 10px",textAlign:"center",flexShrink:0,border:`1px solid ${color}28`}}>{label}</div>
+      {time&&<div style={{fontSize:9,color:"#475569",minWidth:76,flexShrink:0}}>{time}</div>}
       <div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}>
         {people.map(s=>(
-          <span key={s.id} style={{fontSize:12,padding:"3px 12px",borderRadius:20,background:"#ffffff0e",color:"#f0f4ff",fontWeight:600}}>
+          <span key={s.id} style={{fontSize:12,padding:"4px 14px",borderRadius:999,background:"rgba(255,255,255,0.06)",color:"#e2e8f0",fontWeight:600,border:"1px solid rgba(255,255,255,0.08)"}}>
             {s.name}
           </span>
         ))}
         {shortage>0&&(
-          <span style={{fontSize:10,padding:"2px 9px",borderRadius:20,background:"#ef444415",color:"#ef4444",fontWeight:700,border:"1px solid #ef444425"}}>
+          <span style={{fontSize:10,padding:"3px 10px",borderRadius:999,background:"rgba(239,68,68,0.1)",color:"#ef4444",fontWeight:700,border:"1px solid rgba(239,68,68,0.22)"}}>
             あと{shortage}名不足
           </span>
         )}
-        {people.length===0&&shortage===0&&<span style={{fontSize:11,color:"#1e2a3a"}}>—</span>}
+        {people.length===0&&shortage===0&&<span style={{fontSize:11,color:"rgba(255,255,255,0.09)"}}>—</span>}
       </div>
     </div>
   );
