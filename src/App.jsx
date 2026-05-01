@@ -275,11 +275,11 @@ export default function App(){
   const prevMonth=()=>{if(month===0)updateYearMonth(year-1,11);else updateYearMonth(year,month-1);setResult(null);};
   const nextMonth=()=>{if(month===11)updateYearMonth(year+1,0);else updateYearMonth(year,month+1);setResult(null);};
 
-  const toggleNightSlot=(d,time)=>setNightSlotConfig(p=>{
-    const cur=p[d]||[];
+  const toggleNightSlot=(d,time)=>{
+    const cur=nightSlotConfig[d]||[];
     const next=cur.includes(time)?cur.filter(t=>t!==time):[...cur,time].sort();
-    return {...p,[d]:next};
-  });
+    updateNightSlot({...nightSlotConfig,[d]:next});
+  };
   const toggleAisani=(d)=>updateAisaniCfg({...aisaniConfig,[d]:{enabled:!aisaniConfig[d]?.enabled}});
 
   // 候補入力（GM: 任意のスタッフ, スタッフ: 自分のみ）
@@ -460,10 +460,8 @@ export default function App(){
                 <div style={{fontSize:8,letterSpacing:5,color:C.accent,textTransform:"uppercase"}}>Shift Master</div>
                 <div style={{fontSize:17,fontWeight:900}}>{year}年{month+1}月</div>
               </div>
-              {gmMode&&<>
-                <button onClick={prevMonth} style={{...btn(false),padding:"5px 10px",fontSize:15,marginLeft:4}}>‹</button>
-                <button onClick={nextMonth} style={{...btn(false),padding:"5px 10px",fontSize:15}}>›</button>
-              </>}
+              <button onClick={prevMonth} style={{...btn(false),padding:"5px 10px",fontSize:15,marginLeft:4}}>‹</button>
+              <button onClick={nextMonth} style={{...btn(false),padding:"5px 10px",fontSize:15}}>›</button>
             </div>
             <div style={{display:"flex",gap:6,alignItems:"center"}}>
               {/* GM/スタッフ切替 */}
@@ -620,19 +618,19 @@ export default function App(){
               <div style={{fontSize:11,color:C.muted,marginBottom:8}}>一括設定</div>
               <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                 {NIGHT_TIMES.map(t=>(
-                  <button key={t} onClick={()=>setNightSlotConfig(p=>{
-                    const next={...p};
+                  <button key={t} onClick={()=>{
+                    const next={...nightSlotConfig};
                     for(let d=1;d<=days;d++){
                       if(isClosed(year,month,d))continue;
                       const cur=next[d]||[];
                       next[d]=cur.includes(t)?cur.filter(x=>x!==t):[...cur,t].sort();
                     }
-                    return next;
-                  })} style={{...btn(false,NIGHT_TC[t]),color:NIGHT_TC[t],background:NIGHT_TC[t]+"18",border:`1px solid ${NIGHT_TC[t]}40`,fontSize:10}}>
+                    updateNightSlot(next);
+                  }} style={{...btn(false,NIGHT_TC[t]),color:NIGHT_TC[t],background:NIGHT_TC[t]+"18",border:`1px solid ${NIGHT_TC[t]}40`,fontSize:10}}>
                     {t} 全日切替
                   </button>
                 ))}
-                <button onClick={()=>setNightSlotConfig({})} style={{...btn(false),fontSize:10}}>全クリア</button>
+                <button onClick={()=>updateNightSlot({})} style={{...btn(false),fontSize:10}}>全クリア</button>
               </div>
             </div>
             <button onClick={()=>setView("avail")} style={{width:"100%",marginTop:12,padding:"13px",borderRadius:12,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:14,fontWeight:800,background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"#fff",boxShadow:"0 4px 20px #6366f138"}}>
