@@ -713,7 +713,7 @@ export default function App(){
                           ))}
                           {availViewStaff.aisaniOK&&(
                             <th className="sth" style={{fontSize:10,color:"#34d399",fontWeight:700,padding:"9px 4px",textAlign:"center"}}>
-                              アイサニ<br/><span style={{fontSize:8,opacity:.6}}>系列店</span>
+                              アイサニ<br/><span style={{fontSize:8,opacity:.6}}>ヘルプ</span>
                             </th>
                           )}
                         </tr>
@@ -777,13 +777,19 @@ export default function App(){
                                   })}
                                   {availViewStaff.aisaniOK&&(
                                     <td style={{background:rowBg,textAlign:"center",padding:"3px 3px"}}>
-                                      <button onClick={()=>toggleAvail(sid,`${d}_aisani`)}
-                                        style={{width:34,height:28,borderRadius:8,border:"none",cursor:"pointer",fontSize:13,fontWeight:800,transition:"all .15s",
-                                          background:!!a[`${d}_aisani`]?"#34d399":"rgba(255,255,255,0.05)",
-                                          color:!!a[`${d}_aisani`]?"#fff":"rgba(255,255,255,0.18)",
-                                          boxShadow:!!a[`${d}_aisani`]?"0 0 12px #34d39955":"none"}}>
-                                        {!!a[`${d}_aisani`]?"✓":""}
-                                      </button>
+                                      {aisaniConfig[d]?.enabled?(
+                                        <button onClick={()=>toggleAvail(sid,`${d}_aisani`)}
+                                          style={{width:34,height:28,borderRadius:8,border:"none",cursor:"pointer",fontSize:13,fontWeight:800,transition:"all .15s",
+                                            background:!!a[`${d}_aisani`]?"#34d399":"rgba(255,255,255,0.05)",
+                                            color:!!a[`${d}_aisani`]?"#fff":"rgba(255,255,255,0.18)",
+                                            boxShadow:!!a[`${d}_aisani`]?"0 0 12px #34d39955":"none"}}>
+                                          {!!a[`${d}_aisani`]?"✓":""}
+                                        </button>
+                                      ):(
+                                        <div style={{width:34,height:28,borderRadius:8,background:"rgba(255,255,255,0.01)",margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                                          <span style={{fontSize:9,color:"rgba(255,255,255,0.07)"}}>—</span>
+                                        </div>
+                                      )}
                                     </td>
                                   )}
                                 </>
@@ -908,7 +914,7 @@ export default function App(){
                             const p=day.night[t];
                             return <SRow key={t} label={`夜 ${t}〜`} time="" color={NIGHT_TC[t]} people={p?[staffMap[p]].filter(Boolean):[]} shortage={sh.night?.[t]||0}/>;
                           })}
-                          {aiOn&&<SRow label="アイサニ" time="系列店" color="#34d399" people={day.aisani?[staffMap[day.aisani]].filter(Boolean):[]} shortage={sh.aisani||0}/>}
+                          {aiOn&&<SRow label="アイサニ" time="ヘルプ" color="#34d399" people={day.aisani?[staffMap[day.aisani]].filter(Boolean):[]} shortage={sh.aisani||0}/>}
                         </div>
                       </div>
                     );
