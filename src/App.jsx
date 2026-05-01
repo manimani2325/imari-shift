@@ -248,12 +248,12 @@ export default function App(){
   const [year,setYear]=useState(now.getFullYear());
   const [month,setMonth]=useState(now.getMonth());
   const [staff,setStaff]=useState([
-    {id:1,name:"田中 蓮",grade:"SM",aisaniOK:true},
-    {id:2,name:"佐藤 彩",grade:"SM",aisaniOK:true},
-    {id:3,name:"鈴木 翔",grade:"M",aisaniOK:false},
-    {id:4,name:"高橋 美咲",grade:"L",aisaniOK:false},
-    {id:5,name:"伊藤 大輝",grade:"J",aisaniOK:false},
-    {id:6,name:"渡辺 ひな",grade:"J",aisaniOK:false},
+    {id:1,name:"田中 蓮",grade:"SM",aisaniOK:true,password:""},
+    {id:2,name:"佐藤 彩",grade:"SM",aisaniOK:true,password:""},
+    {id:3,name:"鈴木 翔",grade:"M",aisaniOK:false,password:""},
+    {id:4,name:"高橋 美咲",grade:"L",aisaniOK:false,password:""},
+    {id:5,name:"伊藤 大輝",grade:"J",aisaniOK:false,password:""},
+    {id:6,name:"渡辺 ひな",grade:"J",aisaniOK:false,password:""},
   ]);
   const [avail,setAvail]=useState({});
   const [nightSlotConfig,setNightSlotConfig]=useState({});
@@ -262,7 +262,10 @@ export default function App(){
   const [view,setView]=useState("slots"); // slots|avail|result
   const [gmMode,setGmMode]=useState(false);
   const [loginStaff,setLoginStaff]=useState(null); // スタッフモードで選択中
-  const [newStaff,setNewStaff]=useState({name:"",grade:"L",aisaniOK:false});
+  const [newStaff,setNewStaff]=useState({name:"",grade:"L",aisaniOK:false,password:""});
+  const [staffPwModal,setStaffPwModal]=useState(null); // パスワード確認中のスタッフ
+  const [staffPwInput,setStaffPwInput]=useState("");
+  const [staffPwError,setStaffPwError]=useState(false);
   const [staffPanelOpen,setStaffPanelOpen]=useState(false);
   const [generating,setGenerating]=useState(false);
   const [exporting,setExporting]=useState(false);
@@ -334,6 +337,14 @@ export default function App(){
 
   // スタッフモード: 自分の名前でログイン
   const staffModeStaff=staff.filter(s=>s.grade!=="GM");
+  const handleStaffSelect=(s)=>{
+    if(s.password){setStaffPwModal(s);setStaffPwInput("");setStaffPwError(false);}
+    else setLoginStaff(s);
+  };
+  const handleStaffPwLogin=()=>{
+    if(staffPwInput===staffPwModal.password){setLoginStaff(staffPwModal);setStaffPwModal(null);setStaffPwInput("");setStaffPwError(false);}
+    else{setStaffPwError(true);setStaffPwInput("");}
+  };
 
   // GMパスワード
   const GM_PASSWORD="GM1234";
@@ -468,6 +479,35 @@ export default function App(){
         </div>
       )}
 
+      {/* スタッフPINモーダル */}
+      {staffPwModal&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center"}}
+          onClick={e=>{if(e.target===e.currentTarget){setStaffPwModal(null);setStaffPwInput("");setStaffPwError(false);}}}>
+          <div className="fi" style={{...card,padding:"32px 28px",width:300,boxShadow:"0 24px 64px rgba(0,0,0,0.18)"}}>
+            <div style={{textAlign:"center",marginBottom:20}}>
+              <div style={{width:52,height:52,borderRadius:26,background:"linear-gradient(135deg,#8b1a1a,#b8860b)",display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:22,marginBottom:12,boxShadow:"0 0 20px rgba(139,26,26,0.25)"}}>🔑</div>
+              <div style={{fontSize:15,fontWeight:900,color:C.text}}>{staffPwModal.name}</div>
+              <div style={{fontSize:11,color:C.muted,marginTop:4}}>4桁のパスワードを入力</div>
+            </div>
+            <input className="inp" type="password" inputMode="numeric" maxLength={4} value={staffPwInput}
+              onChange={e=>{setStaffPwInput(e.target.value.replace(/\D/g,"").slice(0,4));setStaffPwError(false);}}
+              onKeyDown={e=>e.key==="Enter"&&handleStaffPwLogin()}
+              placeholder="••••" autoFocus
+              style={{width:"100%",padding:"14px 16px",borderRadius:12,border:`1.5px solid ${staffPwError?"#ef4444":"rgba(139,26,26,0.15)"}`,
+                background:"#fdfaf6",color:C.text,fontSize:22,textAlign:"center",letterSpacing:8,marginBottom:8}}/>
+            {staffPwError&&<div style={{fontSize:11,color:"#ef4444",marginBottom:10,textAlign:"center"}}>パスワードが違います</div>}
+            <div style={{display:"flex",gap:8,marginTop:8}}>
+              <button onClick={()=>{setStaffPwModal(null);setStaffPwInput("");setStaffPwError(false);}}
+                style={{...btn(false),flex:1,padding:"11px",borderRadius:12,fontSize:13}}>戻る</button>
+              <button onClick={handleStaffPwLogin}
+                style={{flex:1,padding:"11px",borderRadius:12,border:"none",background:"linear-gradient(135deg,#8b1a1a,#b8860b)",color:"#fff",cursor:"pointer",fontSize:13,fontWeight:800,boxShadow:"0 4px 16px rgba(139,26,26,0.3)"}}>
+                確認
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── ヘッダー */}
       <div style={{background:"rgba(253,250,246,0.95)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",borderBottom:"1px solid rgba(139,26,26,0.12)",padding:"12px 16px",position:"sticky",top:0,zIndex:30}}>
         <div style={{maxWidth:900,margin:"0 auto"}}>
@@ -497,7 +537,9 @@ export default function App(){
               <div style={{fontSize:11,color:C.muted,marginBottom:8}}>名前を選んでください</div>
               <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                 {staffModeStaff.map(s=>(
-                  <button key={s.id} onClick={()=>setLoginStaff(s)} style={{...btn(false),fontSize:12,padding:"8px 18px",borderRadius:999}}>{s.name}</button>
+                  <button key={s.id} onClick={()=>handleStaffSelect(s)} style={{...btn(false),fontSize:12,padding:"8px 18px",borderRadius:999}}>
+                    {s.name}{s.password?<span style={{fontSize:9,marginLeft:4,opacity:.5}}>🔒</span>:""}
+                  </button>
                 ))}
               </div>
             </div>
@@ -543,6 +585,9 @@ export default function App(){
               <label style={{display:"flex",alignItems:"center",gap:6,fontSize:12,color:C.muted,cursor:"pointer"}}>
                 <input type="checkbox" checked={newStaff.aisaniOK} onChange={e=>setNewStaff(p=>({...p,aisaniOK:e.target.checked}))}/>アイサニOK
               </label>
+              <input className="inp" placeholder="PW(4桁)" maxLength={4} value={newStaff.password||""}
+                onChange={e=>setNewStaff(p=>({...p,password:e.target.value.replace(/\D/g,"").slice(0,4)}))}
+                style={{width:80,padding:"10px 10px",borderRadius:10,border:"1.5px solid rgba(139,26,26,0.15)",background:"#fdfaf6",color:C.text,fontSize:13,textAlign:"center",letterSpacing:4}}/>
               <button onClick={addStaff} style={{padding:"10px 20px",borderRadius:10,border:"none",background:"linear-gradient(135deg,#8b1a1a,#b8860b)",color:"#fff",cursor:"pointer",fontSize:13,fontWeight:800,boxShadow:"0 4px 14px rgba(139,26,26,0.3)"}}>追加</button>
             </div>
             <div style={{display:"flex",flexDirection:"column",gap:6}}>
@@ -559,6 +604,13 @@ export default function App(){
                   <label style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:s.aisaniOK?C.accent:C.muted,cursor:"pointer"}}>
                     <input type="checkbox" checked={!!s.aisaniOK} onChange={e=>updateStaff(staff.map(x=>x.id===s.id?{...x,aisaniOK:e.target.checked}:x))}/>アイサニ
                   </label>
+                  <div style={{display:"flex",alignItems:"center",gap:4}}>
+                    <span style={{fontSize:10,color:C.muted}}>🔒</span>
+                    <input className="inp" type="text" inputMode="numeric" maxLength={4} value={s.password||""}
+                      onChange={e=>updateStaff(staff.map(x=>x.id===s.id?{...x,password:e.target.value.replace(/\D/g,"").slice(0,4)}:x))}
+                      placeholder="PW" title="4桁パスワード（空欄=なし）"
+                      style={{width:56,padding:"4px 6px",borderRadius:8,border:"1.5px solid rgba(139,26,26,0.15)",background:"#fff",color:C.text,fontSize:13,textAlign:"center",letterSpacing:3}}/>
+                  </div>
                   <button onClick={()=>updateStaff(staff.filter(x=>x.id!==s.id))}
                     style={{padding:"4px 10px",borderRadius:999,border:"1px solid rgba(239,68,68,0.3)",background:"rgba(239,68,68,0.05)",color:"#ef4444",cursor:"pointer",fontSize:11,fontWeight:700}}>削除</button>
                 </div>
