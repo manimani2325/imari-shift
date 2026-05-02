@@ -798,7 +798,7 @@ export default function App(){
                                     return(
                                       <td key={type} style={{background:rowBg,textAlign:"center",padding:"3px 5px"}}>
                                         <button onClick={()=>toggleAvail(sid,`${d}_${type}`)}
-                                          style={{width:34,height:28,borderRadius:8,border:on?"none":`1px solid ${col}25`,cursor:"pointer",fontSize:13,fontWeight:800,
+                                          style={{width:34,height:28,borderRadius:8,border:on?"none":`1px solid ${col}90`,cursor:"pointer",fontSize:13,fontWeight:800,
                                             background:on?col:"rgba(139,26,26,0.03)",
                                             color:on?"#fff":col+"99",
                                             boxShadow:on?`0 2px 8px ${col}44`:"none",transition:"all .15s"}}>
@@ -817,7 +817,7 @@ export default function App(){
                                       <td key={t} style={{background:rowBg,textAlign:"center",padding:"3px 3px"}}>
                                         {slotExists?(
                                           <button onClick={()=>!dis&&toggleNightAvail(sid,d,t)}
-                                            style={{width:34,height:28,borderRadius:8,border:on?"none":`1px solid ${NIGHT_TC[t]}30`,cursor:dis?"not-allowed":"pointer",
+                                            style={{width:34,height:28,borderRadius:8,border:on?"none":`1px solid ${NIGHT_TC[t]}90`,cursor:dis?"not-allowed":"pointer",
                                               fontSize:13,fontWeight:800,transition:"all .15s",
                                               background:on?NIGHT_TC[t]:dis?"rgba(139,26,26,0.02)":"rgba(139,26,26,0.03)",
                                               color:on?"#fff":dis?"rgba(0,0,0,0.1)":NIGHT_TC[t]+"99",
@@ -836,7 +836,7 @@ export default function App(){
                                     <td style={{background:rowBg,textAlign:"center",padding:"3px 3px"}}>
                                       {aisaniConfig[d]?.enabled?(
                                         <button onClick={()=>toggleAvail(sid,`${d}_aisani`)}
-                                          style={{width:34,height:28,borderRadius:8,border:!!a[`${d}_aisani`]?"none":`1px solid ${C.accent}30`,cursor:"pointer",fontSize:13,fontWeight:800,transition:"all .15s",
+                                          style={{width:34,height:28,borderRadius:8,border:!!a[`${d}_aisani`]?"none":`1px solid ${C.accent}90`,cursor:"pointer",fontSize:13,fontWeight:800,transition:"all .15s",
                                             background:!!a[`${d}_aisani`]?C.accent:"rgba(139,26,26,0.03)",
                                             color:!!a[`${d}_aisani`]?"#fff":C.accent+"99",
                                             boxShadow:!!a[`${d}_aisani`]?`0 2px 8px ${C.accent}44`:"none"}}>
