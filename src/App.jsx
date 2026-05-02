@@ -115,30 +115,39 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
       candW[s.id]+=calcCandWeight(hM,hP,hN)+(hA?1:0)+(hK?1:0);
     });
 
-    // ── 仕込みスロット: 仕込みのみ > 朝仕込み の優先で埋める
-    const shimikomiStrict=staff.filter(s=>isAvail(s.id,`${d}_shimikomi`)&&!prevNight.has(s.id));
-    const shimikomiAll=staff.filter(s=>isAvail(s.id,`${d}_shimikomi`));
+    // ── 仕込みスロット: 朝仕込み > 仕込みのみ > 仕込み夜 の優先で埋める
     const prepStrict=staff.filter(s=>isAvail(s.id,`${d}_prep`)&&!prevNight.has(s.id));
     const prepAll=staff.filter(s=>isAvail(s.id,`${d}_prep`));
+    const shimikomiStrict=staff.filter(s=>isAvail(s.id,`${d}_shimikomi`)&&!prevNight.has(s.id));
+    const shimikomiAll=staff.filter(s=>isAvail(s.id,`${d}_shimikomi`));
+    // 仕込みのみ（夜未選択）と仕込み夜（仕込み＋夜を両方選択）に分類
+    const shimikomiOnlyAll=shimikomiAll.filter(s=>!NIGHT_TIMES.some(t=>isAvail(s.id,`${d}_night_${t}`)));
+    const shimikomiOnlyStrict=shimikomiStrict.filter(s=>!NIGHT_TIMES.some(t=>isAvail(s.id,`${d}_night_${t}`)));
+    const shimikomiNightAll=shimikomiAll.filter(s=>NIGHT_TIMES.some(t=>isAvail(s.id,`${d}_night_${t}`)));
+    const shimikomiNightStrict=shimikomiStrict.filter(s=>NIGHT_TIMES.some(t=>isAvail(s.id,`${d}_night_${t}`)));
 
     let pPick=[];
-    let morningTarget=2;
-    let prepExcludeNight=true; // 朝仕込みは夜NG、仕込みのみはNG不要
+    let morningTarget=3;
+    let prepMode="none"; // "prep"|"shimikomiOnly"|"shimikomiNight"|"none"
 
-    if(shimikomiAll.length>0){
-      // Case A: 仕込みのみ → morning=2、仕込みのみ人は夜もOK
-      pPick=pick(shimikomiStrict.length>=1?shimikomiStrict:shimikomiAll,1);
-      morningTarget=2;
-      prepExcludeNight=false;
-    } else if(prepAll.length>0){
-      // Case B: 朝仕込み → morning=3
+    if(prepAll.length>0){
+      // Case A: 朝仕込み最優先 → morning=2、夜NG
       pPick=pick(prepStrict.length>=1?prepStrict:prepAll,1);
+      morningTarget=2;
+      prepMode="prep";
+    } else if(shimikomiOnlyAll.length>0){
+      // Case B: 仕込みのみ → morning=3、夜NG
+      pPick=pick(shimikomiOnlyStrict.length>=1?shimikomiOnlyStrict:shimikomiOnlyAll,1);
       morningTarget=3;
-      prepExcludeNight=true;
+      prepMode="shimikomiOnly";
+    } else if(shimikomiNightAll.length>0){
+      // Case C: 仕込み夜 → morning=3、朝候補3人以上なら夜もOK
+      pPick=pick(shimikomiNightStrict.length>=1?shimikomiNightStrict:shimikomiNightAll,1);
+      morningTarget=3;
+      prepMode="shimikomiNight";
     } else {
-      // Case C: 両方なし → morning=3、不足
       morningTarget=3;
-      prepExcludeNight=true;
+      prepMode="none";
     }
 
     if(pPick[0]&&prevNight.has(pPick[0].id)) dayW.push(`${pPick[0].name}：前日夜→仕込み（人手不足）`);
@@ -161,7 +170,9 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
     dayS.morning=Math.max(0,morningTarget-mPick.length);
 
     // ── 夜
-    const prepW=prepExcludeNight?new Set(dayR.prep):new Set(); // 仕込みのみは夜もOK
+    // 朝仕込み・仕込みのみは夜NG。仕込み夜は朝候補3人以上の場合のみ夜もOK
+    const shimikomiCanDoNight=prepMode==="shimikomiNight"&&mCands.length>=3;
+    const prepW=shimikomiCanDoNight?new Set():new Set(dayR.prep);
     const morningW=new Set(dayR.morning);
     const assignedNight=new Set();
 
