@@ -965,13 +965,20 @@ export default function App(){
                           </div>
                         )}
                         <div style={{display:"flex",flexDirection:"column",gap:5}}>
-                          <SRow label="朝" time="7:00〜11:00" color="#b07d12" people={day.morning.map(id=>staffMap[id]).filter(Boolean)} shortage={sh.morning||0}/>
-                          <SRow label="朝仕込" time="8:30〜16:00" color="#276749" people={day.prep.map(id=>staffMap[id]).filter(Boolean)} shortage={sh.prep||0}/>
+                          <SRow label="朝" time="7:00〜11:00" color="#b07d12"
+                            people={day.morning.map(id=>staffMap[id]).filter(Boolean)} shortage={sh.morning||0}
+                            candidates={staff.filter(s=>avail[s.id]?.[`${d}_morning`]&&!day.morning.includes(s.id))}/>
+                          <SRow label="朝仕込" time="8:30〜16:00" color="#276749"
+                            people={day.prep.map(id=>staffMap[id]).filter(Boolean)} shortage={sh.prep||0}
+                            candidates={staff.filter(s=>avail[s.id]?.[`${d}_prep`]&&!day.prep.includes(s.id))}/>
                           {slots.map(t=>{
                             const p=day.night[t];
-                            return <SRow key={t} label={`夜 ${t}〜`} time="" color={NIGHT_TC[t]} people={p?[staffMap[p]].filter(Boolean):[]} shortage={sh.night?.[t]||0}/>;
+                            const nightCands=staff.filter(s=>s.id!==p&&NIGHT_TIMES.some(nt=>avail[s.id]?.[`${d}_night_${nt}`]&&nightCompat(nt,t)));
+                            return <SRow key={t} label={`夜 ${t}〜`} time="" color={NIGHT_TC[t]} people={p?[staffMap[p]].filter(Boolean):[]} shortage={sh.night?.[t]||0} candidates={nightCands}/>;
                           })}
-                          {aiOn&&<SRow label="アイサニ" time="ヘルプ" color={C.accent} people={day.aisani?[staffMap[day.aisani]].filter(Boolean):[]} shortage={sh.aisani||0}/>}
+                          {aiOn&&<SRow label="アイサニ" time="ヘルプ" color={C.accent}
+                            people={day.aisani?[staffMap[day.aisani]].filter(Boolean):[]} shortage={sh.aisani||0}
+                            candidates={staff.filter(s=>s.aisaniOK&&avail[s.id]?.[`${d}_aisani`]&&s.id!==day.aisani)}/>}
                         </div>
                       </div>
                     );
@@ -986,24 +993,36 @@ export default function App(){
   );
 }
 
-function SRow({label,time,color,people,shortage=0}){
+function SRow({label,time,color,people,shortage=0,candidates=[]}){
   return(
-    <div style={{display:"flex",alignItems:"center",gap:7,flexWrap:"wrap"}}>
-      <div style={{minWidth:70,fontSize:10,fontWeight:700,color,background:color+"18",borderRadius:999,padding:"3px 10px",textAlign:"center",flexShrink:0,border:`1px solid ${color}30`}}>{label}</div>
-      {time&&<div style={{fontSize:9,color:"#8c7b6b",minWidth:76,flexShrink:0}}>{time}</div>}
-      <div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}>
-        {people.map(s=>(
-          <span key={s.id} style={{fontSize:12,padding:"4px 14px",borderRadius:999,background:"rgba(139,26,26,0.05)",color:"#1a0a00",fontWeight:600,border:"1px solid rgba(139,26,26,0.1)"}}>
-            {s.name}
-          </span>
-        ))}
-        {shortage>0&&(
-          <span style={{fontSize:10,padding:"3px 10px",borderRadius:999,background:"rgba(192,57,43,0.08)",color:"#c0392b",fontWeight:700,border:"1px solid rgba(192,57,43,0.2)"}}>
-            あと{shortage}名不足
-          </span>
-        )}
-        {people.length===0&&shortage===0&&<span style={{fontSize:11,color:"rgba(139,26,26,0.15)"}}>—</span>}
+    <div style={{display:"flex",flexDirection:"column",gap:3}}>
+      <div style={{display:"flex",alignItems:"center",gap:7,flexWrap:"wrap"}}>
+        <div style={{minWidth:70,fontSize:10,fontWeight:700,color,background:color+"18",borderRadius:999,padding:"3px 10px",textAlign:"center",flexShrink:0,border:`1px solid ${color}30`}}>{label}</div>
+        {time&&<div style={{fontSize:9,color:"#8c7b6b",minWidth:76,flexShrink:0}}>{time}</div>}
+        <div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}>
+          {people.map(s=>(
+            <span key={s.id} style={{fontSize:12,padding:"4px 14px",borderRadius:999,background:"rgba(139,26,26,0.05)",color:"#1a0a00",fontWeight:700,border:"1px solid rgba(139,26,26,0.12)"}}>
+              {s.name}
+            </span>
+          ))}
+          {shortage>0&&(
+            <span style={{fontSize:10,padding:"3px 10px",borderRadius:999,background:"rgba(192,57,43,0.08)",color:"#c0392b",fontWeight:700,border:"1px solid rgba(192,57,43,0.2)"}}>
+              あと{shortage}名不足
+            </span>
+          )}
+          {people.length===0&&shortage===0&&<span style={{fontSize:11,color:"rgba(139,26,26,0.15)"}}>—</span>}
+        </div>
       </div>
+      {candidates.length>0&&(
+        <div style={{display:"flex",alignItems:"center",gap:5,paddingLeft:77,flexWrap:"wrap"}}>
+          <span style={{fontSize:9,color:"#b0a090",flexShrink:0}}>候補：</span>
+          {candidates.map(s=>(
+            <span key={s.id} style={{fontSize:10,padding:"2px 10px",borderRadius:999,background:"rgba(139,26,26,0.03)",color:"#8c7b6b",border:"1px dashed rgba(139,26,26,0.15)"}}>
+              {s.name}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
