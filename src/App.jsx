@@ -707,7 +707,7 @@ export default function App(){
                             style={{padding:"2px 5px",borderRadius:5,border:"none",cursor:"pointer",fontSize:7,fontWeight:800,
                               background:kitOn?"#276749":"rgba(39,103,73,0.08)",color:kitOn?"#fff":"#8c7b6b",
                               transition:"all .15s"}}>
-                            厨房
+                            キッチン
                           </button>
                         </div>
                       </>
@@ -772,7 +772,7 @@ export default function App(){
                     {[
                       {label:"朝 全ON",color:"#b07d12",onClick:()=>setAllAvail(sid,"morning",true)},
                       {label:"朝仕込 全ON",color:"#276749",onClick:()=>setAllAvail(sid,"prep",true)},
-                      {label:"仕込みのみ 全ON",color:"#5b7fa6",onClick:()=>setAllAvail(sid,"shimikomi",true)},
+                      {label:"仕込み 全ON",color:"#5b7fa6",onClick:()=>setAllAvail(sid,"shimikomi",true)},
                       ...NIGHT_TIMES.map(t=>({label:`夜${t} 全ON`,color:NIGHT_TC[t],onClick:()=>setAllAvail(sid,`night_${t}`,true)})),
                       ...(availViewStaff.aisaniOK?[{label:"アイサニ 全ON",color:C.accent,onClick:()=>setAllAvail(sid,"aisani",true)}]:[]),
                       ...(availViewStaff.kitchenOK?[{label:"厨房 全ON",color:"#276749",onClick:()=>setAllAvail(sid,"kitchen",true)}]:[]),
@@ -792,7 +792,7 @@ export default function App(){
                           <th className="sth" style={{fontSize:10,color:C.muted,fontWeight:600,width:22,textAlign:"center",background:"#fff"}}>曜</th>
                           <th className="sth" style={{fontSize:10,color:"#b07d12",fontWeight:700,padding:"9px 8px",textAlign:"center",background:"#fff"}}>朝<br/><span style={{fontSize:8,opacity:.6}}>7:00〜</span></th>
                           <th className="sth" style={{fontSize:10,color:"#276749",fontWeight:700,padding:"9px 8px",textAlign:"center",background:"#fff"}}>朝仕込<br/><span style={{fontSize:8,opacity:.6}}>8:30〜</span></th>
-                          <th className="sth" style={{fontSize:10,color:"#5b7fa6",fontWeight:700,padding:"9px 4px",textAlign:"center",background:"#fff"}}>仕込み<br/><span style={{fontSize:8,opacity:.6}}>のみ</span></th>
+                          <th className="sth" style={{fontSize:10,color:"#5b7fa6",fontWeight:700,padding:"9px 4px",textAlign:"center",background:"#fff"}}>仕込み</th>
                           {NIGHT_TIMES.map(t=>(
                             <th key={t} className="sth" style={{fontSize:10,color:NIGHT_TC[t],fontWeight:700,padding:"9px 4px",textAlign:"center",background:"#fff"}}>
                               {t}〜<br/><span style={{fontSize:8,opacity:.6}}>夜</span>
@@ -805,7 +805,7 @@ export default function App(){
                           )}
                           {availViewStaff.kitchenOK&&(
                             <th className="sth" style={{fontSize:10,color:"#276749",fontWeight:700,padding:"9px 4px",textAlign:"center",background:"#fff"}}>
-                              厨房<br/><span style={{fontSize:8,opacity:.6}}>キッチン</span>
+                              キッチン
                             </th>
                           )}
                         </tr>
