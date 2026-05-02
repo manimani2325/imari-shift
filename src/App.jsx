@@ -52,20 +52,18 @@ function calcCandWeight(hasMorning, hasPrep, hasNight) {
 }
 
 // ── 自動生成
-function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig) {
+function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig, kitchenConfig) {
   const days = daysIn(year, month);
   const result  = {};
   const worked  = {};
-  const candW   = {}; // 候補ウェイト累計
+  const candW   = {};
   staff.forEach(s=>{ worked[s.id]=0; candW[s.id]=0; });
 
   const isAvail = (sid,key) => !!avail[sid]?.[key];
 
-  // pick: 候補から count 人選ぶ（ルール付き）
   const pick = (candidates, count, opts={}) => {
     const { maxJunior=99, needSeniorIfJunior=false } = opts;
     const sorted = [...candidates].sort((a,b)=>{
-      // 朝夜両方出してる人は朝・夜どちらか一方に偏らないよう worked で均等化
       const wd = worked[a.id]-worked[b.id]; if(wd!==0) return wd;
       const lo = {J:3,L:2,M:1,SM:0,GM:0}; return lo[a.grade]-lo[b.grade];
     });
@@ -75,7 +73,6 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
       if(isJunior(s.grade)&&nb>=maxJunior) continue;
       res.push(s); if(isJunior(s.grade)) nb++;
     }
-    // 新人いてシニアいない→シニアに差し替え
     if(needSeniorIfJunior&&res.some(s=>isJunior(s.grade))&&!res.some(s=>isSenior(s.grade))){
       const vet=candidates.find(s=>isSenior(s.grade)&&!res.includes(s));
       if(vet){ const ri=res.findLastIndex(s=>isMid(s.grade)); if(ri>=0) res[ri]=vet; else{ res.pop(); res.push(vet); } }
@@ -85,93 +82,105 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
 
   const shortage={}; const warnings={};
 
-  // 翌日の朝・朝仕込みが人員不足になりそうか予測（簡易: 候補者数が必要数以下なら不足リスク）
   const morningRisk=(d)=>{
     if(d>days||isClosed(year,month,d)) return false;
     const mc=staff.filter(s=>isAvail(s.id,`${d}_morning`)).length;
-    const pc=staff.filter(s=>isAvail(s.id,`${d}_prep`)).length;
+    const pc=staff.filter(s=>isAvail(s.id,`${d}_prep`)||isAvail(s.id,`${d}_shimikomi`)).length;
     return mc<2||pc<1;
   };
 
   for(let d=1;d<=days;d++){
     if(isClosed(year,month,d)){
-      result[d]={morning:[],prep:[],night:{},aisani:null};
-      shortage[d]={morning:0,prep:0,night:{},aisani:0};
+      result[d]={morning:[],prep:[],night:{},aisani:null,kitchen:null};
+      shortage[d]={morning:0,prep:0,night:{},aisani:0,kitchen:0};
       warnings[d]=[];
       continue;
     }
     const spec=isSpec(year,month,d);
-    const dayR={morning:[],prep:[],night:{},aisani:null};
-    const dayS={morning:0,prep:0,night:{},aisani:0};
+    const dayR={morning:[],prep:[],night:{},aisani:null,kitchen:null};
+    const dayS={morning:0,prep:0,night:{},aisani:0,kitchen:0};
     const dayW=[];
     const slots=nightSlotConfig[d]||[];
 
-    // 前日夜ワーカー
     const prevNight=new Set(d>1?Object.values(result[d-1]?.night||{}).filter(Boolean):[]);
-    // 翌日リスク確認（前日夜に入れると翌朝が不足する可能性）
     const nextDayRisk=morningRisk(d+1);
 
     // 候補ウェイト加算
     staff.forEach(s=>{
       const hM=isAvail(s.id,`${d}_morning`);
-      const hP=isAvail(s.id,`${d}_prep`);
+      const hP=isAvail(s.id,`${d}_prep`)||isAvail(s.id,`${d}_shimikomi`);
       const hN=NIGHT_TIMES.some(t=>isAvail(s.id,`${d}_night_${t}`));
       const hA=s.aisaniOK&&isAvail(s.id,`${d}_aisani`);
-      candW[s.id]+=calcCandWeight(hM,hP,hN)+(hA?1:0);
+      const hK=s.kitchenOK&&isAvail(s.id,`${d}_kitchen`);
+      candW[s.id]+=calcCandWeight(hM,hP,hN)+(hA?1:0)+(hK?1:0);
     });
 
-    // ── 朝仕込み優先（前日夜NG、翌日朝確定者NG）
-    const pStrict=staff.filter(s=>
-      isAvail(s.id,`${d}_prep`)&&
-      !prevNight.has(s.id)
-    );
-    const pAll=staff.filter(s=>isAvail(s.id,`${d}_prep`));
-    const pCands=pStrict.length>=1?pStrict:pAll;
-    const pPick=pick(pCands,1);
-    if(pPick[0]&&prevNight.has(pPick[0].id)) dayW.push(`${pPick[0].name}：前日夜→朝仕込み（人手不足）`);
+    // ── 仕込みスロット: 仕込みのみ > 朝仕込み の優先で埋める
+    const shimikomiStrict=staff.filter(s=>isAvail(s.id,`${d}_shimikomi`)&&!prevNight.has(s.id));
+    const shimikomiAll=staff.filter(s=>isAvail(s.id,`${d}_shimikomi`));
+    const prepStrict=staff.filter(s=>isAvail(s.id,`${d}_prep`)&&!prevNight.has(s.id));
+    const prepAll=staff.filter(s=>isAvail(s.id,`${d}_prep`));
+
+    let pPick=[];
+    let morningTarget=2;
+    let prepExcludeNight=true; // 朝仕込みは夜NG、仕込みのみはNG不要
+
+    if(shimikomiAll.length>0){
+      // Case A: 仕込みのみ → morning=2、仕込みのみ人は夜もOK
+      pPick=pick(shimikomiStrict.length>=1?shimikomiStrict:shimikomiAll,1);
+      morningTarget=2;
+      prepExcludeNight=false;
+    } else if(prepAll.length>0){
+      // Case B: 朝仕込み → morning=3
+      pPick=pick(prepStrict.length>=1?prepStrict:prepAll,1);
+      morningTarget=3;
+      prepExcludeNight=true;
+    } else {
+      // Case C: 両方なし → morning=3、不足
+      morningTarget=3;
+      prepExcludeNight=true;
+    }
+
+    if(pPick[0]&&prevNight.has(pPick[0].id)) dayW.push(`${pPick[0].name}：前日夜→仕込み（人手不足）`);
     dayR.prep=pPick.map(s=>s.id);
     pPick.forEach(s=>{worked[s.id]++;});
     dayS.prep=Math.max(0,1-pPick.length);
 
-    // ── 朝 ×2（朝仕込済み除外、前日夜NG、翌日朝確定NG、新人2人以上NG）
+    // ── 朝（morningTarget人）
     const mStrict=staff.filter(s=>
       isAvail(s.id,`${d}_morning`)&&
       !dayR.prep.includes(s.id)&&
       !prevNight.has(s.id)
     );
     const mAll=staff.filter(s=>isAvail(s.id,`${d}_morning`)&&!dayR.prep.includes(s.id));
-    const mCands=mStrict.length>=2?mStrict:(mStrict.length>0?mAll:mAll);
-    const mPick=pick(mCands,2,{maxJunior:1});
+    const mCands=mStrict.length>=morningTarget?mStrict:mAll;
+    const mPick=pick(mCands,morningTarget,{maxJunior:1});
     mPick.forEach(s=>{ if(prevNight.has(s.id)) dayW.push(`${s.name}：前日夜→朝（人手不足）`); });
     dayR.morning=mPick.map(s=>s.id);
     mPick.forEach(s=>{worked[s.id]++;});
-    dayS.morning=Math.max(0,2-mPick.length);
+    dayS.morning=Math.max(0,morningTarget-mPick.length);
 
     // ── 夜
-    const prepW=new Set(dayR.prep);
+    const prepW=prepExcludeNight?new Set(dayR.prep):new Set(); // 仕込みのみは夜もOK
     const morningW=new Set(dayR.morning);
     const assignedNight=new Set();
 
-    // 翌日朝確定者は夜に入れない（翌日が不足リスクの場合）
     const tomorrowMorningConfirmed=new Set();
     if(nextDayRisk&&d<days&&!isClosed(year,month,d+1)){
-      // 翌日の朝候補が少ない場合、その候補者を今日の夜から除外
-      staff.filter(s=>isAvail(s.id,`${d+1}_morning`)||isAvail(s.id,`${d+1}_prep`))
+      staff.filter(s=>isAvail(s.id,`${d+1}_morning`)||isAvail(s.id,`${d+1}_prep`)||isAvail(s.id,`${d+1}_shimikomi`))
         .forEach(s=>tomorrowMorningConfirmed.add(s.id));
     }
 
     slots.forEach(slotTime=>{
-      // 段階的に緩和しながら候補探し
       const baseCands=(relaxJunior,relaxMorning)=>staff.filter(s=>{
-        if(prepW.has(s.id)) return false; // 朝仕込→夜は常にNG
+        if(prepW.has(s.id)) return false;
         if(assignedNight.has(s.id)) return false;
         if(tomorrowMorningConfirmed.has(s.id)&&nextDayRisk) return false;
-        if(!relaxMorning&&morningW.has(s.id)) return false; // 朝夜連続
-        if(!relaxJunior&&isJunior(s.grade)&&spec) return false; // 新人特別夜NG
+        if(!relaxMorning&&morningW.has(s.id)) return false;
+        if(!relaxJunior&&isJunior(s.grade)&&spec) return false;
         return NIGHT_TIMES.some(t=>isAvail(s.id,`${d}_night_${t}`)&&nightCompat(t,slotTime));
       });
 
-      // 新人は同じ夜に1人まで
       const currentNightJuniors=[...assignedNight].filter(id=>isJunior(staffById_local(staff,id)?.grade));
       const maxJ=currentNightJuniors.length>=1?0:1;
 
@@ -196,35 +205,37 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
       dayS.night[slotTime]=nPick[0]?0:1;
     });
 
-    // ── アイサニ（GMが枠をONかつスタッフが候補を出している人を割り当て）
+    // ── アイサニ
     const aiConf=aisaniConfig[d];
     if(aiConf&&aiConf.enabled){
       const alreadyInNight=new Set(Object.values(dayR.night).filter(Boolean));
-      // 第1優先：アイサニ候補を出している人
       const aiCandsStrict=staff.filter(s=>
-        s.aisaniOK&&
-        isAvail(s.id,`${d}_aisani`)&&
-        !dayR.morning.includes(s.id)&&
-        !dayR.prep.includes(s.id)&&
-        !alreadyInNight.has(s.id)
+        s.aisaniOK&&isAvail(s.id,`${d}_aisani`)&&
+        !dayR.morning.includes(s.id)&&!dayR.prep.includes(s.id)&&!alreadyInNight.has(s.id)
       );
-      // 第2優先（不足時）：夜に候補を出していてアイサニOKな人
       const aiCandsNightFallback=staff.filter(s=>
-        s.aisaniOK&&
-        !dayR.morning.includes(s.id)&&
-        !dayR.prep.includes(s.id)&&
-        !alreadyInNight.has(s.id)&&
-        NIGHT_TIMES.some(t=>isAvail(s.id,`${d}_night_${t}`))
+        s.aisaniOK&&!dayR.morning.includes(s.id)&&!dayR.prep.includes(s.id)&&
+        !alreadyInNight.has(s.id)&&NIGHT_TIMES.some(t=>isAvail(s.id,`${d}_night_${t}`))
       );
       const aiCands=aiCandsStrict.length>0?aiCandsStrict:aiCandsNightFallback;
       const usingFallback=aiCandsStrict.length===0&&aiCandsNightFallback.length>0;
       const aiPick=pick(aiCands,1);
       dayR.aisani=aiPick[0]?.id||null;
-      if(aiPick[0]){
-        worked[aiPick[0].id]++;
-        if(usingFallback) dayW.push(`${aiPick[0].name}：アイサニ（夜候補から補填）`);
-      }
+      if(aiPick[0]){ worked[aiPick[0].id]++; if(usingFallback) dayW.push(`${aiPick[0].name}：アイサニ（夜候補から補填）`); }
       dayS.aisani=aiPick[0]?0:1;
+    }
+
+    // ── キッチン
+    const kitConf=kitchenConfig[d];
+    if(kitConf&&kitConf.enabled){
+      const alreadyAll=new Set([...dayR.morning,...dayR.prep,...Object.values(dayR.night).filter(Boolean),...(dayR.aisani?[dayR.aisani]:[])]);
+      const kitStrict=staff.filter(s=>s.kitchenOK&&isAvail(s.id,`${d}_kitchen`)&&!alreadyAll.has(s.id));
+      const kitFallback=staff.filter(s=>s.kitchenOK&&!alreadyAll.has(s.id));
+      const kitCands=kitStrict.length>0?kitStrict:kitFallback;
+      const kitPick=pick(kitCands,1);
+      dayR.kitchen=kitPick[0]?.id||null;
+      if(kitPick[0]){ worked[kitPick[0].id]++; if(kitStrict.length===0&&kitFallback.length>0) dayW.push(`${kitPick[0].name}：キッチン（候補外から補填）`); }
+      dayS.kitchen=kitPick[0]?0:1;
     }
 
     result[d]=dayR;
@@ -232,7 +243,6 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
     warnings[d]=dayW;
   }
 
-  // 達成率
   const totalW=Object.values(worked).reduce((a,b)=>a+b,0);
   const totalC=Object.values(candW).reduce((a,b)=>a+b,0);
   const avgRate=totalC>0?Math.round(totalW/totalC*100):0;
@@ -248,21 +258,22 @@ export default function App(){
   const [year,setYear]=useState(now.getFullYear());
   const [month,setMonth]=useState(now.getMonth());
   const [staff,setStaff]=useState([
-    {id:1,name:"田中 蓮",grade:"SM",aisaniOK:true,password:""},
-    {id:2,name:"佐藤 彩",grade:"SM",aisaniOK:true,password:""},
-    {id:3,name:"鈴木 翔",grade:"M",aisaniOK:false,password:""},
-    {id:4,name:"高橋 美咲",grade:"L",aisaniOK:false,password:""},
-    {id:5,name:"伊藤 大輝",grade:"J",aisaniOK:false,password:""},
-    {id:6,name:"渡辺 ひな",grade:"J",aisaniOK:false,password:""},
+    {id:1,name:"田中 蓮",grade:"SM",aisaniOK:true,kitchenOK:false,password:""},
+    {id:2,name:"佐藤 彩",grade:"SM",aisaniOK:true,kitchenOK:false,password:""},
+    {id:3,name:"鈴木 翔",grade:"M",aisaniOK:false,kitchenOK:false,password:""},
+    {id:4,name:"高橋 美咲",grade:"L",aisaniOK:false,kitchenOK:false,password:""},
+    {id:5,name:"伊藤 大輝",grade:"J",aisaniOK:false,kitchenOK:false,password:""},
+    {id:6,name:"渡辺 ひな",grade:"J",aisaniOK:false,kitchenOK:false,password:""},
   ]);
   const [avail,setAvail]=useState({});
   const [nightSlotConfig,setNightSlotConfig]=useState({});
-  const [aisaniConfig,setAisaniConfig]=useState({}); // { d: {enabled:bool} }
+  const [aisaniConfig,setAisaniConfig]=useState({});
+  const [kitchenConfig,setKitchenConfig]=useState({});
   const [result,setResult]=useState(null);
   const [view,setView]=useState("slots"); // slots|avail|result
   const [gmMode,setGmMode]=useState(false);
-  const [loginStaff,setLoginStaff]=useState(null); // スタッフモードで選択中
-  const [newStaff,setNewStaff]=useState({name:"",grade:"L",aisaniOK:false,password:""});
+  const [loginStaff,setLoginStaff]=useState(null);
+  const [newStaff,setNewStaff]=useState({name:"",grade:"L",aisaniOK:false,kitchenOK:false,password:""});
   const [staffPwModal,setStaffPwModal]=useState(null); // パスワード確認中のスタッフ
   const [staffPwInput,setStaffPwInput]=useState("");
   const [staffPwError,setStaffPwError]=useState(false);
@@ -284,6 +295,7 @@ export default function App(){
     updateNightSlot({...nightSlotConfig,[d]:next});
   };
   const toggleAisani=(d)=>updateAisaniCfg({...aisaniConfig,[d]:{enabled:!aisaniConfig[d]?.enabled}});
+  const toggleKitchen=(d)=>updateKitchenCfg({...kitchenConfig,[d]:{enabled:!kitchenConfig[d]?.enabled}});
 
   // 候補入力（GM: 任意のスタッフ, スタッフ: 自分のみ）
   const targetSid=gmMode?null:(loginStaff?.id);
@@ -305,7 +317,7 @@ export default function App(){
   const handleGenerate=()=>{
     setGenerating(true);
     setTimeout(()=>{
-      const r=generateShifts(staff,year,month,avail,nightSlotConfig,aisaniConfig);
+      const r=generateShifts(staff,year,month,avail,nightSlotConfig,aisaniConfig,kitchenConfig);
       setResult(r);setView("result");setGenerating(false);
     },500);
   };
@@ -363,6 +375,7 @@ export default function App(){
       if(data.avail          &&!pendingKeys.current.has('avail'))          setAvail(data.avail);
       if(data.nightSlotConfig&&!pendingKeys.current.has('nightSlotConfig'))setNightSlotConfig(data.nightSlotConfig);
       if(data.aisaniConfig   &&!pendingKeys.current.has('aisaniConfig'))   setAisaniConfig(data.aisaniConfig);
+      if(data.kitchenConfig  &&!pendingKeys.current.has('kitchenConfig'))  setKitchenConfig(data.kitchenConfig);
       if(data.yearMonth      &&!pendingKeys.current.has('yearMonth'))      {setYear(data.yearMonth.y);setMonth(data.yearMonth.m);}
       setLoading(false);
     });
@@ -387,6 +400,7 @@ export default function App(){
   const updateAvail=val=>{setAvail(val);debounceSave('avail',val);};
   const updateNightSlot=val=>{setNightSlotConfig(val);debounceSave('nightSlotConfig',val);};
   const updateAisaniCfg=val=>{setAisaniConfig(val);debounceSave('aisaniConfig',val);};
+  const updateKitchenCfg=val=>{setKitchenConfig(val);debounceSave('kitchenConfig',val);};
   const updateYearMonth=(y,m)=>{setYear(y);setMonth(m);debounceSave('yearMonth',{y,m});};
   const handleGmLogin=()=>{
     if(pwInput===GM_PASSWORD){
@@ -585,6 +599,9 @@ export default function App(){
               <label style={{display:"flex",alignItems:"center",gap:6,fontSize:12,color:C.muted,cursor:"pointer"}}>
                 <input type="checkbox" checked={newStaff.aisaniOK} onChange={e=>setNewStaff(p=>({...p,aisaniOK:e.target.checked}))}/>アイサニOK
               </label>
+              <label style={{display:"flex",alignItems:"center",gap:6,fontSize:12,color:C.muted,cursor:"pointer"}}>
+                <input type="checkbox" checked={newStaff.kitchenOK} onChange={e=>setNewStaff(p=>({...p,kitchenOK:e.target.checked}))}/>キッチンOK
+              </label>
               <input className="inp" placeholder="PW(4桁)" maxLength={4} value={newStaff.password||""}
                 onChange={e=>setNewStaff(p=>({...p,password:e.target.value.replace(/\D/g,"").slice(0,4)}))}
                 style={{width:80,padding:"10px 10px",borderRadius:10,border:"1.5px solid rgba(139,26,26,0.15)",background:"#fdfaf6",color:C.text,fontSize:13,textAlign:"center",letterSpacing:4}}/>
@@ -603,6 +620,9 @@ export default function App(){
                   </div>
                   <label style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:s.aisaniOK?C.accent:C.muted,cursor:"pointer"}}>
                     <input type="checkbox" checked={!!s.aisaniOK} onChange={e=>updateStaff(staff.map(x=>x.id===s.id?{...x,aisaniOK:e.target.checked}:x))}/>アイサニ
+                  </label>
+                  <label style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:s.kitchenOK?"#276749":C.muted,cursor:"pointer"}}>
+                    <input type="checkbox" checked={!!s.kitchenOK} onChange={e=>updateStaff(staff.map(x=>x.id===s.id?{...x,kitchenOK:e.target.checked}:x))}/>キッチン
                   </label>
                   <div style={{display:"flex",alignItems:"center",gap:4}}>
                     <span style={{fontSize:10,color:C.muted}}>🔒</span>
@@ -649,7 +669,8 @@ export default function App(){
                 const closed=isClosed(year,month,d);
                 const slots=nightSlotConfig[d]||[];
                 const aiOn=aisaniConfig[d]?.enabled;
-                const active=slots.length>0||aiOn;
+                const kitOn=kitchenConfig[d]?.enabled;
+                const active=slots.length>0||aiOn||kitOn;
                 return(
                   <div key={d} style={{borderRadius:12,padding:"5px 3px",transition:"all .2s",
                     background:closed?"#f5f0eb":active?"rgba(139,26,26,0.05)":"#fff",
@@ -675,12 +696,18 @@ export default function App(){
                             );
                           })}
                         </div>
-                        <div style={{textAlign:"center"}}>
+                        <div style={{display:"flex",gap:2,justifyContent:"center"}}>
                           <button onClick={()=>toggleAisani(d)}
-                            style={{padding:"2px 7px",borderRadius:5,border:"none",cursor:"pointer",fontSize:7,fontWeight:800,
+                            style={{padding:"2px 5px",borderRadius:5,border:"none",cursor:"pointer",fontSize:7,fontWeight:800,
                               background:aiOn?"#8b1a1a":"rgba(139,26,26,0.07)",color:aiOn?"#fff":"#8c7b6b",
                               transition:"all .15s"}}>
                             アイサニ
+                          </button>
+                          <button onClick={()=>toggleKitchen(d)}
+                            style={{padding:"2px 5px",borderRadius:5,border:"none",cursor:"pointer",fontSize:7,fontWeight:800,
+                              background:kitOn?"#276749":"rgba(39,103,73,0.08)",color:kitOn?"#fff":"#8c7b6b",
+                              transition:"all .15s"}}>
+                            厨房
                           </button>
                         </div>
                       </>
@@ -743,10 +770,12 @@ export default function App(){
                   </div>
                   <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:12}}>
                     {[
-                      {label:"朝 全ON",color:"#f59e0b",onClick:()=>setAllAvail(sid,"morning",true)},
-                      {label:"朝仕込 全ON",color:"#10b981",onClick:()=>setAllAvail(sid,"prep",true)},
+                      {label:"朝 全ON",color:"#b07d12",onClick:()=>setAllAvail(sid,"morning",true)},
+                      {label:"朝仕込 全ON",color:"#276749",onClick:()=>setAllAvail(sid,"prep",true)},
+                      {label:"仕込みのみ 全ON",color:"#5b7fa6",onClick:()=>setAllAvail(sid,"shimikomi",true)},
                       ...NIGHT_TIMES.map(t=>({label:`夜${t} 全ON`,color:NIGHT_TC[t],onClick:()=>setAllAvail(sid,`night_${t}`,true)})),
-                      ...(availViewStaff.aisaniOK?[{label:"アイサニ 全ON",color:"#34d399",onClick:()=>setAllAvail(sid,"aisani",true)}]:[]),
+                      ...(availViewStaff.aisaniOK?[{label:"アイサニ 全ON",color:C.accent,onClick:()=>setAllAvail(sid,"aisani",true)}]:[]),
+                      ...(availViewStaff.kitchenOK?[{label:"厨房 全ON",color:"#276749",onClick:()=>setAllAvail(sid,"kitchen",true)}]:[]),
                     ].map(({label,color,onClick})=>(
                       <button key={label} onClick={onClick}
                         style={{fontSize:10,padding:"5px 12px",borderRadius:999,border:`1px solid ${color}30`,background:color+"10",color,cursor:"pointer",fontWeight:700}}>
@@ -763,6 +792,7 @@ export default function App(){
                           <th className="sth" style={{fontSize:10,color:C.muted,fontWeight:600,width:22,textAlign:"center",background:"#fff"}}>曜</th>
                           <th className="sth" style={{fontSize:10,color:"#b07d12",fontWeight:700,padding:"9px 8px",textAlign:"center",background:"#fff"}}>朝<br/><span style={{fontSize:8,opacity:.6}}>7:00〜</span></th>
                           <th className="sth" style={{fontSize:10,color:"#276749",fontWeight:700,padding:"9px 8px",textAlign:"center",background:"#fff"}}>朝仕込<br/><span style={{fontSize:8,opacity:.6}}>8:30〜</span></th>
+                          <th className="sth" style={{fontSize:10,color:"#5b7fa6",fontWeight:700,padding:"9px 4px",textAlign:"center",background:"#fff"}}>仕込み<br/><span style={{fontSize:8,opacity:.6}}>のみ</span></th>
                           {NIGHT_TIMES.map(t=>(
                             <th key={t} className="sth" style={{fontSize:10,color:NIGHT_TC[t],fontWeight:700,padding:"9px 4px",textAlign:"center",background:"#fff"}}>
                               {t}〜<br/><span style={{fontSize:8,opacity:.6}}>夜</span>
@@ -771,6 +801,11 @@ export default function App(){
                           {availViewStaff.aisaniOK&&(
                             <th className="sth" style={{fontSize:10,color:C.accent,fontWeight:700,padding:"9px 4px",textAlign:"center",background:"#fff"}}>
                               アイサニ<br/><span style={{fontSize:8,opacity:.6}}>ヘルプ</span>
+                            </th>
+                          )}
+                          {availViewStaff.kitchenOK&&(
+                            <th className="sth" style={{fontSize:10,color:"#276749",fontWeight:700,padding:"9px 4px",textAlign:"center",background:"#fff"}}>
+                              厨房<br/><span style={{fontSize:8,opacity:.6}}>キッチン</span>
                             </th>
                           )}
                         </tr>
@@ -789,7 +824,7 @@ export default function App(){
                               </td>
                               <td style={{background:rowBg,textAlign:"center",fontSize:10,color:closed?"#b0a090":C.muted}}>{DOW_JP[dow]}</td>
                               {closed?(
-                                <td colSpan={availViewStaff.aisaniOK?7:6} style={{background:rowBg,textAlign:"center",fontSize:10,color:"#b0a090",padding:"6px"}}>定休日</td>
+                                <td colSpan={5+NIGHT_TIMES.length+(availViewStaff.aisaniOK?1:0)+(availViewStaff.kitchenOK?1:0)} style={{background:rowBg,textAlign:"center",fontSize:10,color:"#b0a090",padding:"6px"}}>定休日</td>
                               ):(
                                 <>
                                   {["morning","prep"].map(type=>{
@@ -807,6 +842,21 @@ export default function App(){
                                       </td>
                                     );
                                   })}
+                                  {/* 仕込みのみ */}
+                                  {(()=>{
+                                    const on=!!a[`${d}_shimikomi`];
+                                    return(
+                                      <td style={{background:rowBg,textAlign:"center",padding:"3px 3px"}}>
+                                        <button onClick={()=>toggleAvail(sid,`${d}_shimikomi`)}
+                                          style={{width:34,height:28,borderRadius:8,border:on?"none":"1px solid #5b7fa690",cursor:"pointer",fontSize:13,fontWeight:800,transition:"all .15s",
+                                            background:on?"#5b7fa6":"rgba(91,127,166,0.04)",
+                                            color:on?"#fff":"#5b7fa699",
+                                            boxShadow:on?"0 2px 8px #5b7fa644":"none"}}>
+                                          {on?"✓":""}
+                                        </button>
+                                      </td>
+                                    );
+                                  })()}
                                   {NIGHT_TIMES.map(t=>{
                                     const key=`${d}_night_${t}`;
                                     const slotExists=slots.includes(t);
@@ -849,6 +899,23 @@ export default function App(){
                                       )}
                                     </td>
                                   )}
+                                  {availViewStaff.kitchenOK&&(
+                                    <td style={{background:rowBg,textAlign:"center",padding:"3px 3px"}}>
+                                      {kitchenConfig[d]?.enabled?(
+                                        <button onClick={()=>toggleAvail(sid,`${d}_kitchen`)}
+                                          style={{width:34,height:28,borderRadius:8,border:!!a[`${d}_kitchen`]?"none":"1px solid #27674990",cursor:"pointer",fontSize:13,fontWeight:800,transition:"all .15s",
+                                            background:!!a[`${d}_kitchen`]?"#276749":"rgba(39,103,73,0.04)",
+                                            color:!!a[`${d}_kitchen`]?"#fff":"#27674999",
+                                            boxShadow:!!a[`${d}_kitchen`]?"0 2px 8px #27674944":"none"}}>
+                                          {!!a[`${d}_kitchen`]?"✓":""}
+                                        </button>
+                                      ):(
+                                        <div style={{width:34,height:28,borderRadius:8,background:"rgba(39,103,73,0.02)",margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                                          <span style={{fontSize:9,color:"rgba(39,103,73,0.15)"}}>—</span>
+                                        </div>
+                                      )}
+                                    </td>
+                                  )}
                                 </>
                               )}
                             </tr>
@@ -857,7 +924,7 @@ export default function App(){
                       </tbody>
                     </table>
                   </div>
-                  <div style={{marginTop:8,fontSize:10,color:C.muted,opacity:.5}}>— は夜枠未設定 ／ 夜は1日1枠のみ選択可</div>
+                  <div style={{marginTop:8,fontSize:10,color:C.muted,opacity:.5}}>— は枠未設定 ／ 夜は1日1枠のみ選択可</div>
                 </div>
               );
             })()}
@@ -947,7 +1014,8 @@ export default function App(){
                     const aiOn=aisaniConfig[d]?.enabled;
                     const sh=result.shortage[d]||{};
                     const warns=result.warnings[d]||[];
-                    const totalS=(sh.morning||0)+(sh.prep||0)+slots.reduce((s,t)=>s+(sh.night?.[t]||0),0)+(aiOn?sh.aisani||0:0);
+                    const kitOn=kitchenConfig[d]?.enabled;
+                    const totalS=(sh.morning||0)+(sh.prep||0)+slots.reduce((s,t)=>s+(sh.night?.[t]||0),0)+(aiOn?sh.aisani||0:0)+(kitOn?sh.kitchen||0:0);
                     const bc=totalS>0?"rgba(192,57,43,0.2)":warns.length?"rgba(184,134,11,0.2)":hol?"rgba(184,134,11,0.12)":dow===0?"rgba(192,57,43,0.1)":dow===6?"rgba(27,42,94,0.1)":"rgba(139,26,26,0.06)";
                     return(
                       <div key={d} style={{background:"#fff",borderRadius:14,border:`1px solid ${bc}`,padding:14,marginBottom:8,boxShadow:"0 1px 6px rgba(0,0,0,0.04)"}}>
@@ -979,6 +1047,9 @@ export default function App(){
                           {aiOn&&<SRow label="アイサニ" time="ヘルプ" color={C.accent}
                             people={day.aisani?[staffMap[day.aisani]].filter(Boolean):[]} shortage={sh.aisani||0}
                             candidates={staff.filter(s=>s.aisaniOK&&avail[s.id]?.[`${d}_aisani`]&&s.id!==day.aisani)}/>}
+                          {kitOn&&<SRow label="厨房" time="キッチン" color="#276749"
+                            people={day.kitchen?[staffMap[day.kitchen]].filter(Boolean):[]} shortage={sh.kitchen||0}
+                            candidates={staff.filter(s=>s.kitchenOK&&avail[s.id]?.[`${d}_kitchen`]&&s.id!==day.kitchen)}/>}
                         </div>
                       </div>
                     );
