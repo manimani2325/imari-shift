@@ -280,6 +280,22 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
 
 function staffById_local(staffArr,id){ return staffArr.find(s=>s.id===id); }
 
+// Firebase からロードした confirmedShift の空配列マーカーを元に戻す
+function normalizeShiftResult(r){
+  if(!r||!r.shifts) return r;
+  const shifts={};
+  Object.entries(r.shifts).forEach(([d,day])=>{
+    if(!day){shifts[d]=day;return;}
+    shifts[d]={
+      ...day,
+      morning:Array.isArray(day.morning)?day.morning.filter(x=>x!=="__empty__"):[],
+      prep:Array.isArray(day.prep)?day.prep.filter(x=>x!=="__empty__"):[],
+      night:day.night||{},
+    };
+  });
+  return {...r,shifts,workedDays:{}};
+}
+
 // ══════════════════════════════════════════════════════
 export default function App(){
   const now=new Date();
@@ -424,7 +440,6 @@ export default function App(){
       const totalC=staff.reduce((a,s)=>a+(prev.candW[s.id]||0),0);
       const newAvgRate=totalC>0?Math.round(totalW/totalC*100):0;
       const next={...prev,shifts:newShifts,worked:newWorked,workedDays:wd,shortage:newShortage,avgRate:newAvgRate};
-      debounceSave('result',next);
       return next;
     });
   },[staff,debounceSave]);
@@ -433,7 +448,7 @@ export default function App(){
     setGenerating(true);
     setTimeout(()=>{
       const r=generateShifts(staff,year,month,avail,nightSlotConfig,aisaniConfig,kitchenConfig);
-      setResult(r);debounceSave('result',r);setView("result");setGenerating(false);
+      setResult(r);setView("result");setGenerating(false);
     },500);
   };
 
@@ -492,8 +507,7 @@ export default function App(){
       if(data.aisaniConfig   &&!pendingKeys.current.has('aisaniConfig'))   setAisaniConfig(data.aisaniConfig);
       if(data.kitchenConfig  &&!pendingKeys.current.has('kitchenConfig'))  setKitchenConfig(data.kitchenConfig);
       if(data.yearMonth      &&!pendingKeys.current.has('yearMonth'))      {setYear(data.yearMonth.y);setMonth(data.yearMonth.m);}
-      if(data.confirmedShift &&!pendingKeys.current.has('confirmedShift')) setConfirmedShift(data.confirmedShift);
-      if(data.result         &&!pendingKeys.current.has('result'))         setResult(data.result);
+      if(data.confirmedShift &&!pendingKeys.current.has('confirmedShift')) setConfirmedShift(normalizeShiftResult(data.confirmedShift));
       if(data.dayComments    &&!pendingKeys.current.has('dayComments'))    setDayComments(data.dayComments);
       setLoading(false);
     });
@@ -523,8 +537,24 @@ export default function App(){
   const updateDayComments=val=>{setDayComments(val);debounceSave('dayComments',val);};
   const handleConfirmShift=()=>{
     if(!result) return;
+    // Firebase保存用: workedDays(Set)を除外し、空配列を明示的なマーカーに変換しない
+    // shifts内の空配列はFirebaseでnullになるため、保存前にserializeする
+    const serializeForFirebase=(r)=>{
+      const shifts={};
+      Object.entries(r.shifts).forEach(([d,day])=>{
+        shifts[d]={
+          morning:day.morning&&day.morning.length?day.morning:["__empty__"],
+          prep:day.prep&&day.prep.length?day.prep:["__empty__"],
+          night:day.night||{},
+          aisani:day.aisani||null,
+          kitchen:day.kitchen||null,
+        };
+      });
+      return {...r,shifts,workedDays:null};
+    };
+    const serialized=serializeForFirebase(result);
     setConfirmedShift(result);
-    debounceSave('confirmedShift',result);
+    debounceSave('confirmedShift',serialized);
   };
   const dismissShortage=useCallback((d,slotType,slotTime=null)=>{
     setResult(prev=>{
@@ -533,7 +563,6 @@ export default function App(){
       if(slotType==='night') newShortage[d]={...newShortage[d],night:{...(newShortage[d]?.night||{}),[slotTime]:0}};
       else newShortage[d]={...newShortage[d],[slotType]:0};
       const next={...prev,shortage:newShortage};
-      debounceSave('result',next);
       return next;
     });
   },[debounceSave]);
@@ -1203,10 +1232,12 @@ export default function App(){
                     const day=result.shifts[d];
                     if(!day) return null;
                     // 個別フィルター: 選択スタッフが入っている日のみ表示
+                    const morning=day.morning||[];
+                    const prep=day.prep||[];
                     if(resultStaffFilter){
                       const sid=resultStaffFilter;
-                      const inShift=day.morning.includes(sid)||day.prep.includes(sid)||
-                        Object.values(day.night).includes(sid)||day.aisani===sid||day.kitchen===sid;
+                      const inShift=morning.includes(sid)||prep.includes(sid)||
+                        Object.values(day.night||{}).includes(sid)||day.aisani===sid||day.kitchen===sid;
                       if(!inShift) return null;
                     }
                     const slots=nightSlotConfig[d]||[];
@@ -1233,19 +1264,19 @@ export default function App(){
                         )}
                         <div style={{display:"flex",flexDirection:"column",gap:5}}>
                           {!closed&&<SRow label="朝" time="7:00〜11:00" color="#b07d12"
-                            people={day.morning.map(id=>staffMap[id]).filter(Boolean)} shortage={sh.morning||0}
-                            candidates={staff.filter(s=>avail[s.id]?.[`${d}_morning`]&&!day.morning.includes(s.id))}
+                            people={morning.map(id=>staffMap[id]).filter(Boolean)} shortage={sh.morning||0}
+                            candidates={staff.filter(s=>avail[s.id]?.[`${d}_morning`]&&!morning.includes(s.id))}
                             onSwap={newId=>swapShiftAssignment(d,'morning',null,newId)}
                             onRemove={id=>swapShiftAssignment(d,'morning',null,null,id)}
                             onDismissShortage={sh.morning>0?()=>dismissShortage(d,'morning'):null}/>}
                           {!closed&&<SRow label="朝仕込" time="8:30〜16:00" color="#276749"
-                            people={day.prep.map(id=>staffMap[id]).filter(Boolean)} shortage={sh.prep||0}
-                            candidates={staff.filter(s=>avail[s.id]?.[`${d}_prep`]&&!day.prep.includes(s.id))}
+                            people={prep.map(id=>staffMap[id]).filter(Boolean)} shortage={sh.prep||0}
+                            candidates={staff.filter(s=>avail[s.id]?.[`${d}_prep`]&&!prep.includes(s.id))}
                             onSwap={newId=>swapShiftAssignment(d,'prep',null,newId)}
                             onRemove={id=>swapShiftAssignment(d,'prep',null,null,id)}
                             onDismissShortage={sh.prep>0?()=>dismissShortage(d,'prep'):null}/>}
                           {!closed&&slots.map(t=>{
-                            const p=day.night[t];
+                            const p=(day.night||{})[t];
                             const nightCands=staff.filter(s=>s.id!==p&&NIGHT_TIMES.some(nt=>avail[s.id]?.[`${d}_night_${nt}`]&&nightCompat(nt,t)));
                             return <SRow key={t} label={`夜 ${t}〜`} time="" color={NIGHT_TC[t]} people={p?[staffMap[p]].filter(Boolean):[]} shortage={sh.night?.[t]||0} candidates={nightCands}
                               onSwap={newId=>swapShiftAssignment(d,'night',t,newId)}
