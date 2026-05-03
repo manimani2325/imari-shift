@@ -296,20 +296,31 @@ function serializeResult(r){
   const {workedDays,...rest}=r;
   return {...rest,shifts};
 }
-// Firebase からロードした result を復元
+// Firebase/localStorage からロードした result を復元（全フィールドを保証）
 function deserializeResult(r){
-  if(!r||!r.shifts) return null;
-  const shifts={};
-  Object.entries(r.shifts).forEach(([d,day])=>{
-    if(!day){shifts[d]=day;return;}
-    shifts[d]={
-      ...day,
-      morning:Array.isArray(day.morning)?day.morning.filter(x=>x!=='_EMPTY_'):[],
-      prep:Array.isArray(day.prep)?day.prep.filter(x=>x!=='_EMPTY_'):[],
-      night:day.night||{},
+  try{
+    if(!r||!r.shifts) return null;
+    const shifts={};
+    Object.entries(r.shifts).forEach(([d,day])=>{
+      if(!day){shifts[d]=null;return;}
+      shifts[d]={
+        morning:Array.isArray(day.morning)?day.morning.filter(x=>x!=='_EMPTY_'):[],
+        prep:Array.isArray(day.prep)?day.prep.filter(x=>x!=='_EMPTY_'):[],
+        night:(day.night&&typeof day.night==='object')?day.night:{},
+        aisani:day.aisani||null,
+        kitchen:day.kitchen||null,
+      };
+    });
+    return {
+      shifts,
+      worked:r.worked||{},
+      candW:r.candW||{},
+      shortage:r.shortage||{},
+      warnings:r.warnings||{},
+      avgRate:r.avgRate||0,
+      workedDays:{},
     };
-  });
-  return {...r,shifts,workedDays:{}};
+  }catch(_){ return null; }
 }
 
 // ── localStorage へ result を保存/復元
@@ -1254,8 +1265,8 @@ export default function App(){
                       if(!inShift) return null;
                     }
                     const slots=nightSlotConfig[d]||[];
-                    const sh=result.shortage[d]||{};
-                    const warns=result.warnings[d]||[];
+                    const sh=(result.shortage&&result.shortage[d])||{};
+                    const warns=(result.warnings&&result.warnings[d])||[];
                     const kitOn=kitchenConfig[d]?.enabled;
                     const totalS=(sh.morning||0)+(sh.prep||0)+slots.reduce((s,t)=>s+(sh.night?.[t]||0),0)+(aiOn?sh.aisani||0:0)+(kitOn?sh.kitchen||0:0);
                     const bc=totalS>0?"rgba(192,57,43,0.2)":warns.length?"rgba(184,134,11,0.2)":hol?"rgba(184,134,11,0.12)":dow===0?"rgba(192,57,43,0.1)":dow===6?"rgba(27,42,94,0.1)":"rgba(139,26,26,0.06)";
