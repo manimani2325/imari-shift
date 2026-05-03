@@ -453,9 +453,11 @@ export default function App(){
       const totalW=staff.reduce((a,s)=>a+wd[s.id].size,0);
       const totalC=staff.reduce((a,s)=>a+(prev.candW[s.id]||0),0);
       const newAvgRate=totalC>0?Math.round(totalW/totalC*100):0;
-      return {...prev,shifts:newShifts,worked:newWorked,workedDays:wd,shortage:newShortage,avgRate:newAvgRate};
+      const next={...prev,shifts:newShifts,worked:newWorked,workedDays:wd,shortage:newShortage,avgRate:newAvgRate};
+      debounceSave('savedResult',serializeResult(next));
+      return next;
     });
-  },[staff]);
+  },[staff,debounceSave]);
 
   const handleGenerate=()=>{
     setGenerating(true);
