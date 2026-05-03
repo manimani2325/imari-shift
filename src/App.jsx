@@ -312,6 +312,19 @@ function deserializeResult(r){
   return {...r,shifts,workedDays:{}};
 }
 
+// ── localStorage へ result を保存/復元
+const LS_KEY = 'imari_result';
+function saveResultLS(r) {
+  try { localStorage.setItem(LS_KEY, JSON.stringify(serializeResult(r))); } catch(_) {}
+}
+function loadResultLS() {
+  try {
+    const s = localStorage.getItem(LS_KEY);
+    if (s) return deserializeResult(JSON.parse(s));
+  } catch(_) {}
+  return null;
+}
+
 // ══════════════════════════════════════════════════════
 export default function App(){
   const now=new Date();
@@ -454,16 +467,16 @@ export default function App(){
       const totalC=staff.reduce((a,s)=>a+(prev.candW[s.id]||0),0);
       const newAvgRate=totalC>0?Math.round(totalW/totalC*100):0;
       const next={...prev,shifts:newShifts,worked:newWorked,workedDays:wd,shortage:newShortage,avgRate:newAvgRate};
-      debounceSave('savedResult',serializeResult(next));
+      saveResultLS(next);
       return next;
     });
-  },[staff,debounceSave]);
+  },[staff]);
 
   const handleGenerate=()=>{
     setGenerating(true);
     setTimeout(()=>{
       const r=generateShifts(staff,year,month,avail,nightSlotConfig,aisaniConfig,kitchenConfig);
-      setResult(r);debounceSave('savedResult',serializeResult(r));setView("result");setGenerating(false);
+      setResult(r);saveResultLS(r);setView("result");setGenerating(false);
     },500);
   };
 
@@ -536,15 +549,16 @@ export default function App(){
         if(_ym===ymRef.current) setDayComments(comments);
         else setDayComments({});
       }
-      // result: シリアライズ済みデータを復元
-      if(data.savedResult&&!pendingKeys.current.has('savedResult')){
-        const r=deserializeResult(data.savedResult);
-        if(r) setResult(r);
-      }
       setLoading(false);
     });
     const t=setTimeout(()=>setLoading(false),5000);
     return()=>{unsub();clearTimeout(t);};
+  },[]);
+
+  // ── localStorage から result を復元（初回のみ）
+  useEffect(()=>{
+    const r=loadResultLS();
+    if(r) setResult(r);
   },[]);
 
   // ── デバウンス付き保存
@@ -583,10 +597,10 @@ export default function App(){
       if(slotType==='night') newShortage[d]={...newShortage[d],night:{...(newShortage[d]?.night||{}),[slotTime]:0}};
       else newShortage[d]={...newShortage[d],[slotType]:0};
       const next={...prev,shortage:newShortage};
-      debounceSave('savedResult',serializeResult(next));
+      saveResultLS(next);
       return next;
     });
-  },[debounceSave]);
+  },[]);
   const handleGmLogin=()=>{
     if(pwInput===GM_PASSWORD){
       setGmMode(true);setView("slots");
