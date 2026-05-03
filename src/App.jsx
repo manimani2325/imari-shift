@@ -241,19 +241,14 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
     const aiConf=aisaniConfig[d];
     if(aiConf&&aiConf.enabled){
       const alreadyInNight=new Set(Object.values(dayR.night).filter(Boolean));
-      const aiCandsStrict=staff.filter(s=>
-        s.aisaniOK&&isAvail(s.id,`${d}_aisani`)&&
+      const aiCands=staff.filter(s=>
+        s.aisaniOK&&
+        (isAvail(s.id,`${d}_aisani`)||NIGHT_TIMES.some(t=>isAvail(s.id,`${d}_night_${t}`)))&&
         !dayR.morning.includes(s.id)&&!dayR.prep.includes(s.id)&&!alreadyInNight.has(s.id)
       );
-      const aiCandsNightFallback=staff.filter(s=>
-        s.aisaniOK&&!dayR.morning.includes(s.id)&&!dayR.prep.includes(s.id)&&
-        !alreadyInNight.has(s.id)&&NIGHT_TIMES.some(t=>isAvail(s.id,`${d}_night_${t}`))
-      );
-      const aiCands=aiCandsStrict.length>0?aiCandsStrict:aiCandsNightFallback;
-      const usingFallback=aiCandsStrict.length===0&&aiCandsNightFallback.length>0;
       const aiPick=pick(aiCands,1);
       dayR.aisani=aiPick[0]?.id||null;
-      if(aiPick[0]){ addWorked(aiPick[0],d,'aisani'); if(usingFallback) dayW.push(`${aiPick[0].name}：アイサニ（夜候補から補填）`); }
+      if(aiPick[0]) addWorked(aiPick[0],d,'aisani');
       dayS.aisani=aiPick[0]?0:1;
     }
 
