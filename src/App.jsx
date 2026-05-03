@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
-import { subscribeAll, saveKey } from './firebase.js'
+import { subscribeAll, saveKey, cleanupStaleKeys } from './firebase.js'
 
 // ── 祝日データ 2024〜2026
 const HOLIDAYS = new Set([
@@ -182,17 +182,6 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
     mPick.forEach(s=>addWorked(s,d,'morning'));
     dayS.morning=Math.max(0,morningTarget-mPick.length);
 
-    // ── キッチン（夜より先に割り当て・候補選択者のみ）
-    const kitConf=kitchenConfig[d];
-    if(kitConf&&kitConf.enabled){
-      const alreadyMorning=new Set([...dayR.morning,...dayR.prep]);
-      const kitCands=staff.filter(s=>s.kitchenOK&&isAvail(s.id,`${d}_kitchen`)&&!alreadyMorning.has(s.id));
-      const kitPick=pick(kitCands,1);
-      dayR.kitchen=kitPick[0]?.id||null;
-      if(kitPick[0]) addWorked(kitPick[0],d,'kitchen');
-      dayS.kitchen=kitPick[0]?0:1;
-    }
-
     // ── 夜
     const shimikomiCanDoNight=prepMode==="shimikomiNight"&&mCands.length>=3;
     const prepW=shimikomiCanDoNight?new Set():new Set(dayR.prep);
@@ -263,6 +252,17 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
       dayS.aisani=aiPick[0]?0:1;
     }
 
+    // ── キッチン（候補選択者のみ、フォールバックなし）
+    const kitConf=kitchenConfig[d];
+    if(kitConf&&kitConf.enabled){
+      const alreadyAll=new Set([...dayR.morning,...dayR.prep,...Object.values(dayR.night).filter(Boolean),...(dayR.aisani?[dayR.aisani]:[])]);
+      const kitCands=staff.filter(s=>s.kitchenOK&&isAvail(s.id,`${d}_kitchen`)&&!alreadyAll.has(s.id));
+      const kitPick=pick(kitCands,1);
+      dayR.kitchen=kitPick[0]?.id||null;
+      if(kitPick[0]) addWorked(kitPick[0],d,'kitchen');
+      dayS.kitchen=kitPick[0]?0:1;
+    }
+
     result[d]=dayR;
     shortage[d]=dayS;
     warnings[d]=dayW;
@@ -279,22 +279,6 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
 }
 
 function staffById_local(staffArr,id){ return staffArr.find(s=>s.id===id); }
-
-// Firebase からロードした confirmedShift の空配列マーカーを元に戻す
-function normalizeShiftResult(r){
-  if(!r||!r.shifts) return r;
-  const shifts={};
-  Object.entries(r.shifts).forEach(([d,day])=>{
-    if(!day){shifts[d]=day;return;}
-    shifts[d]={
-      ...day,
-      morning:Array.isArray(day.morning)?day.morning.filter(x=>x!=="__empty__"):[],
-      prep:Array.isArray(day.prep)?day.prep.filter(x=>x!=="__empty__"):[],
-      night:day.night||{},
-    };
-  });
-  return {...r,shifts,workedDays:{}};
-}
 
 // ══════════════════════════════════════════════════════
 export default function App(){
@@ -314,9 +298,6 @@ export default function App(){
   const [aisaniConfig,setAisaniConfig]=useState({});
   const [kitchenConfig,setKitchenConfig]=useState({});
   const [result,setResult]=useState(null);
-  const [confirmedShift,setConfirmedShift]=useState(null); // Firebase保存済み確定シフト
-  const [dayComments,setDayComments]=useState({}); // 日ごとコメント {d: string}
-  const [staffShiftView,setStaffShiftView]=useState(null); // null|"mine"|"all"
   const [view,setView]=useState("slots"); // slots|avail|result
   const [gmMode,setGmMode]=useState(false);
   const [loginStaff,setLoginStaff]=useState(null);
@@ -439,10 +420,9 @@ export default function App(){
       const totalW=staff.reduce((a,s)=>a+wd[s.id].size,0);
       const totalC=staff.reduce((a,s)=>a+(prev.candW[s.id]||0),0);
       const newAvgRate=totalC>0?Math.round(totalW/totalC*100):0;
-      const next={...prev,shifts:newShifts,worked:newWorked,workedDays:wd,shortage:newShortage,avgRate:newAvgRate};
-      return next;
+      return {...prev,shifts:newShifts,worked:newWorked,workedDays:wd,shortage:newShortage,avgRate:newAvgRate};
     });
-  },[staff,debounceSave]);
+  },[staff]);
 
   const handleGenerate=()=>{
     setGenerating(true);
@@ -498,8 +478,9 @@ export default function App(){
   const saveTimers=useRef({});
   const pendingKeys=useRef(new Set());
 
-  // ── Firebase リアルタイム購読
+  // ── Firebase 起動時クリーンアップ + リアルタイム購読
   useEffect(()=>{
+    cleanupStaleKeys();
     const unsub=subscribeAll((data)=>{
       if(data.staff          &&!pendingKeys.current.has('staff'))          setStaff(data.staff);
       if(data.avail          &&!pendingKeys.current.has('avail'))          setAvail(data.avail);
@@ -507,8 +488,6 @@ export default function App(){
       if(data.aisaniConfig   &&!pendingKeys.current.has('aisaniConfig'))   setAisaniConfig(data.aisaniConfig);
       if(data.kitchenConfig  &&!pendingKeys.current.has('kitchenConfig'))  setKitchenConfig(data.kitchenConfig);
       if(data.yearMonth      &&!pendingKeys.current.has('yearMonth'))      {setYear(data.yearMonth.y);setMonth(data.yearMonth.m);}
-      if(data.confirmedShift &&!pendingKeys.current.has('confirmedShift')) setConfirmedShift(normalizeShiftResult(data.confirmedShift));
-      if(data.dayComments    &&!pendingKeys.current.has('dayComments'))    setDayComments(data.dayComments);
       setLoading(false);
     });
     const t=setTimeout(()=>setLoading(false),5000);
@@ -534,38 +513,6 @@ export default function App(){
   const updateAisaniCfg=val=>{setAisaniConfig(val);debounceSave('aisaniConfig',val);};
   const updateKitchenCfg=val=>{setKitchenConfig(val);debounceSave('kitchenConfig',val);};
   const updateYearMonth=(y,m)=>{setYear(y);setMonth(m);debounceSave('yearMonth',{y,m});};
-  const updateDayComments=val=>{setDayComments(val);debounceSave('dayComments',val);};
-  const handleConfirmShift=()=>{
-    if(!result) return;
-    // Firebase保存用: workedDays(Set)を除外し、空配列を明示的なマーカーに変換しない
-    // shifts内の空配列はFirebaseでnullになるため、保存前にserializeする
-    const serializeForFirebase=(r)=>{
-      const shifts={};
-      Object.entries(r.shifts).forEach(([d,day])=>{
-        shifts[d]={
-          morning:day.morning&&day.morning.length?day.morning:["__empty__"],
-          prep:day.prep&&day.prep.length?day.prep:["__empty__"],
-          night:day.night||{},
-          aisani:day.aisani||null,
-          kitchen:day.kitchen||null,
-        };
-      });
-      return {...r,shifts,workedDays:null};
-    };
-    const serialized=serializeForFirebase(result);
-    setConfirmedShift(result);
-    debounceSave('confirmedShift',serialized);
-  };
-  const dismissShortage=useCallback((d,slotType,slotTime=null)=>{
-    setResult(prev=>{
-      if(!prev) return prev;
-      const newShortage={...prev.shortage,[d]:{...(prev.shortage[d]||{})}};
-      if(slotType==='night') newShortage[d]={...newShortage[d],night:{...(newShortage[d]?.night||{}),[slotTime]:0}};
-      else newShortage[d]={...newShortage[d],[slotType]:0};
-      const next={...prev,shortage:newShortage};
-      return next;
-    });
-  },[debounceSave]);
   const handleGmLogin=()=>{
     if(pwInput===GM_PASSWORD){
       setGmMode(true);setView("slots");
@@ -723,33 +670,11 @@ export default function App(){
             </div>
           )}
           {!gmMode&&loginStaff&&(
-            <div>
-              <div style={{display:"flex",alignItems:"center",gap:8,paddingBottom:6}}>
-                <div style={{width:7,height:7,borderRadius:4,background:C.accent,boxShadow:`0 0 6px ${C.accent}`}}/>
-                <span style={{fontSize:11,color:C.muted}}>ログイン中：</span>
-                <span style={{fontWeight:800,fontSize:13}}>{loginStaff.name}</span>
-                <button onClick={()=>setLoginStaff(null)} style={{...btn(false),fontSize:10,padding:"3px 10px"}}>変更</button>
-              </div>
-              <div style={{display:"flex",gap:3,background:"rgba(139,26,26,0.04)",borderRadius:13,padding:3,border:"1px solid rgba(139,26,26,0.08)"}}>
-                <button onClick={()=>setStaffShiftView(null)}
-                  style={{flex:1,padding:"8px 4px",borderRadius:11,border:"none",cursor:"pointer",fontSize:11,fontWeight:700,transition:"all .2s",
-                    background:staffShiftView===null?"linear-gradient(135deg,#8b1a1a,#b8860b)":"transparent",
-                    color:staffShiftView===null?"#fff":C.muted}}>
-                  📅 候補日入力
-                </button>
-                {confirmedShift&&<button onClick={()=>setStaffShiftView("mine")}
-                  style={{flex:1,padding:"8px 4px",borderRadius:11,border:"none",cursor:"pointer",fontSize:11,fontWeight:700,transition:"all .2s",
-                    background:staffShiftView==="mine"?"linear-gradient(135deg,#276749,#1b5e44)":"transparent",
-                    color:staffShiftView==="mine"?"#fff":C.muted}}>
-                  👤 自分のシフト
-                </button>}
-                {confirmedShift&&<button onClick={()=>setStaffShiftView("all")}
-                  style={{flex:1,padding:"8px 4px",borderRadius:11,border:"none",cursor:"pointer",fontSize:11,fontWeight:700,transition:"all .2s",
-                    background:staffShiftView==="all"?"linear-gradient(135deg,#1b2a5e,#2d4a9e)":"transparent",
-                    color:staffShiftView==="all"?"#fff":C.muted}}>
-                  📋 全体シフト
-                </button>}
-              </div>
+            <div style={{display:"flex",alignItems:"center",gap:8,paddingBottom:4}}>
+              <div style={{width:7,height:7,borderRadius:4,background:C.accent,boxShadow:`0 0 6px ${C.accent}`}}/>
+              <span style={{fontSize:11,color:C.muted}}>ログイン中：</span>
+              <span style={{fontWeight:800,fontSize:13}}>{loginStaff.name}</span>
+              <button onClick={()=>setLoginStaff(null)} style={{...btn(false),fontSize:10,padding:"3px 10px"}}>変更</button>
             </div>
           )}
 
@@ -930,7 +855,7 @@ export default function App(){
         )}
 
         {/* ── ② 候補日入力 */}
-        {(gmMode?view==="avail":(!gmMode&&loginStaff&&staffShiftView===null))&&(
+        {(gmMode?view==="avail":(!gmMode&&loginStaff))&&(
           <div className="fi">
             {gmMode&&(
               <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:14}}>
@@ -1162,7 +1087,7 @@ export default function App(){
               </div>
             ):(
               <div>
-                <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap"}}>
+                <div style={{display:"flex",gap:8,marginBottom:16}}>
                   <button onClick={handleGenerate} style={{flex:1,padding:"12px",borderRadius:12,border:"1px solid rgba(139,26,26,0.2)",background:"rgba(139,26,26,0.04)",color:C.accent,cursor:"pointer",fontSize:13,fontWeight:700}}>
                     🔄 再生成
                   </button>
@@ -1173,14 +1098,6 @@ export default function App(){
                     {exporting?"⏳ 出力中...":"📷 画像で保存"}
                   </button>
                 </div>
-                <button onClick={handleConfirmShift}
-                  style={{width:"100%",marginBottom:16,padding:"14px",borderRadius:12,border:"none",cursor:"pointer",fontSize:14,fontWeight:900,
-                    background:"linear-gradient(135deg,#276749,#1b5e44)",color:"#fff",boxShadow:"0 4px 14px rgba(39,103,73,0.35)"}}>
-                  ✅ シフトを確定してスタッフに公開
-                </button>
-                {confirmedShift&&<div style={{marginBottom:12,padding:"8px 14px",borderRadius:10,background:"rgba(39,103,73,0.07)",border:"1px solid rgba(39,103,73,0.2)",fontSize:11,color:"#276749",fontWeight:700}}>
-                  ✅ 現在スタッフに公開中（修正後は再度確定ボタンを押してください）
-                </div>}
 
                 <div ref={shiftRef} style={{background:C.bg,padding:16,borderRadius:18}}>
                   <div style={{textAlign:"center",marginBottom:18}}>
@@ -1232,12 +1149,10 @@ export default function App(){
                     const day=result.shifts[d];
                     if(!day) return null;
                     // 個別フィルター: 選択スタッフが入っている日のみ表示
-                    const morning=day.morning||[];
-                    const prep=day.prep||[];
                     if(resultStaffFilter){
                       const sid=resultStaffFilter;
-                      const inShift=morning.includes(sid)||prep.includes(sid)||
-                        Object.values(day.night||{}).includes(sid)||day.aisani===sid||day.kitchen===sid;
+                      const inShift=day.morning.includes(sid)||day.prep.includes(sid)||
+                        Object.values(day.night).includes(sid)||day.aisani===sid||day.kitchen===sid;
                       if(!inShift) return null;
                     }
                     const slots=nightSlotConfig[d]||[];
@@ -1264,44 +1179,33 @@ export default function App(){
                         )}
                         <div style={{display:"flex",flexDirection:"column",gap:5}}>
                           {!closed&&<SRow label="朝" time="7:00〜11:00" color="#b07d12"
-                            people={morning.map(id=>staffMap[id]).filter(Boolean)} shortage={sh.morning||0}
-                            candidates={staff.filter(s=>avail[s.id]?.[`${d}_morning`]&&!morning.includes(s.id))}
+                            people={day.morning.map(id=>staffMap[id]).filter(Boolean)} shortage={sh.morning||0}
+                            candidates={staff.filter(s=>avail[s.id]?.[`${d}_morning`]&&!day.morning.includes(s.id))}
                             onSwap={newId=>swapShiftAssignment(d,'morning',null,newId)}
-                            onRemove={id=>swapShiftAssignment(d,'morning',null,null,id)}
-                            onDismissShortage={sh.morning>0?()=>dismissShortage(d,'morning'):null}/>}
+                            onRemove={id=>swapShiftAssignment(d,'morning',null,null,id)}/>}
                           {!closed&&<SRow label="朝仕込" time="8:30〜16:00" color="#276749"
-                            people={prep.map(id=>staffMap[id]).filter(Boolean)} shortage={sh.prep||0}
-                            candidates={staff.filter(s=>avail[s.id]?.[`${d}_prep`]&&!prep.includes(s.id))}
+                            people={day.prep.map(id=>staffMap[id]).filter(Boolean)} shortage={sh.prep||0}
+                            candidates={staff.filter(s=>avail[s.id]?.[`${d}_prep`]&&!day.prep.includes(s.id))}
                             onSwap={newId=>swapShiftAssignment(d,'prep',null,newId)}
-                            onRemove={id=>swapShiftAssignment(d,'prep',null,null,id)}
-                            onDismissShortage={sh.prep>0?()=>dismissShortage(d,'prep'):null}/>}
+                            onRemove={id=>swapShiftAssignment(d,'prep',null,null,id)}/>}
                           {!closed&&slots.map(t=>{
-                            const p=(day.night||{})[t];
+                            const p=day.night[t];
                             const nightCands=staff.filter(s=>s.id!==p&&NIGHT_TIMES.some(nt=>avail[s.id]?.[`${d}_night_${nt}`]&&nightCompat(nt,t)));
                             return <SRow key={t} label={`夜 ${t}〜`} time="" color={NIGHT_TC[t]} people={p?[staffMap[p]].filter(Boolean):[]} shortage={sh.night?.[t]||0} candidates={nightCands}
                               onSwap={newId=>swapShiftAssignment(d,'night',t,newId)}
-                              onRemove={()=>swapShiftAssignment(d,'night',t,null)}
-                              onDismissShortage={(sh.night?.[t]||0)>0?()=>dismissShortage(d,'night',t):null}/>;
+                              onRemove={()=>swapShiftAssignment(d,'night',t,null)}/>;
                           })}
                           {aiOn&&<SRow label="アイサニ" time="ヘルプ" color={C.accent}
                             people={day.aisani?[staffMap[day.aisani]].filter(Boolean):[]} shortage={sh.aisani||0}
                             candidates={staff.filter(s=>s.aisaniOK&&s.id!==day.aisani&&(avail[s.id]?.[`${d}_aisani`]||NIGHT_TIMES.some(t=>avail[s.id]?.[`${d}_night_${t}`])))}
                             onSwap={newId=>swapShiftAssignment(d,'aisani',null,newId)}
-                            onRemove={()=>swapShiftAssignment(d,'aisani',null,null)}
-                            onDismissShortage={sh.aisani>0?()=>dismissShortage(d,'aisani'):null}/>}
+                            onRemove={()=>swapShiftAssignment(d,'aisani',null,null)}/>}
                           {!closed&&kitOn&&<SRow label="厨房" time="キッチン" color="#276749"
                             people={day.kitchen?[staffMap[day.kitchen]].filter(Boolean):[]} shortage={sh.kitchen||0}
                             candidates={staff.filter(s=>s.kitchenOK&&avail[s.id]?.[`${d}_kitchen`]&&s.id!==day.kitchen)}
                             onSwap={newId=>swapShiftAssignment(d,'kitchen',null,newId)}
-                            onRemove={()=>swapShiftAssignment(d,'kitchen',null,null)}
-                            onDismissShortage={sh.kitchen>0?()=>dismissShortage(d,'kitchen'):null}/>}
+                            onRemove={()=>swapShiftAssignment(d,'kitchen',null,null)}/>}
                         </div>
-                        <input
-                          type="text" placeholder="コメントを追加（任意）"
-                          value={dayComments[d]||""}
-                          onChange={e=>updateDayComments({...dayComments,[d]:e.target.value})}
-                          style={{marginTop:8,width:"100%",boxSizing:"border-box",padding:"7px 12px",borderRadius:8,border:"1px solid rgba(139,26,26,0.15)",background:"rgba(139,26,26,0.02)",fontSize:11,color:C.text,outline:"none",fontFamily:"inherit"}}
-                        />
                       </div>
                     );
                   })}
@@ -1310,100 +1214,12 @@ export default function App(){
             )}
           </div>
         )}
-        {/* ── スタッフ向けシフト閲覧 */}
-        {!gmMode&&loginStaff&&confirmedShift&&(staffShiftView==="mine"||staffShiftView==="all")&&(
-          <ConfirmedShiftView
-            confirmedShift={confirmedShift}
-            loginStaff={loginStaff}
-            staffMap={staffMap}
-            staffShiftView={staffShiftView}
-            year={year} month={month}
-            nightSlotConfig={nightSlotConfig}
-            aisaniConfig={aisaniConfig}
-            kitchenConfig={kitchenConfig}
-            dayComments={dayComments}
-          />
-        )}
-
       </div>
     </div>
   );
 }
 
-function ConfirmedShiftView({confirmedShift,loginStaff,staffMap,staffShiftView,year,month,nightSlotConfig,aisaniConfig,kitchenConfig,dayComments}){
-  const days=daysIn(year,month);
-  const C={accent:"#8b1a1a",gold:"#b8860b",text:"#1a0a00",muted:"#8c7b6b",bg:"#fdfaf6"};
-  const NIGHT_TC={"17:00":"#5b3a8e","18:00":"#8b1a1a","19:00":"#1b2a5e","20:00":"#276749","21:00":"#7a4f1d"};
-  return(
-    <div className="fi">
-      <div style={{marginBottom:12,padding:"10px 14px",borderRadius:12,background:"rgba(39,103,73,0.07)",border:"1px solid rgba(39,103,73,0.2)",fontSize:12,color:"#276749",fontWeight:700}}>
-        ✅ {year}年{month+1}月 確定シフト{staffShiftView==="mine"?`（${loginStaff.name}）`:"（全体）"}
-      </div>
-      {Array.from({length:days},(_,i)=>i+1).map(d=>{
-        const dow=getDow(year,month,d);
-        const hol=isHol(year,month,d);
-        const closed=isClosed(year,month,d);
-        const aiOn=aisaniConfig[d]?.enabled;
-        if(closed&&!aiOn) return null;
-        const day=confirmedShift.shifts[d];
-        if(!day) return null;
-        const slots=nightSlotConfig[d]||[];
-        const kitOn=kitchenConfig[d]?.enabled;
-        const sid=loginStaff.id;
-        const inShift=staffShiftView==="mine"?(
-          day.morning.includes(sid)||day.prep.includes(sid)||
-          Object.values(day.night).includes(sid)||day.aisani===sid||day.kitchen===sid
-        ):true;
-        if(!inShift) return null;
-        const comment=dayComments[d];
-        return(
-          <div key={d} style={{background:"#fff",borderRadius:14,border:`1px solid ${hol?"rgba(184,134,11,0.2)":dow===0?"rgba(192,57,43,0.15)":dow===6?"rgba(27,42,94,0.12)":"rgba(139,26,26,0.1)"}`,padding:14,marginBottom:8,boxShadow:"0 1px 6px rgba(0,0,0,0.04)"}}>
-            <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:8,flexWrap:"wrap"}}>
-              <span style={{fontWeight:900,fontSize:15,color:hol?"#b8860b":dow===0?"#c0392b":dow===6?"#1b2a5e":C.text}}>
-                {month+1}/{d}（{DOW_JP[dow]}）{hol?"🎌":""}
-              </span>
-              {closed&&<span style={{fontSize:9,padding:"3px 8px",borderRadius:999,background:"rgba(139,26,26,0.06)",color:"#8c7b6b",fontWeight:700}}>定休日</span>}
-            </div>
-            {comment&&<div style={{marginBottom:8,padding:"6px 12px",borderRadius:8,background:"rgba(184,134,11,0.06)",border:"1px solid rgba(184,134,11,0.2)",fontSize:11,color:"#7a5c00"}}>💬 {comment}</div>}
-            <div style={{display:"flex",flexDirection:"column",gap:5}}>
-              {!closed&&day.morning.length>0&&<ShiftReadRow label="朝" time="7:00〜11:00" color="#b07d12" people={day.morning.map(id=>staffMap[id]).filter(Boolean)} myId={staffShiftView==="mine"?sid:null}/>}
-              {!closed&&day.prep.length>0&&<ShiftReadRow label="朝仕込" time="8:30〜16:00" color="#276749" people={day.prep.map(id=>staffMap[id]).filter(Boolean)} myId={staffShiftView==="mine"?sid:null}/>}
-              {!closed&&slots.map(t=>{
-                const p=day.night[t];
-                if(!p) return null;
-                return <ShiftReadRow key={t} label={`夜 ${t}〜`} color={NIGHT_TC[t]||"#5b3a8e"} people={[staffMap[p]].filter(Boolean)} myId={staffShiftView==="mine"?sid:null}/>;
-              })}
-              {aiOn&&day.aisani&&<ShiftReadRow label="アイサニ" time="ヘルプ" color={C.accent} people={[staffMap[day.aisani]].filter(Boolean)} myId={staffShiftView==="mine"?sid:null}/>}
-              {!closed&&kitOn&&day.kitchen&&<ShiftReadRow label="厨房" time="キッチン" color="#276749" people={[staffMap[day.kitchen]].filter(Boolean)} myId={staffShiftView==="mine"?sid:null}/>}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function ShiftReadRow({label,time,color,people,myId}){
-  return(
-    <div style={{display:"flex",alignItems:"center",gap:7,flexWrap:"wrap"}}>
-      <div style={{minWidth:70,fontSize:10,fontWeight:700,color,background:color+"18",borderRadius:999,padding:"3px 10px",textAlign:"center",flexShrink:0,border:`1px solid ${color}30`}}>{label}</div>
-      {time&&<div style={{fontSize:9,color:"#8c7b6b",minWidth:76,flexShrink:0}}>{time}</div>}
-      <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-        {people.map(s=>(
-          <span key={s.id} style={{fontSize:12,padding:"4px 14px",borderRadius:999,fontWeight:700,
-            background:myId&&s.id===myId?"rgba(139,26,26,0.12)":"rgba(139,26,26,0.04)",
-            color:myId&&s.id===myId?color:"#1a0a00",
-            border:`1px solid ${myId&&s.id===myId?color+"60":"rgba(139,26,26,0.1)"}`,
-            boxShadow:myId&&s.id===myId?`0 0 8px ${color}30`:"none"}}>
-            {s.name}{myId&&s.id===myId?" ✓":""}
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function SRow({label,time,color,people,shortage=0,candidates=[],onSwap=null,onRemove=null,onDismissShortage=null}){
+function SRow({label,time,color,people,shortage=0,candidates=[],onSwap=null,onRemove=null}){
   return(
     <div style={{display:"flex",flexDirection:"column",gap:3}}>
       <div style={{display:"flex",alignItems:"center",gap:7,flexWrap:"wrap"}}>
@@ -1420,9 +1236,8 @@ function SRow({label,time,color,people,shortage=0,candidates=[],onSwap=null,onRe
                 </span>
           ))}
           {shortage>0&&(
-            <span style={{display:"flex",alignItems:"center",gap:4,fontSize:10,padding:"3px 10px",borderRadius:999,background:"rgba(192,57,43,0.08)",color:"#c0392b",fontWeight:700,border:"1px solid rgba(192,57,43,0.2)"}}>
+            <span style={{fontSize:10,padding:"3px 10px",borderRadius:999,background:"rgba(192,57,43,0.08)",color:"#c0392b",fontWeight:700,border:"1px solid rgba(192,57,43,0.2)"}}>
               あと{shortage}名不足
-              {onDismissShortage&&<button onClick={onDismissShortage} style={{background:"none",border:"none",cursor:"pointer",color:"#c0392b",fontWeight:900,fontSize:10,padding:"0 2px",lineHeight:1}}>×</button>}
             </span>
           )}
           {people.length===0&&shortage===0&&<span style={{fontSize:11,color:"rgba(139,26,26,0.15)"}}>—</span>}
