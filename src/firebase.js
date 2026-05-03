@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app'
-import { getDatabase, ref, set, onValue, get } from 'firebase/database'
+import { getDatabase, ref, set, remove, onValue, get } from 'firebase/database'
 
 const firebaseConfig = {
   apiKey:            import.meta.env.VITE_FIREBASE_API_KEY,
@@ -14,11 +14,19 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig)
 const db  = getDatabase(app)
 
+// ── 起動時に不正なキーを削除（過去の不具合で書き込まれた大容量データ）
+const STALE_KEYS = ['result', 'confirmedShift', 'dayComments']
+export async function cleanupStaleKeys() {
+  for (const key of STALE_KEYS) {
+    try { await remove(ref(db, `shiftmaster/${key}`)) } catch(_) {}
+  }
+}
+
 // ── 全データをリアルタイム購読
 export function subscribeAll(callback) {
   const r = ref(db, 'shiftmaster')
   return onValue(r, (snap) => {
-    callback(snap.exists() ? snap.val() : {})
+    try { callback(snap.exists() ? snap.val() : {}) } catch(e) { console.error('subscribeAll callback error', e) }
   })
 }
 

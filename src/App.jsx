@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
-import { subscribeAll, saveKey } from './firebase.js'
+import { subscribeAll, saveKey, cleanupStaleKeys } from './firebase.js'
 
 // ── 祝日データ 2024〜2026
 const HOLIDAYS = new Set([
@@ -478,8 +478,9 @@ export default function App(){
   const saveTimers=useRef({});
   const pendingKeys=useRef(new Set());
 
-  // ── Firebase リアルタイム購読
+  // ── Firebase 起動時クリーンアップ + リアルタイム購読
   useEffect(()=>{
+    cleanupStaleKeys();
     const unsub=subscribeAll((data)=>{
       if(data.staff          &&!pendingKeys.current.has('staff'))          setStaff(data.staff);
       if(data.avail          &&!pendingKeys.current.has('avail'))          setAvail(data.avail);
