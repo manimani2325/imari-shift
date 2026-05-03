@@ -84,7 +84,7 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
 
   const morningRisk=(d)=>{
     if(d>days||isClosed(year,month,d)) return false;
-    const mc=staff.filter(s=>isAvail(s.id,`${d}_morning`)).length;
+    const mc=staff.filter(s=>isAvail(s.id,`${d}_morning`)||isAvail(s.id,`${d}_prep`)).length;
     const pc=staff.filter(s=>isAvail(s.id,`${d}_prep`)||isAvail(s.id,`${d}_shimikomi`)).length;
     return mc<2||pc<1;
   };
@@ -165,13 +165,13 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
     pPick.forEach(s=>{worked[s.id]++;});
     dayS.prep=Math.max(0,1-pPick.length);
 
-    // ── 朝（morningTarget人）
+    // ── 朝（morningTarget人）: 朝仕込み選択者も朝の候補に含める
     const mStrict=staff.filter(s=>
-      isAvail(s.id,`${d}_morning`)&&
+      (isAvail(s.id,`${d}_morning`)||isAvail(s.id,`${d}_prep`))&&
       !dayR.prep.includes(s.id)&&
       !prevNight.has(s.id)
     );
-    const mAll=staff.filter(s=>isAvail(s.id,`${d}_morning`)&&!dayR.prep.includes(s.id));
+    const mAll=staff.filter(s=>(isAvail(s.id,`${d}_morning`)||isAvail(s.id,`${d}_prep`))&&!dayR.prep.includes(s.id));
     const mCands=mStrict.length>=morningTarget?mStrict:mAll;
     const mPick=pick(mCands,morningTarget,{maxJunior:1});
     mPick.forEach(s=>{ if(prevNight.has(s.id)) dayW.push(`${s.name}：前日夜→朝（人手不足）`); });
@@ -322,6 +322,25 @@ export default function App(){
   const targetSid=gmMode?null:(loginStaff?.id);
 
   const toggleAvail=(sid,key)=>updateAvail({...avail,[sid]:{...(avail[sid]||{}),[key]:!avail[sid]?.[key]}});
+  // 朝・朝仕込み・仕込みは排他選択: 1つをONにすると他2つをOFF
+  const MORNING_TYPES=['morning','prep','shimikomi'];
+  const toggleMorningTypeAvail=(sid,d,type)=>{
+    const cur=avail[sid]||{};
+    const key=`${d}_${type}`;
+    const newVal=!cur[key];
+    const next={...cur,[key]:newVal};
+    if(newVal) MORNING_TYPES.forEach(t=>{if(t!==type) next[`${d}_${t}`]=false;});
+    updateAvail({...avail,[sid]:next});
+  };
+  const setAllMorningTypeAvail=(sid,type)=>{
+    const cur=avail[sid]||{};const next={...cur};
+    for(let d=1;d<=days;d++){
+      if(isClosed(year,month,d)) continue;
+      next[`${d}_${type}`]=true;
+      MORNING_TYPES.forEach(t=>{if(t!==type) next[`${d}_${t}`]=false;});
+    }
+    updateAvail({...avail,[sid]:next});
+  };
   const toggleNightAvail=(sid,d,time)=>{
     const cur=avail[sid]||{};
     const next={...cur};
@@ -791,9 +810,9 @@ export default function App(){
                   </div>
                   <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:12}}>
                     {[
-                      {label:"朝 全ON",color:"#b07d12",onClick:()=>setAllAvail(sid,"morning",true)},
-                      {label:"朝仕込 全ON",color:"#276749",onClick:()=>setAllAvail(sid,"prep",true)},
-                      {label:"仕込み 全ON",color:"#5b7fa6",onClick:()=>setAllAvail(sid,"shimikomi",true)},
+                      {label:"朝 全ON",color:"#b07d12",onClick:()=>setAllMorningTypeAvail(sid,"morning")},
+                      {label:"朝仕込 全ON",color:"#276749",onClick:()=>setAllMorningTypeAvail(sid,"prep")},
+                      {label:"仕込み 全ON",color:"#5b7fa6",onClick:()=>setAllMorningTypeAvail(sid,"shimikomi")},
                       ...NIGHT_TIMES.map(t=>({label:`夜${t} 全ON`,color:NIGHT_TC[t],onClick:()=>setAllAvail(sid,`night_${t}`,true)})),
                       ...(availViewStaff.aisaniOK?[{label:"アイサニ 全ON",color:C.accent,onClick:()=>setAllAvail(sid,"aisani",true)}]:[]),
                       ...(availViewStaff.kitchenOK?[{label:"厨房 全ON",color:"#276749",onClick:()=>setAllAvail(sid,"kitchen",true)}]:[]),
@@ -867,35 +886,27 @@ export default function App(){
                                 </>
                               ):(
                                 <>
-                                  {["morning","prep"].map(type=>{
-                                    const on=!!a[`${d}_${type}`];
-                                    const col=type==="morning"?"#b07d12":"#276749";
-                                    return(
-                                      <td key={type} style={{background:rowBg,textAlign:"center",padding:"3px 5px"}}>
-                                        <button onClick={()=>toggleAvail(sid,`${d}_${type}`)}
-                                          style={{width:34,height:28,borderRadius:8,border:on?"none":`1px solid ${col}90`,cursor:"pointer",fontSize:13,fontWeight:800,
-                                            background:on?col:"rgba(139,26,26,0.03)",
-                                            color:on?"#fff":col+"99",
-                                            boxShadow:on?`0 2px 8px ${col}44`:"none",transition:"all .15s"}}>
-                                          {on?"✓":""}
-                                        </button>
-                                      </td>
-                                    );
-                                  })}
-                                  {/* 仕込みのみ */}
                                   {(()=>{
-                                    const on=!!a[`${d}_shimikomi`];
-                                    return(
-                                      <td style={{background:rowBg,textAlign:"center",padding:"3px 3px"}}>
-                                        <button onClick={()=>toggleAvail(sid,`${d}_shimikomi`)}
-                                          style={{width:34,height:28,borderRadius:8,border:on?"none":"1px solid #5b7fa690",cursor:"pointer",fontSize:13,fontWeight:800,transition:"all .15s",
-                                            background:on?"#5b7fa6":"rgba(91,127,166,0.04)",
-                                            color:on?"#fff":"#5b7fa699",
-                                            boxShadow:on?"0 2px 8px #5b7fa644":"none"}}>
-                                          {on?"✓":""}
-                                        </button>
-                                      </td>
-                                    );
+                                    const anyMorningOn=MORNING_TYPES.some(t=>!!a[`${d}_${t}`]);
+                                    return MORNING_TYPES.map(type=>{
+                                      const on=!!a[`${d}_${type}`];
+                                      const locked=anyMorningOn&&!on;
+                                      const col=type==="morning"?"#b07d12":type==="prep"?"#276749":"#5b7fa6";
+                                      return(
+                                        <td key={type} style={{background:rowBg,textAlign:"center",padding:"3px 5px"}}>
+                                          <button onClick={()=>toggleMorningTypeAvail(sid,d,type)}
+                                            style={{width:34,height:28,borderRadius:8,
+                                              border:on?"none":`1px solid ${col}90`,
+                                              cursor:"pointer",fontSize:13,fontWeight:800,
+                                              background:on?col:"rgba(139,26,26,0.03)",
+                                              color:on?"#fff":col+"99",
+                                              boxShadow:on?`0 2px 8px ${col}44`:"none",
+                                              transition:"all .15s",opacity:locked?0.22:1}}>
+                                            {on?"✓":""}
+                                          </button>
+                                        </td>
+                                      );
+                                    });
                                   })()}
                                   {NIGHT_TIMES.map(t=>{
                                     const key=`${d}_night_${t}`;
