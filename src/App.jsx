@@ -483,14 +483,13 @@ export default function App(){
       nextToSave=next;
       return next;
     });
-    if(nextToSave) debounceSave('savedResult',serializeResult(nextToSave));
-  },[staff,debounceSave]);
+  },[staff]);
 
   const handleGenerate=()=>{
     setGenerating(true);
     setTimeout(()=>{
       const r=generateShifts(staff,year,month,avail,nightSlotConfig,aisaniConfig,kitchenConfig);
-      setResult(r);saveResultLS(r);debounceSave('savedResult',serializeResult(r));setView("result");setGenerating(false);
+      setResult(r);saveResultLS(r);setView("result");setGenerating(false);
     },500);
   };
 
@@ -546,7 +545,7 @@ export default function App(){
   useEffect(()=>{
     cleanupStaleKeys();
     const unsub=subscribeAll((data)=>{
-      if(data.staff          &&!pendingKeys.current.has('staff'))          setStaff(data.staff);
+      if(data.staff&&Array.isArray(data.staff)&&!pendingKeys.current.has('staff')) setStaff(data.staff);
       if(data.avail          &&!pendingKeys.current.has('avail'))          setAvail(data.avail);
       if(data.aisaniConfig   &&!pendingKeys.current.has('aisaniConfig'))   setAisaniConfig(data.aisaniConfig);
       if(data.kitchenConfig  &&!pendingKeys.current.has('kitchenConfig'))  setKitchenConfig(data.kitchenConfig);
@@ -562,10 +561,6 @@ export default function App(){
         const{_ym,...comments}=data.dayComments;
         if(_ym===fbYm) setDayComments(comments);
         else setDayComments({});
-      }
-      if(data.savedResult&&!pendingKeys.current.has('savedResult')){
-        const r=deserializeResult(data.savedResult);
-        if(r) setResult(r);
       }
       setLoading(false);
     });
@@ -620,8 +615,7 @@ export default function App(){
       nextToSave=next;
       return next;
     });
-    if(nextToSave) debounceSave('savedResult',serializeResult(nextToSave));
-  },[debounceSave]);
+  },[]);
   const handleGmLogin=()=>{
     if(pwInput===GM_PASSWORD){
       setGmMode(true);setView("slots");

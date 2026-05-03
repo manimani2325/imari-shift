@@ -15,7 +15,7 @@ const app = initializeApp(firebaseConfig)
 const db  = getDatabase(app)
 
 // ── 起動時に不正なキーを削除（過去の不具合で書き込まれた大容量データ）
-const STALE_KEYS = ['result', 'confirmedShift']
+const STALE_KEYS = ['result', 'confirmedShift', 'savedResult']
 export async function cleanupStaleKeys() {
   for (const key of STALE_KEYS) {
     try { await remove(ref(db, `shiftmaster/${key}`)) } catch(_) {}
