@@ -201,7 +201,8 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
       const baseCands=(relaxJunior,relaxMorning)=>staff.filter(s=>{
         if(prepW.has(s.id)) return false;
         if(assignedNight.has(s.id)) return false;
-        if(tomorrowMorningConfirmed.has(s.id)&&nextDayRisk) return false;
+        // SM/GMは翌日保護対象外（人手不足でも入れる）
+        if(tomorrowMorningConfirmed.has(s.id)&&nextDayRisk&&!isSenior(s.grade)) return false;
         if(!relaxMorning&&morningW.has(s.id)) return false;
         // 朝夜連続は人手不足時のみ・M/SM/GM等級に限る（J・Lは不可）
         if(relaxMorning&&morningW.has(s.id)&&!(isMid(s.grade)||isSenior(s.grade))) return false;
@@ -365,6 +366,59 @@ export default function App(){
     for(let d=1;d<=days;d++) if(!isClosed(year,month,d)) next[`${d}_${type}`]=val;
     updateAvail({...avail,[sid]:next});
   };
+
+  const swapShiftAssignment=useCallback((d,slotType,slotTime,newId)=>{
+    setResult(prev=>{
+      if(!prev) return prev;
+      const newShifts={...prev.shifts};
+      const dayShift={...newShifts[d],night:{...(newShifts[d]?.night||{})}};
+      let oldId=null;
+      if(slotType==='night'){
+        oldId=dayShift.night[slotTime]||null;
+        dayShift.night[slotTime]=newId;
+      } else if(slotType==='aisani'){
+        oldId=dayShift.aisani; dayShift.aisani=newId;
+      } else if(slotType==='kitchen'){
+        oldId=dayShift.kitchen; dayShift.kitchen=newId;
+      } else if(slotType==='prep'){
+        oldId=dayShift.prep[0]||null; dayShift.prep=newId?[newId]:[];
+      } else if(slotType==='morning'){
+        if(dayShift.morning.includes(newId)) return prev;
+        const arr=[...dayShift.morning];
+        if(arr.length<3){
+          arr.push(newId); // 不足分を追加
+        } else {
+          const ri=arr.reduce((mi,id,i)=>(prev.worked[id]||0)>(prev.worked[arr[mi]]||0)?i:mi,0);
+          oldId=arr[ri]; arr[ri]=newId;
+        }
+        dayShift.morning=arr;
+      }
+      if(oldId===newId) return prev;
+      newShifts[d]=dayShift;
+      // workedDaysを全シフトから再計算
+      const wd={};
+      staff.forEach(s=>{wd[s.id]=new Set();});
+      Object.entries(newShifts).forEach(([ds,sh])=>{
+        const dd=Number(ds);
+        [...(sh.morning||[]),...(sh.prep||[])].forEach(id=>{if(wd[id]) wd[id].add(dd);});
+        Object.values(sh.night||{}).filter(Boolean).forEach(id=>{if(wd[id]) wd[id].add(dd);});
+        if(sh.aisani&&wd[sh.aisani]) wd[sh.aisani].add(dd);
+        if(sh.kitchen&&wd[sh.kitchen]) wd[sh.kitchen].add(dd);
+      });
+      const newWorked={};
+      staff.forEach(s=>{newWorked[s.id]=wd[s.id].size;});
+      // shortageも更新
+      const newShortage={...prev.shortage,[d]:{...(prev.shortage[d]||{})}};
+      if(slotType==='night') newShortage[d]={...newShortage[d],night:{...(newShortage[d]?.night||{}),[slotTime]:newId?0:1}};
+      else if(slotType==='aisani') newShortage[d]={...newShortage[d],aisani:newId?0:1};
+      else if(slotType==='kitchen') newShortage[d]={...newShortage[d],kitchen:newId?0:1};
+      else if(slotType==='prep') newShortage[d]={...newShortage[d],prep:newId?0:1};
+      const totalW=staff.reduce((a,s)=>a+wd[s.id].size,0);
+      const totalC=staff.reduce((a,s)=>a+(prev.candW[s.id]||0),0);
+      const newAvgRate=totalC>0?Math.round(totalW/totalC*100):0;
+      return {...prev,shifts:newShifts,worked:newWorked,workedDays:wd,shortage:newShortage,avgRate:newAvgRate};
+    });
+  },[staff]);
 
   const handleGenerate=()=>{
     setGenerating(true);
@@ -1121,21 +1175,26 @@ export default function App(){
                         <div style={{display:"flex",flexDirection:"column",gap:5}}>
                           {!closed&&<SRow label="朝" time="7:00〜11:00" color="#b07d12"
                             people={day.morning.map(id=>staffMap[id]).filter(Boolean)} shortage={sh.morning||0}
-                            candidates={staff.filter(s=>avail[s.id]?.[`${d}_morning`]&&!day.morning.includes(s.id))}/>}
+                            candidates={staff.filter(s=>avail[s.id]?.[`${d}_morning`]&&!day.morning.includes(s.id))}
+                            onSwap={newId=>swapShiftAssignment(d,'morning',null,newId)}/>}
                           {!closed&&<SRow label="朝仕込" time="8:30〜16:00" color="#276749"
                             people={day.prep.map(id=>staffMap[id]).filter(Boolean)} shortage={sh.prep||0}
-                            candidates={staff.filter(s=>avail[s.id]?.[`${d}_prep`]&&!day.prep.includes(s.id))}/>}
+                            candidates={staff.filter(s=>avail[s.id]?.[`${d}_prep`]&&!day.prep.includes(s.id))}
+                            onSwap={newId=>swapShiftAssignment(d,'prep',null,newId)}/>}
                           {!closed&&slots.map(t=>{
                             const p=day.night[t];
                             const nightCands=staff.filter(s=>s.id!==p&&NIGHT_TIMES.some(nt=>avail[s.id]?.[`${d}_night_${nt}`]&&nightCompat(nt,t)));
-                            return <SRow key={t} label={`夜 ${t}〜`} time="" color={NIGHT_TC[t]} people={p?[staffMap[p]].filter(Boolean):[]} shortage={sh.night?.[t]||0} candidates={nightCands}/>;
+                            return <SRow key={t} label={`夜 ${t}〜`} time="" color={NIGHT_TC[t]} people={p?[staffMap[p]].filter(Boolean):[]} shortage={sh.night?.[t]||0} candidates={nightCands}
+                              onSwap={newId=>swapShiftAssignment(d,'night',t,newId)}/>;
                           })}
                           {aiOn&&<SRow label="アイサニ" time="ヘルプ" color={C.accent}
                             people={day.aisani?[staffMap[day.aisani]].filter(Boolean):[]} shortage={sh.aisani||0}
-                            candidates={staff.filter(s=>s.aisaniOK&&avail[s.id]?.[`${d}_aisani`]&&s.id!==day.aisani)}/>}
+                            candidates={staff.filter(s=>s.aisaniOK&&avail[s.id]?.[`${d}_aisani`]&&s.id!==day.aisani)}
+                            onSwap={newId=>swapShiftAssignment(d,'aisani',null,newId)}/>}
                           {!closed&&kitOn&&<SRow label="厨房" time="キッチン" color="#276749"
                             people={day.kitchen?[staffMap[day.kitchen]].filter(Boolean):[]} shortage={sh.kitchen||0}
-                            candidates={staff.filter(s=>s.kitchenOK&&avail[s.id]?.[`${d}_kitchen`]&&s.id!==day.kitchen)}/>}
+                            candidates={staff.filter(s=>s.kitchenOK&&avail[s.id]?.[`${d}_kitchen`]&&s.id!==day.kitchen)}
+                            onSwap={newId=>swapShiftAssignment(d,'kitchen',null,newId)}/>}
                         </div>
                       </div>
                     );
@@ -1150,7 +1209,7 @@ export default function App(){
   );
 }
 
-function SRow({label,time,color,people,shortage=0,candidates=[]}){
+function SRow({label,time,color,people,shortage=0,candidates=[],onSwap=null}){
   return(
     <div style={{display:"flex",flexDirection:"column",gap:3}}>
       <div style={{display:"flex",alignItems:"center",gap:7,flexWrap:"wrap"}}>
@@ -1174,9 +1233,13 @@ function SRow({label,time,color,people,shortage=0,candidates=[]}){
         <div style={{display:"flex",alignItems:"center",gap:5,paddingLeft:77,flexWrap:"wrap"}}>
           <span style={{fontSize:9,color:"#b0a090",flexShrink:0}}>候補：</span>
           {candidates.map(s=>(
-            <span key={s.id} style={{fontSize:10,padding:"2px 10px",borderRadius:999,background:"rgba(139,26,26,0.03)",color:"#8c7b6b",border:"1px dashed rgba(139,26,26,0.15)"}}>
-              {s.name}
-            </span>
+            onSwap
+              ? <button key={s.id} onClick={()=>onSwap(s.id)} style={{fontSize:10,padding:"2px 10px",borderRadius:999,background:"rgba(37,99,235,0.07)",color:"#1d4ed8",border:"1px dashed rgba(37,99,235,0.35)",cursor:"pointer",fontFamily:"inherit",fontWeight:600}}>
+                  {s.name}
+                </button>
+              : <span key={s.id} style={{fontSize:10,padding:"2px 10px",borderRadius:999,background:"rgba(139,26,26,0.03)",color:"#8c7b6b",border:"1px dashed rgba(139,26,26,0.15)"}}>
+                  {s.name}
+                </span>
           ))}
         </div>
       )}
