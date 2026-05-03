@@ -293,7 +293,7 @@ function serializeResult(r){
       night:day.night||{},
     };
   });
-  const {workedDays,...rest}=r;
+  const {workedDays,warnings,...rest}=r;
   return {...rest,shifts};
 }
 // Firebase/localStorage からロードした result を復元（全フィールドを保証）
@@ -483,13 +483,14 @@ export default function App(){
       nextToSave=next;
       return next;
     });
-  },[staff]);
+    if(nextToSave) debounceSave('savedResult',serializeResult(nextToSave));
+  },[staff,debounceSave]);
 
   const handleGenerate=()=>{
     setGenerating(true);
     setTimeout(()=>{
       const r=generateShifts(staff,year,month,avail,nightSlotConfig,aisaniConfig,kitchenConfig);
-      setResult(r);saveResultLS(r);setView("result");setGenerating(false);
+      setResult(r);saveResultLS(r);debounceSave('savedResult',serializeResult(r));setView("result");setGenerating(false);
     },500);
   };
 
@@ -562,6 +563,10 @@ export default function App(){
         if(_ym===fbYm) setDayComments(comments);
         else setDayComments({});
       }
+      if(data.savedResult&&!pendingKeys.current.has('savedResult')){
+        const r=deserializeResult(data.savedResult);
+        if(r) setResult(r);
+      }
       setLoading(false);
     });
     const t=setTimeout(()=>setLoading(false),5000);
@@ -615,7 +620,8 @@ export default function App(){
       nextToSave=next;
       return next;
     });
-  },[]);
+    if(nextToSave) debounceSave('savedResult',serializeResult(nextToSave));
+  },[debounceSave]);
   const handleGmLogin=()=>{
     if(pwInput===GM_PASSWORD){
       setGmMode(true);setView("slots");
