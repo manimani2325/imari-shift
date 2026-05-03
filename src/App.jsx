@@ -203,6 +203,8 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
         if(assignedNight.has(s.id)) return false;
         if(tomorrowMorningConfirmed.has(s.id)&&nextDayRisk) return false;
         if(!relaxMorning&&morningW.has(s.id)) return false;
+        // 朝夜連続は人手不足時のみ・M/SM/GM等級に限る（J・Lは不可）
+        if(relaxMorning&&morningW.has(s.id)&&!(isMid(s.grade)||isSenior(s.grade))) return false;
         // 新人: 通常は特別夜NG、ただし達成率≤40%なら許可（ベテランと組ませるため）
         if(!relaxJunior&&isJunior(s.grade)&&spec&&!juniorLowRate(s)) return false;
         return NIGHT_TIMES.some(t=>isAvail(s.id,`${d}_night_${t}`)&&nightCompat(t,slotTime));
