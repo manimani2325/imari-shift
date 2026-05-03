@@ -84,15 +84,25 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
 
   const morningRisk=(d)=>{
     if(d>days||isClosed(year,month,d)) return false;
-    const mc=staff.filter(s=>isAvail(s.id,`${d}_morning`)).length;
+    const mc=staff.filter(s=>isAvail(s.id,`${d}_morning`)||isAvail(s.id,`${d}_prep`)).length;
     const pc=staff.filter(s=>isAvail(s.id,`${d}_prep`)||isAvail(s.id,`${d}_shimikomi`)).length;
     return mc<2||pc<1;
   };
 
   for(let d=1;d<=days;d++){
     if(isClosed(year,month,d)){
-      result[d]={morning:[],prep:[],night:{},aisani:null,kitchen:null};
-      shortage[d]={morning:0,prep:0,night:{},aisani:0,kitchen:0};
+      // 定休日でもアイサニが有効な場合は処理する
+      const aiConf=aisaniConfig[d];
+      let aisaniId=null,aisaniShortage=0;
+      if(aiConf&&aiConf.enabled){
+        const aiCands=staff.filter(s=>s.aisaniOK&&isAvail(s.id,`${d}_aisani`));
+        const aiPick=pick(aiCands,1);
+        aisaniId=aiPick[0]?.id||null;
+        if(aiPick[0]) worked[aiPick[0].id]++;
+        aisaniShortage=aisaniId?0:1;
+      }
+      result[d]={morning:[],prep:[],night:{},aisani:aisaniId,kitchen:null};
+      shortage[d]={morning:0,prep:0,night:{},aisani:aisaniShortage,kitchen:0};
       warnings[d]=[];
       continue;
     }
@@ -155,13 +165,13 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
     pPick.forEach(s=>{worked[s.id]++;});
     dayS.prep=Math.max(0,1-pPick.length);
 
-    // ── 朝（morningTarget人）
+    // ── 朝（morningTarget人）: 朝仕込み選択者も朝の候補に含める
     const mStrict=staff.filter(s=>
-      isAvail(s.id,`${d}_morning`)&&
+      (isAvail(s.id,`${d}_morning`)||isAvail(s.id,`${d}_prep`))&&
       !dayR.prep.includes(s.id)&&
       !prevNight.has(s.id)
     );
-    const mAll=staff.filter(s=>isAvail(s.id,`${d}_morning`)&&!dayR.prep.includes(s.id));
+    const mAll=staff.filter(s=>(isAvail(s.id,`${d}_morning`)||isAvail(s.id,`${d}_prep`))&&!dayR.prep.includes(s.id));
     const mCands=mStrict.length>=morningTarget?mStrict:mAll;
     const mPick=pick(mCands,morningTarget,{maxJunior:1});
     mPick.forEach(s=>{ if(prevNight.has(s.id)) dayW.push(`${s.name}：前日夜→朝（人手不足）`); });
@@ -312,6 +322,25 @@ export default function App(){
   const targetSid=gmMode?null:(loginStaff?.id);
 
   const toggleAvail=(sid,key)=>updateAvail({...avail,[sid]:{...(avail[sid]||{}),[key]:!avail[sid]?.[key]}});
+  // 朝・朝仕込み・仕込みは排他選択: 1つをONにすると他2つをOFF
+  const MORNING_TYPES=['morning','prep','shimikomi'];
+  const toggleMorningTypeAvail=(sid,d,type)=>{
+    const cur=avail[sid]||{};
+    const key=`${d}_${type}`;
+    const newVal=!cur[key];
+    const next={...cur,[key]:newVal};
+    if(newVal) MORNING_TYPES.forEach(t=>{if(t!==type) next[`${d}_${t}`]=false;});
+    updateAvail({...avail,[sid]:next});
+  };
+  const setAllMorningTypeAvail=(sid,type)=>{
+    const cur=avail[sid]||{};const next={...cur};
+    for(let d=1;d<=days;d++){
+      if(isClosed(year,month,d)) continue;
+      next[`${d}_${type}`]=true;
+      MORNING_TYPES.forEach(t=>{if(t!==type) next[`${d}_${t}`]=false;});
+    }
+    updateAvail({...avail,[sid]:next});
+  };
   const toggleNightAvail=(sid,d,time)=>{
     const cur=avail[sid]||{};
     const next={...cur};
@@ -684,45 +713,45 @@ export default function App(){
                 const active=slots.length>0||aiOn||kitOn;
                 return(
                   <div key={d} style={{borderRadius:12,padding:"5px 3px",transition:"all .2s",
-                    background:closed?"#f5f0eb":active?"rgba(139,26,26,0.05)":"#fff",
-                    border:`1px solid ${closed?"rgba(139,26,26,0.06)":active?"rgba(139,26,26,0.25)":hol?"rgba(184,134,11,0.2)":dow===0?"rgba(192,57,43,0.18)":dow===6?"rgba(27,42,94,0.15)":"rgba(139,26,26,0.08)"}`,
-                    minHeight:74,opacity:closed?0.35:1,
-                    boxShadow:active?"0 2px 10px rgba(139,26,26,0.1)":"0 1px 4px rgba(0,0,0,0.04)"}}>
+                    background:closed?(aiOn?"rgba(139,26,26,0.05)":"#f5f0eb"):active?"rgba(139,26,26,0.05)":"#fff",
+                    border:`1px solid ${closed?(aiOn?"rgba(139,26,26,0.25)":"rgba(139,26,26,0.06)"):active?"rgba(139,26,26,0.25)":hol?"rgba(184,134,11,0.2)":dow===0?"rgba(192,57,43,0.18)":dow===6?"rgba(27,42,94,0.15)":"rgba(139,26,26,0.08)"}`,
+                    minHeight:74,opacity:closed&&!aiOn?0.35:1,
+                    boxShadow:active||aiOn?"0 2px 10px rgba(139,26,26,0.1)":"0 1px 4px rgba(0,0,0,0.04)"}}>
                     <div style={{textAlign:"center",fontSize:11,fontWeight:800,marginBottom:3,
                       color:closed?"#b0a090":hol?"#b8860b":dow===0?"#c0392b":dow===6?"#1b2a5e":C.text}}>
                       {d}{hol?"🎌":""}{closed?"🔒":""}
                     </div>
                     {!closed&&(
-                      <>
-                        <div style={{display:"flex",flexWrap:"wrap",gap:2,justifyContent:"center",marginBottom:3}}>
-                          {NIGHT_TIMES.map(t=>{
-                            const on=slots.includes(t);
-                            return(
-                              <button key={t} onClick={()=>toggleNightSlot(d,t)}
-                                style={{padding:"2px 3px",borderRadius:5,border:"none",cursor:"pointer",fontSize:7,fontWeight:800,
-                                  background:on?NIGHT_TC[t]:"rgba(139,26,26,0.07)",color:on?"#fff":"#8c7b6b",
-                                  transition:"all .15s"}}>
-                                {t}
-                              </button>
-                            );
-                          })}
-                        </div>
-                        <div style={{display:"flex",gap:2,justifyContent:"center"}}>
-                          <button onClick={()=>toggleAisani(d)}
-                            style={{padding:"2px 5px",borderRadius:5,border:"none",cursor:"pointer",fontSize:7,fontWeight:800,
-                              background:aiOn?"#8b1a1a":"rgba(139,26,26,0.07)",color:aiOn?"#fff":"#8c7b6b",
-                              transition:"all .15s"}}>
-                            アイサニ
-                          </button>
-                          <button onClick={()=>toggleKitchen(d)}
-                            style={{padding:"2px 5px",borderRadius:5,border:"none",cursor:"pointer",fontSize:7,fontWeight:800,
-                              background:kitOn?"#276749":"rgba(39,103,73,0.08)",color:kitOn?"#fff":"#8c7b6b",
-                              transition:"all .15s"}}>
-                            キッチン
-                          </button>
-                        </div>
-                      </>
+                      <div style={{display:"flex",flexWrap:"wrap",gap:2,justifyContent:"center",marginBottom:3}}>
+                        {NIGHT_TIMES.map(t=>{
+                          const on=slots.includes(t);
+                          return(
+                            <button key={t} onClick={()=>toggleNightSlot(d,t)}
+                              style={{padding:"2px 3px",borderRadius:5,border:"none",cursor:"pointer",fontSize:7,fontWeight:800,
+                                background:on?NIGHT_TC[t]:"rgba(139,26,26,0.07)",color:on?"#fff":"#8c7b6b",
+                                transition:"all .15s"}}>
+                              {t}
+                            </button>
+                          );
+                        })}
+                      </div>
                     )}
+                    <div style={{display:"flex",gap:2,justifyContent:"center"}}>
+                      <button onClick={()=>toggleAisani(d)}
+                        style={{padding:"2px 5px",borderRadius:5,border:"none",cursor:"pointer",fontSize:7,fontWeight:800,
+                          background:aiOn?"#8b1a1a":"rgba(139,26,26,0.07)",color:aiOn?"#fff":"#8c7b6b",
+                          transition:"all .15s"}}>
+                        アイサニ
+                      </button>
+                      {!closed&&(
+                        <button onClick={()=>toggleKitchen(d)}
+                          style={{padding:"2px 5px",borderRadius:5,border:"none",cursor:"pointer",fontSize:7,fontWeight:800,
+                            background:kitOn?"#276749":"rgba(39,103,73,0.08)",color:kitOn?"#fff":"#8c7b6b",
+                            transition:"all .15s"}}>
+                          キッチン
+                        </button>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -781,9 +810,9 @@ export default function App(){
                   </div>
                   <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:12}}>
                     {[
-                      {label:"朝 全ON",color:"#b07d12",onClick:()=>setAllAvail(sid,"morning",true)},
-                      {label:"朝仕込 全ON",color:"#276749",onClick:()=>setAllAvail(sid,"prep",true)},
-                      {label:"仕込み 全ON",color:"#5b7fa6",onClick:()=>setAllAvail(sid,"shimikomi",true)},
+                      {label:"朝 全ON",color:"#b07d12",onClick:()=>setAllMorningTypeAvail(sid,"morning")},
+                      {label:"朝仕込 全ON",color:"#276749",onClick:()=>setAllMorningTypeAvail(sid,"prep")},
+                      {label:"仕込み 全ON",color:"#5b7fa6",onClick:()=>setAllMorningTypeAvail(sid,"shimikomi")},
                       ...NIGHT_TIMES.map(t=>({label:`夜${t} 全ON`,color:NIGHT_TC[t],onClick:()=>setAllAvail(sid,`night_${t}`,true)})),
                       ...(availViewStaff.aisaniOK?[{label:"アイサニ 全ON",color:C.accent,onClick:()=>setAllAvail(sid,"aisani",true)}]:[]),
                       ...(availViewStaff.kitchenOK?[{label:"厨房 全ON",color:"#276749",onClick:()=>setAllAvail(sid,"kitchen",true)}]:[]),
@@ -835,38 +864,49 @@ export default function App(){
                               </td>
                               <td style={{background:rowBg,textAlign:"center",fontSize:10,color:closed?"#b0a090":C.muted}}>{DOW_JP[dow]}</td>
                               {closed?(
-                                <td colSpan={5+NIGHT_TIMES.length+(availViewStaff.aisaniOK?1:0)+(availViewStaff.kitchenOK?1:0)} style={{background:rowBg,textAlign:"center",fontSize:10,color:"#b0a090",padding:"6px"}}>定休日</td>
+                                <>
+                                  <td colSpan={3+NIGHT_TIMES.length+(availViewStaff.kitchenOK?1:0)} style={{background:rowBg,textAlign:"center",fontSize:10,color:"#b0a090",padding:"6px"}}>定休日</td>
+                                  {availViewStaff.aisaniOK&&(
+                                    <td style={{background:rowBg,textAlign:"center",padding:"3px 3px"}}>
+                                      {aisaniConfig[d]?.enabled?(
+                                        <button onClick={()=>toggleAvail(sid,`${d}_aisani`)}
+                                          style={{width:34,height:28,borderRadius:8,border:!!a[`${d}_aisani`]?"none":`1px solid ${C.accent}90`,cursor:"pointer",fontSize:13,fontWeight:800,transition:"all .15s",
+                                            background:!!a[`${d}_aisani`]?C.accent:"rgba(139,26,26,0.03)",
+                                            color:!!a[`${d}_aisani`]?"#fff":C.accent+"99",
+                                            boxShadow:!!a[`${d}_aisani`]?`0 2px 8px ${C.accent}44`:"none"}}>
+                                          {!!a[`${d}_aisani`]?"✓":""}
+                                        </button>
+                                      ):(
+                                        <div style={{width:34,height:28,borderRadius:8,background:"rgba(139,26,26,0.02)",margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                                          <span style={{fontSize:9,color:"rgba(139,26,26,0.15)"}}>—</span>
+                                        </div>
+                                      )}
+                                    </td>
+                                  )}
+                                </>
                               ):(
                                 <>
-                                  {["morning","prep"].map(type=>{
-                                    const on=!!a[`${d}_${type}`];
-                                    const col=type==="morning"?"#b07d12":"#276749";
-                                    return(
-                                      <td key={type} style={{background:rowBg,textAlign:"center",padding:"3px 5px"}}>
-                                        <button onClick={()=>toggleAvail(sid,`${d}_${type}`)}
-                                          style={{width:34,height:28,borderRadius:8,border:on?"none":`1px solid ${col}90`,cursor:"pointer",fontSize:13,fontWeight:800,
-                                            background:on?col:"rgba(139,26,26,0.03)",
-                                            color:on?"#fff":col+"99",
-                                            boxShadow:on?`0 2px 8px ${col}44`:"none",transition:"all .15s"}}>
-                                          {on?"✓":""}
-                                        </button>
-                                      </td>
-                                    );
-                                  })}
-                                  {/* 仕込みのみ */}
                                   {(()=>{
-                                    const on=!!a[`${d}_shimikomi`];
-                                    return(
-                                      <td style={{background:rowBg,textAlign:"center",padding:"3px 3px"}}>
-                                        <button onClick={()=>toggleAvail(sid,`${d}_shimikomi`)}
-                                          style={{width:34,height:28,borderRadius:8,border:on?"none":"1px solid #5b7fa690",cursor:"pointer",fontSize:13,fontWeight:800,transition:"all .15s",
-                                            background:on?"#5b7fa6":"rgba(91,127,166,0.04)",
-                                            color:on?"#fff":"#5b7fa699",
-                                            boxShadow:on?"0 2px 8px #5b7fa644":"none"}}>
-                                          {on?"✓":""}
-                                        </button>
-                                      </td>
-                                    );
+                                    const anyMorningOn=MORNING_TYPES.some(t=>!!a[`${d}_${t}`]);
+                                    return MORNING_TYPES.map(type=>{
+                                      const on=!!a[`${d}_${type}`];
+                                      const locked=anyMorningOn&&!on;
+                                      const col=type==="morning"?"#b07d12":type==="prep"?"#276749":"#5b7fa6";
+                                      return(
+                                        <td key={type} style={{background:rowBg,textAlign:"center",padding:"3px 5px"}}>
+                                          <button onClick={()=>toggleMorningTypeAvail(sid,d,type)}
+                                            style={{width:34,height:28,borderRadius:8,
+                                              border:on?"none":`1px solid ${col}90`,
+                                              cursor:"pointer",fontSize:13,fontWeight:800,
+                                              background:on?col:"rgba(139,26,26,0.03)",
+                                              color:on?"#fff":col+"99",
+                                              boxShadow:on?`0 2px 8px ${col}44`:"none",
+                                              transition:"all .15s",opacity:locked?0.22:1}}>
+                                            {on?"✓":""}
+                                          </button>
+                                        </td>
+                                      );
+                                    });
                                   })()}
                                   {NIGHT_TIMES.map(t=>{
                                     const key=`${d}_night_${t}`;
@@ -1018,11 +1058,12 @@ export default function App(){
 
                   {Array.from({length:days},(_,i)=>i+1).map(d=>{
                     const dow=getDow(year,month,d),hol=isHol(year,month,d);
-                    if(isClosed(year,month,d)) return null;
+                    const closed=isClosed(year,month,d);
+                    const aiOn=aisaniConfig[d]?.enabled;
+                    if(closed&&!aiOn) return null;
                     const day=result.shifts[d];
                     if(!day) return null;
                     const slots=nightSlotConfig[d]||[];
-                    const aiOn=aisaniConfig[d]?.enabled;
                     const sh=result.shortage[d]||{};
                     const warns=result.warnings[d]||[];
                     const kitOn=kitchenConfig[d]?.enabled;
@@ -1034,7 +1075,8 @@ export default function App(){
                           <span style={{fontWeight:900,fontSize:15,color:hol?"#b8860b":dow===0?"#c0392b":dow===6?"#1b2a5e":C.text}}>
                             {month+1}/{d}（{DOW_JP[dow]}）{hol?"🎌":""}
                           </span>
-                          {isSpec(year,month,d)&&<span style={{fontSize:9,padding:"3px 8px",borderRadius:999,background:"rgba(184,134,11,0.08)",color:"#b8860b",fontWeight:700,border:"1px solid rgba(184,134,11,0.2)"}}>特別夜</span>}
+                          {closed&&<span style={{fontSize:9,padding:"3px 8px",borderRadius:999,background:"rgba(139,26,26,0.06)",color:"#8c7b6b",fontWeight:700,border:"1px solid rgba(139,26,26,0.12)"}}>定休日</span>}
+                          {!closed&&isSpec(year,month,d)&&<span style={{fontSize:9,padding:"3px 8px",borderRadius:999,background:"rgba(184,134,11,0.08)",color:"#b8860b",fontWeight:700,border:"1px solid rgba(184,134,11,0.2)"}}>特別夜</span>}
                           {totalS>0&&<span style={{fontSize:9,padding:"3px 8px",borderRadius:999,background:"rgba(192,57,43,0.08)",color:"#c0392b",fontWeight:700,border:"1px solid rgba(192,57,43,0.2)"}}>⚠ 不足{totalS}名</span>}
                           {warns.length>0&&<span style={{fontSize:9,padding:"3px 8px",borderRadius:999,background:"rgba(184,134,11,0.06)",color:"#b8860b",fontWeight:700,border:"1px solid rgba(184,134,11,0.18)"}}>⚡ 例外あり</span>}
                         </div>
@@ -1044,13 +1086,13 @@ export default function App(){
                           </div>
                         )}
                         <div style={{display:"flex",flexDirection:"column",gap:5}}>
-                          <SRow label="朝" time="7:00〜11:00" color="#b07d12"
+                          {!closed&&<SRow label="朝" time="7:00〜11:00" color="#b07d12"
                             people={day.morning.map(id=>staffMap[id]).filter(Boolean)} shortage={sh.morning||0}
-                            candidates={staff.filter(s=>avail[s.id]?.[`${d}_morning`]&&!day.morning.includes(s.id))}/>
-                          <SRow label="朝仕込" time="8:30〜16:00" color="#276749"
+                            candidates={staff.filter(s=>avail[s.id]?.[`${d}_morning`]&&!day.morning.includes(s.id))}/>}
+                          {!closed&&<SRow label="朝仕込" time="8:30〜16:00" color="#276749"
                             people={day.prep.map(id=>staffMap[id]).filter(Boolean)} shortage={sh.prep||0}
-                            candidates={staff.filter(s=>avail[s.id]?.[`${d}_prep`]&&!day.prep.includes(s.id))}/>
-                          {slots.map(t=>{
+                            candidates={staff.filter(s=>avail[s.id]?.[`${d}_prep`]&&!day.prep.includes(s.id))}/>}
+                          {!closed&&slots.map(t=>{
                             const p=day.night[t];
                             const nightCands=staff.filter(s=>s.id!==p&&NIGHT_TIMES.some(nt=>avail[s.id]?.[`${d}_night_${nt}`]&&nightCompat(nt,t)));
                             return <SRow key={t} label={`夜 ${t}〜`} time="" color={NIGHT_TC[t]} people={p?[staffMap[p]].filter(Boolean):[]} shortage={sh.night?.[t]||0} candidates={nightCands}/>;
@@ -1058,7 +1100,7 @@ export default function App(){
                           {aiOn&&<SRow label="アイサニ" time="ヘルプ" color={C.accent}
                             people={day.aisani?[staffMap[day.aisani]].filter(Boolean):[]} shortage={sh.aisani||0}
                             candidates={staff.filter(s=>s.aisaniOK&&avail[s.id]?.[`${d}_aisani`]&&s.id!==day.aisani)}/>}
-                          {kitOn&&<SRow label="厨房" time="キッチン" color="#276749"
+                          {!closed&&kitOn&&<SRow label="厨房" time="キッチン" color="#276749"
                             people={day.kitchen?[staffMap[day.kitchen]].filter(Boolean):[]} shortage={sh.kitchen||0}
                             candidates={staff.filter(s=>s.kitchenOK&&avail[s.id]?.[`${d}_kitchen`]&&s.id!==day.kitchen)}/>}
                         </div>
