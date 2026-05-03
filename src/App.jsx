@@ -56,15 +56,36 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
   const days = daysIn(year, month);
   const result  = {};
   const worked  = {};
-  const candW   = {};
-  staff.forEach(s=>{ worked[s.id]=0; candW[s.id]=0; });
+  const workedMorning = {}; // 朝/夜バランス用
+  const workedNight   = {};
+  const workedDays    = {}; // 日数ベース達成率用
+  const candDays      = {}; // 候補日数
+  staff.forEach(s=>{ worked[s.id]=0; workedMorning[s.id]=0; workedNight[s.id]=0; workedDays[s.id]=new Set(); candDays[s.id]=0; });
 
   const isAvail = (sid,key) => !!avail[sid]?.[key];
 
+  // 事前に候補日数を集計
+  staff.forEach(s=>{
+    for(let d=1;d<=days;d++){
+      const hasAny=isAvail(s.id,`${d}_morning`)||isAvail(s.id,`${d}_prep`)||isAvail(s.id,`${d}_shimikomi`)||
+        NIGHT_TIMES.some(t=>isAvail(s.id,`${d}_night_${t}`))||
+        (s.aisaniOK&&isAvail(s.id,`${d}_aisani`))||(s.kitchenOK&&isAvail(s.id,`${d}_kitchen`));
+      if(hasAny) candDays[s.id]++;
+    }
+  });
+
   const pick = (candidates, count, opts={}) => {
-    const { maxJunior=99, needSeniorIfJunior=false } = opts;
+    const { maxJunior=99, needSeniorIfJunior=false, balanceMode=null } = opts;
     const sorted = [...candidates].sort((a,b)=>{
       const wd = worked[a.id]-worked[b.id]; if(wd!==0) return wd;
+      // 朝/夜バランス: 朝選出時は夜多め優先、夜選出時は朝多め優先
+      if(balanceMode==='morning'){
+        const da=(workedMorning[a.id]-workedNight[a.id]),db=(workedMorning[b.id]-workedNight[b.id]);
+        if(da!==db) return da-db;
+      } else if(balanceMode==='night'){
+        const da=(workedNight[a.id]-workedMorning[a.id]),db=(workedNight[b.id]-workedMorning[b.id]);
+        if(da!==db) return da-db;
+      }
       const lo = {J:3,L:2,M:1,SM:0,GM:0}; return lo[a.grade]-lo[b.grade];
     });
     const res=[]; let nb=0;
@@ -80,6 +101,8 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
     return res.slice(0,count);
   };
 
+  const addWorked=(s,d,type)=>{ worked[s.id]++; workedDays[s.id].add(d); if(type==='morning') workedMorning[s.id]++; else if(type==='night') workedNight[s.id]++; };
+
   const shortage={}; const warnings={};
 
   const morningRisk=(d)=>{
@@ -91,14 +114,13 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
 
   for(let d=1;d<=days;d++){
     if(isClosed(year,month,d)){
-      // 定休日でもアイサニが有効な場合は処理する
       const aiConf=aisaniConfig[d];
       let aisaniId=null,aisaniShortage=0;
       if(aiConf&&aiConf.enabled){
         const aiCands=staff.filter(s=>s.aisaniOK&&isAvail(s.id,`${d}_aisani`));
         const aiPick=pick(aiCands,1);
         aisaniId=aiPick[0]?.id||null;
-        if(aiPick[0]) worked[aiPick[0].id]++;
+        if(aiPick[0]) addWorked(aiPick[0],d,'aisani');
         aisaniShortage=aisaniId?0:1;
       }
       result[d]={morning:[],prep:[],night:{},aisani:aisaniId,kitchen:null};
@@ -115,22 +137,11 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
     const prevNight=new Set(d>1?Object.values(result[d-1]?.night||{}).filter(Boolean):[]);
     const nextDayRisk=morningRisk(d+1);
 
-    // 候補ウェイト加算
-    staff.forEach(s=>{
-      const hM=isAvail(s.id,`${d}_morning`);
-      const hP=isAvail(s.id,`${d}_prep`)||isAvail(s.id,`${d}_shimikomi`);
-      const hN=NIGHT_TIMES.some(t=>isAvail(s.id,`${d}_night_${t}`));
-      const hA=s.aisaniOK&&isAvail(s.id,`${d}_aisani`);
-      const hK=s.kitchenOK&&isAvail(s.id,`${d}_kitchen`);
-      candW[s.id]+=calcCandWeight(hM,hP,hN)+(hA?1:0)+(hK?1:0);
-    });
-
     // ── 仕込みスロット: 朝仕込み > 仕込みのみ > 仕込み夜 の優先で埋める
     const prepStrict=staff.filter(s=>isAvail(s.id,`${d}_prep`)&&!prevNight.has(s.id));
     const prepAll=staff.filter(s=>isAvail(s.id,`${d}_prep`));
     const shimikomiStrict=staff.filter(s=>isAvail(s.id,`${d}_shimikomi`)&&!prevNight.has(s.id));
     const shimikomiAll=staff.filter(s=>isAvail(s.id,`${d}_shimikomi`));
-    // 仕込みのみ（夜未選択）と仕込み夜（仕込み＋夜を両方選択）に分類
     const shimikomiOnlyAll=shimikomiAll.filter(s=>!NIGHT_TIMES.some(t=>isAvail(s.id,`${d}_night_${t}`)));
     const shimikomiOnlyStrict=shimikomiStrict.filter(s=>!NIGHT_TIMES.some(t=>isAvail(s.id,`${d}_night_${t}`)));
     const shimikomiNightAll=shimikomiAll.filter(s=>NIGHT_TIMES.some(t=>isAvail(s.id,`${d}_night_${t}`)));
@@ -138,49 +149,40 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
 
     let pPick=[];
     let morningTarget=3;
-    let prepMode="none"; // "prep"|"shimikomiOnly"|"shimikomiNight"|"none"
+    let prepMode="none";
 
     if(prepAll.length>0){
-      // Case A: 朝仕込み最優先 → morning=2、夜NG
       pPick=pick(prepStrict.length>=1?prepStrict:prepAll,1);
-      morningTarget=2;
-      prepMode="prep";
+      morningTarget=2; prepMode="prep";
     } else if(shimikomiOnlyAll.length>0){
-      // Case B: 仕込みのみ → morning=3、夜NG
       pPick=pick(shimikomiOnlyStrict.length>=1?shimikomiOnlyStrict:shimikomiOnlyAll,1);
-      morningTarget=3;
-      prepMode="shimikomiOnly";
+      morningTarget=3; prepMode="shimikomiOnly";
     } else if(shimikomiNightAll.length>0){
-      // Case C: 仕込み夜 → morning=3、朝候補3人以上なら夜もOK
       pPick=pick(shimikomiNightStrict.length>=1?shimikomiNightStrict:shimikomiNightAll,1);
-      morningTarget=3;
-      prepMode="shimikomiNight";
+      morningTarget=3; prepMode="shimikomiNight";
     } else {
-      morningTarget=3;
-      prepMode="none";
+      morningTarget=3; prepMode="none";
     }
 
     if(pPick[0]&&prevNight.has(pPick[0].id)) dayW.push(`${pPick[0].name}：前日夜→仕込み（人手不足）`);
     dayR.prep=pPick.map(s=>s.id);
-    pPick.forEach(s=>{worked[s.id]++;});
+    pPick.forEach(s=>addWorked(s,d,'prep'));
     dayS.prep=Math.max(0,1-pPick.length);
 
-    // ── 朝（morningTarget人）: 朝仕込み選択者も朝の候補に含める
+    // ── 朝（morningTarget人）: 朝仕込み選択者も候補に含める
     const mStrict=staff.filter(s=>
       (isAvail(s.id,`${d}_morning`)||isAvail(s.id,`${d}_prep`))&&
-      !dayR.prep.includes(s.id)&&
-      !prevNight.has(s.id)
+      !dayR.prep.includes(s.id)&&!prevNight.has(s.id)
     );
     const mAll=staff.filter(s=>(isAvail(s.id,`${d}_morning`)||isAvail(s.id,`${d}_prep`))&&!dayR.prep.includes(s.id));
     const mCands=mStrict.length>=morningTarget?mStrict:mAll;
-    const mPick=pick(mCands,morningTarget,{maxJunior:1});
+    const mPick=pick(mCands,morningTarget,{maxJunior:1,balanceMode:'morning'});
     mPick.forEach(s=>{ if(prevNight.has(s.id)) dayW.push(`${s.name}：前日夜→朝（人手不足）`); });
     dayR.morning=mPick.map(s=>s.id);
-    mPick.forEach(s=>{worked[s.id]++;});
+    mPick.forEach(s=>addWorked(s,d,'morning'));
     dayS.morning=Math.max(0,morningTarget-mPick.length);
 
     // ── 夜
-    // 朝仕込み・仕込みのみは夜NG。仕込み夜は朝候補3人以上の場合のみ夜もOK
     const shimikomiCanDoNight=prepMode==="shimikomiNight"&&mCands.length>=3;
     const prepW=shimikomiCanDoNight?new Set():new Set(dayR.prep);
     const morningW=new Set(dayR.morning);
@@ -193,17 +195,22 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
     }
 
     slots.forEach(slotTime=>{
+      // 新人の低達成率判定（率≤40%の新人は特別夜もOK）
+      const juniorLowRate=s=>isJunior(s.grade)&&candDays[s.id]>0&&(workedDays[s.id].size/candDays[s.id])<=0.4;
+
       const baseCands=(relaxJunior,relaxMorning)=>staff.filter(s=>{
         if(prepW.has(s.id)) return false;
         if(assignedNight.has(s.id)) return false;
         if(tomorrowMorningConfirmed.has(s.id)&&nextDayRisk) return false;
         if(!relaxMorning&&morningW.has(s.id)) return false;
-        if(!relaxJunior&&isJunior(s.grade)&&spec) return false;
+        // 新人: 通常は特別夜NG、ただし達成率≤40%なら許可（ベテランと組ませるため）
+        if(!relaxJunior&&isJunior(s.grade)&&spec&&!juniorLowRate(s)) return false;
         return NIGHT_TIMES.some(t=>isAvail(s.id,`${d}_night_${t}`)&&nightCompat(t,slotTime));
       });
 
       const currentNightJuniors=[...assignedNight].filter(id=>isJunior(staffById_local(staff,id)?.grade));
-      const maxJ=currentNightJuniors.length>=1?0:1;
+      const nightHasJunior=currentNightJuniors.length>0;
+      const maxJ=nightHasJunior?0:1;
 
       let nCands=baseCands(false,false);
       let relaxed="";
@@ -211,10 +218,11 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
       if(!nCands.length){ nCands=baseCands(true,false); relaxed="新人特別夜"; }
       if(!nCands.length){ nCands=baseCands(true,true); relaxed="朝夜連続+新人特別夜"; }
 
-      const nPick=pick(nCands,1,{maxJunior:maxJ,needSeniorIfJunior:true});
+      // 同日にすでに新人がいる場合はベテラン優先ソート
+      const nPick=pick(nCands,1,{maxJunior:maxJ,needSeniorIfJunior:!nightHasJunior,balanceMode:'night'});
       dayR.night[slotTime]=nPick[0]?.id||null;
       if(nPick[0]){
-        worked[nPick[0].id]++;
+        addWorked(nPick[0],d,'night');
         assignedNight.add(nPick[0].id);
         if(relaxed){
           const r=[];
@@ -242,20 +250,18 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
       const usingFallback=aiCandsStrict.length===0&&aiCandsNightFallback.length>0;
       const aiPick=pick(aiCands,1);
       dayR.aisani=aiPick[0]?.id||null;
-      if(aiPick[0]){ worked[aiPick[0].id]++; if(usingFallback) dayW.push(`${aiPick[0].name}：アイサニ（夜候補から補填）`); }
+      if(aiPick[0]){ addWorked(aiPick[0],d,'aisani'); if(usingFallback) dayW.push(`${aiPick[0].name}：アイサニ（夜候補から補填）`); }
       dayS.aisani=aiPick[0]?0:1;
     }
 
-    // ── キッチン
+    // ── キッチン（候補選択者のみ、フォールバックなし）
     const kitConf=kitchenConfig[d];
     if(kitConf&&kitConf.enabled){
       const alreadyAll=new Set([...dayR.morning,...dayR.prep,...Object.values(dayR.night).filter(Boolean),...(dayR.aisani?[dayR.aisani]:[])]);
-      const kitStrict=staff.filter(s=>s.kitchenOK&&isAvail(s.id,`${d}_kitchen`)&&!alreadyAll.has(s.id));
-      const kitFallback=staff.filter(s=>s.kitchenOK&&!alreadyAll.has(s.id));
-      const kitCands=kitStrict.length>0?kitStrict:kitFallback;
+      const kitCands=staff.filter(s=>s.kitchenOK&&isAvail(s.id,`${d}_kitchen`)&&!alreadyAll.has(s.id));
       const kitPick=pick(kitCands,1);
       dayR.kitchen=kitPick[0]?.id||null;
-      if(kitPick[0]){ worked[kitPick[0].id]++; if(kitStrict.length===0&&kitFallback.length>0) dayW.push(`${kitPick[0].name}：キッチン（候補外から補填）`); }
+      if(kitPick[0]) addWorked(kitPick[0],d,'kitchen');
       dayS.kitchen=kitPick[0]?0:1;
     }
 
@@ -264,11 +270,14 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
     warnings[d]=dayW;
   }
 
-  const totalW=Object.values(worked).reduce((a,b)=>a+b,0);
-  const totalC=Object.values(candW).reduce((a,b)=>a+b,0);
+  // 日数ベース達成率
+  const workedDaysCounts={};
+  staff.forEach(s=>{ workedDaysCounts[s.id]=workedDays[s.id].size; });
+  const totalW=staff.reduce((a,s)=>a+workedDays[s.id].size,0);
+  const totalC=staff.reduce((a,s)=>a+candDays[s.id],0);
   const avgRate=totalC>0?Math.round(totalW/totalC*100):0;
 
-  return {shifts:result,worked,candW,shortage,warnings,avgRate};
+  return {shifts:result,worked:workedDaysCounts,candW:candDays,shortage,warnings,avgRate,workedDays};
 }
 
 function staffById_local(staffArr,id){ return staffArr.find(s=>s.id===id); }
@@ -300,6 +309,7 @@ export default function App(){
   const [staffPwError,setStaffPwError]=useState(false);
   const [staffPanelOpen,setStaffPanelOpen]=useState(false);
   const [generating,setGenerating]=useState(false);
+  const [resultStaffFilter,setResultStaffFilter]=useState(null);
   const [exporting,setExporting]=useState(false);
   const shiftRef=useRef(null);
 
@@ -1035,7 +1045,10 @@ export default function App(){
                   </div>
 
                   <div style={{...card,marginBottom:16}}>
-                    <div style={{fontSize:11,fontWeight:700,color:C.accent,marginBottom:12}}>勤務実績 / 候補ウェイト（達成率）</div>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12,flexWrap:"wrap",gap:6}}>
+                      <div style={{fontSize:11,fontWeight:700,color:C.accent}}>勤務実績 / 候補日数（達成率）</div>
+                      {resultStaffFilter&&<button onClick={()=>setResultStaffFilter(null)} style={{...btn(false),fontSize:10,padding:"4px 12px"}}>全員表示</button>}
+                    </div>
                     <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
                       {staff.map(s=>{
                         const w=result.worked[s.id]||0;
@@ -1043,19 +1056,30 @@ export default function App(){
                         const pct=c>0?Math.round(w/c*100):0;
                         const avg=result.avgRate;
                         const dc=pct>avg?"#276749":pct<avg?"#c0392b":C.muted;
+                        const sel=resultStaffFilter===s.id;
                         return(
-                          <div key={s.id} style={{background:"#fdfaf6",borderRadius:12,padding:"10px 14px",textAlign:"center",border:`1px solid ${GRADE_COLOR[s.grade]}22`,minWidth:84}}>
+                          <div key={s.id} onClick={()=>setResultStaffFilter(sel?null:s.id)}
+                            style={{background:sel?"rgba(139,26,26,0.08)":"#fdfaf6",borderRadius:12,padding:"10px 14px",textAlign:"center",
+                              border:`1.5px solid ${sel?C.accent:GRADE_COLOR[s.grade]+"22"}`,minWidth:84,cursor:"pointer",transition:"all .15s",
+                              boxShadow:sel?"0 2px 12px rgba(139,26,26,0.18)":"none"}}>
                             <div style={{fontSize:10,fontWeight:700,color:GRADE_COLOR[s.grade]}}>{s.name}</div>
-                            <div style={{fontSize:19,fontWeight:900,marginTop:4,color:C.text}}>{w}<span style={{fontSize:10,color:C.muted,fontWeight:400}}>/{c}</span></div>
+                            <div style={{fontSize:19,fontWeight:900,marginTop:4,color:C.text}}>{w}<span style={{fontSize:10,color:C.muted,fontWeight:400}}>/{c}日</span></div>
                             <div style={{fontSize:12,fontWeight:800,color:dc}}>{pct}%</div>
-                            <div style={{fontSize:8,color:C.muted,opacity:.6,marginTop:2}}>実績/候補</div>
+                            <div style={{fontSize:8,color:C.muted,opacity:.6,marginTop:2}}>実績/候補日数</div>
                           </div>
                         );
                       })}
                     </div>
-                    <div style={{fontSize:10,color:C.muted,marginTop:10,opacity:.6}}>平均達成率：{result.avgRate}%</div>
+                    <div style={{fontSize:10,color:C.muted,marginTop:10,opacity:.6}}>
+                      平均達成率：{result.avgRate}%　{resultStaffFilter?"（名前タップで全員表示）":"（名前タップで個別確認）"}
+                    </div>
                   </div>
 
+                  {resultStaffFilter&&(
+                    <div style={{marginBottom:10,padding:"8px 14px",borderRadius:10,background:"rgba(139,26,26,0.05)",border:"1px solid rgba(139,26,26,0.15)",fontSize:11,color:C.accent,fontWeight:700}}>
+                      {staff.find(s=>s.id===resultStaffFilter)?.name} のシフト一覧
+                    </div>
+                  )}
                   {Array.from({length:days},(_,i)=>i+1).map(d=>{
                     const dow=getDow(year,month,d),hol=isHol(year,month,d);
                     const closed=isClosed(year,month,d);
@@ -1063,6 +1087,13 @@ export default function App(){
                     if(closed&&!aiOn) return null;
                     const day=result.shifts[d];
                     if(!day) return null;
+                    // 個別フィルター: 選択スタッフが入っている日のみ表示
+                    if(resultStaffFilter){
+                      const sid=resultStaffFilter;
+                      const inShift=day.morning.includes(sid)||day.prep.includes(sid)||
+                        Object.values(day.night).includes(sid)||day.aisani===sid||day.kitchen===sid;
+                      if(!inShift) return null;
+                    }
                     const slots=nightSlotConfig[d]||[];
                     const sh=result.shortage[d]||{};
                     const warns=result.warnings[d]||[];
