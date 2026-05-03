@@ -409,6 +409,7 @@ export default function App(){
   };
 
   const swapShiftAssignment=useCallback((d,slotType,slotTime,newId,removeId=null)=>{
+    let nextToSave=null;
     setResult(prev=>{
       if(!prev) return prev;
       const newShifts={...prev.shifts};
@@ -468,15 +469,17 @@ export default function App(){
       const newAvgRate=totalC>0?Math.round(totalW/totalC*100):0;
       const next={...prev,shifts:newShifts,worked:newWorked,workedDays:wd,shortage:newShortage,avgRate:newAvgRate};
       saveResultLS(next);
+      nextToSave=next;
       return next;
     });
-  },[staff]);
+    if(nextToSave) debounceSave('savedResult',serializeResult(nextToSave));
+  },[staff,debounceSave]);
 
   const handleGenerate=()=>{
     setGenerating(true);
     setTimeout(()=>{
       const r=generateShifts(staff,year,month,avail,nightSlotConfig,aisaniConfig,kitchenConfig);
-      setResult(r);saveResultLS(r);setView("result");setGenerating(false);
+      setResult(r);saveResultLS(r);debounceSave('savedResult',serializeResult(r));setView("result");setGenerating(false);
     },500);
   };
 
@@ -537,17 +540,21 @@ export default function App(){
       if(data.aisaniConfig   &&!pendingKeys.current.has('aisaniConfig'))   setAisaniConfig(data.aisaniConfig);
       if(data.kitchenConfig  &&!pendingKeys.current.has('kitchenConfig'))  setKitchenConfig(data.kitchenConfig);
       if(data.yearMonth      &&!pendingKeys.current.has('yearMonth'))      {setYear(data.yearMonth.y);setMonth(data.yearMonth.m);}
-      // nightSlotConfig: _ymキーで月チェック（別の月のデータを無視）
+      // Firebase の yearMonth を基準に _ym チェック（setYear/setMonth は非同期なので ymRef は使わない）
+      const fbYm=data.yearMonth?`${data.yearMonth.y}_${data.yearMonth.m}`:ymRef.current;
       if(data.nightSlotConfig&&!pendingKeys.current.has('nightSlotConfig')){
         const{_ym,...slots}=data.nightSlotConfig;
-        if(_ym===ymRef.current) setNightSlotConfig(slots);
+        if(_ym===fbYm) setNightSlotConfig(slots);
         else setNightSlotConfig({});
       }
-      // dayComments: _ymキーで月チェック
       if(data.dayComments&&!pendingKeys.current.has('dayComments')){
         const{_ym,...comments}=data.dayComments;
-        if(_ym===ymRef.current) setDayComments(comments);
+        if(_ym===fbYm) setDayComments(comments);
         else setDayComments({});
+      }
+      if(data.savedResult&&!pendingKeys.current.has('savedResult')){
+        const r=deserializeResult(data.savedResult);
+        if(r) setResult(r);
       }
       setLoading(false);
     });
@@ -591,6 +598,7 @@ export default function App(){
     debounceSave('dayComments',{_ym:ymRef.current,...val});
   };
   const dismissShortage=useCallback((d,slotType,slotTime=null)=>{
+    let nextToSave=null;
     setResult(prev=>{
       if(!prev) return prev;
       const newShortage={...prev.shortage,[d]:{...(prev.shortage[d]||{})}};
@@ -598,9 +606,11 @@ export default function App(){
       else newShortage[d]={...newShortage[d],[slotType]:0};
       const next={...prev,shortage:newShortage};
       saveResultLS(next);
+      nextToSave=next;
       return next;
     });
-  },[]);
+    if(nextToSave) debounceSave('savedResult',serializeResult(nextToSave));
+  },[debounceSave]);
   const handleGmLogin=()=>{
     if(pwInput===GM_PASSWORD){
       setGmMode(true);setView("slots");
