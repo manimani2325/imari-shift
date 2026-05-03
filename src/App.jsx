@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
-import { subscribeAll, saveKey, cleanupStaleKeys } from './firebase.js'
+import { subscribeAll, saveKey, cleanupStaleKeys } from './supabase.js'
 
 // ── 祝日データ 2024〜2026
 const HOLIDAYS = new Set([
