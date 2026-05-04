@@ -484,7 +484,7 @@ export default function App(){
       return next;
     });
     if(nextToSave) debounceSave('savedResult',serializeResult(nextToSave));
-  },[staff,debounceSave]);
+  },[staff]);
 
   const handleGenerate=()=>{
     setGenerating(true);
@@ -621,7 +621,7 @@ export default function App(){
       return next;
     });
     if(nextToSave) debounceSave('savedResult',serializeResult(nextToSave));
-  },[debounceSave]);
+  },[]);
   const handleGmLogin=()=>{
     if(pwInput===GM_PASSWORD){
       setGmMode(true);setView("slots");
