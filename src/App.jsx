@@ -548,11 +548,17 @@ export default function App(){
     const unsub=subscribeAll((data)=>{
       if(data.staff&&Array.isArray(data.staff)&&!pendingKeys.current.has('staff')) setStaff(data.staff);
       if(data.avail          &&!pendingKeys.current.has('avail'))          setAvail(data.avail);
-      if(data.aisaniConfig   &&!pendingKeys.current.has('aisaniConfig'))   setAisaniConfig(data.aisaniConfig);
-      if(data.kitchenConfig  &&!pendingKeys.current.has('kitchenConfig'))  setKitchenConfig(data.kitchenConfig);
       if(data.yearMonth      &&!pendingKeys.current.has('yearMonth'))      {setYear(data.yearMonth.y);setMonth(data.yearMonth.m);}
       // Firebase の yearMonth を基準に _ym チェック（setYear/setMonth は非同期なので ymRef は使わない）
       const fbYm=data.yearMonth?`${data.yearMonth.y}_${data.yearMonth.m}`:ymRef.current;
+      if(data.aisaniConfig&&!pendingKeys.current.has('aisaniConfig')){
+        const{_ym,...cfg}=data.aisaniConfig;
+        if(_ym===fbYm) setAisaniConfig(cfg); else setAisaniConfig({});
+      }
+      if(data.kitchenConfig&&!pendingKeys.current.has('kitchenConfig')){
+        const{_ym,...cfg}=data.kitchenConfig;
+        if(_ym===fbYm) setKitchenConfig(cfg); else setKitchenConfig({});
+      }
       if(data.nightSlotConfig&&!pendingKeys.current.has('nightSlotConfig')){
         const{_ym,...slots}=data.nightSlotConfig;
         if(_ym===fbYm) setNightSlotConfig(slots);
@@ -598,8 +604,8 @@ export default function App(){
     setNightSlotConfig(val);
     debounceSave('nightSlotConfig',{_ym:ymRef.current,...val});
   };
-  const updateAisaniCfg=val=>{setAisaniConfig(val);debounceSave('aisaniConfig',val);};
-  const updateKitchenCfg=val=>{setKitchenConfig(val);debounceSave('kitchenConfig',val);};
+  const updateAisaniCfg=val=>{setAisaniConfig(val);debounceSave('aisaniConfig',{_ym:ymRef.current,...val});};
+  const updateKitchenCfg=val=>{setKitchenConfig(val);debounceSave('kitchenConfig',{_ym:ymRef.current,...val});};
   const updateYearMonth=(y,m)=>{
     setYear(y);setMonth(m);debounceSave('yearMonth',{y,m});
     setNightSlotConfig({});setDayComments({});setResult(null);
