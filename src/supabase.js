@@ -2,11 +2,13 @@ import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
+  import.meta.env.VITE_SUPABASE_ANON_KEY,
+  { realtime: { enabled: false } }
 )
 
 const TABLE = 'app_data'
 const STALE_KEYS = ['result', 'confirmedShift']
+const POLL_INTERVAL = 4000
 
 // ── 起動時に不正なキーを削除
 export async function cleanupStaleKeys() {
@@ -24,23 +26,16 @@ async function fetchAllData() {
   return result
 }
 
-// ── 全データをリアルタイム購読
+// ── ポーリングで全データを購読（4秒ごと）
 export function subscribeAll(callback) {
   const notify = async () => {
     const data = await fetchAllData()
     try { callback(data) } catch(e) { console.error('subscribeAll callback error', e) }
   }
 
-  // 初回取得
   notify()
-
-  // リアルタイム購読（変更があるたびに全取得して通知）
-  const channel = supabase
-    .channel('app_data_changes')
-    .on('postgres_changes', { event: '*', schema: 'public', table: TABLE }, notify)
-    .subscribe()
-
-  return () => supabase.removeChannel(channel)
+  const timer = setInterval(notify, POLL_INTERVAL)
+  return () => clearInterval(timer)
 }
 
 // ── キーに値を書き込む
