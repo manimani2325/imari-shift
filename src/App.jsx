@@ -324,6 +324,36 @@ function deserializeResult(r){
 }
 
 // ── localStorage へ result を保存/復元
+// ── 確定シフト serialize/deserialize（Firebase 空配列対策）
+function serializeConfirmedShift(result, year, month) {
+  if (!result) return null;
+  const shifts = {};
+  Object.entries(result.shifts || {}).forEach(([d, day]) => {
+    if (!day) { shifts[d] = null; return; }
+    shifts[d] = {
+      morning: (day.morning && day.morning.length) ? day.morning : ['_EMPTY_'],
+      prep:    (day.prep    && day.prep.length)    ? day.prep    : ['_EMPTY_'],
+      night:   day.night || {},
+    };
+  });
+  return { year, month, shifts };
+}
+function deserializeConfirmedShift(cs) {
+  try {
+    if (!cs || !cs.shifts) return null;
+    const shifts = {};
+    Object.entries(cs.shifts).forEach(([d, day]) => {
+      if (!day) { shifts[d] = null; return; }
+      shifts[d] = {
+        morning: Array.isArray(day.morning) ? day.morning.filter(x => x !== '_EMPTY_') : [],
+        prep:    Array.isArray(day.prep)    ? day.prep.filter(x => x !== '_EMPTY_')    : [],
+        night:   (day.night && typeof day.night === 'object') ? day.night : {},
+      };
+    });
+    return { year: cs.year, month: cs.month, shifts };
+  } catch(_) { return null; }
+}
+
 const LS_KEY = 'imari_result';
 function saveResultLS(r) {
   try { localStorage.setItem(LS_KEY, JSON.stringify(serializeResult(r))); } catch(_) {}
@@ -354,6 +384,7 @@ export default function App(){
   const [aisaniConfig,setAisaniConfig]=useState({});
   const [kitchenConfig,setKitchenConfig]=useState({});
   const [result,setResult]=useState(null);
+  const [confirmedShift,setConfirmedShift]=useState(null);
   const [dayComments,setDayComments]=useState({});
   const [view,setView]=useState("slots"); // slots|avail|result
   const [gmMode,setGmMode]=useState(false);
@@ -572,6 +603,10 @@ export default function App(){
       if(data.savedResult&&!pendingKeys.current.has('savedResult')){
         const r=deserializeResult(data.savedResult);
         if(r) setResult(r);
+      }
+      if(data.confirmedShift){
+        const cs=deserializeConfirmedShift(data.confirmedShift);
+        if(cs) setConfirmedShift(cs);
       }
       setLoading(false);
     });
@@ -1184,6 +1219,53 @@ export default function App(){
           </div>
         )}
 
+        {/* ── スタッフ 自分のシフト表示 */}
+        {!gmMode&&loginStaff&&confirmedShift&&(()=>{
+          const sid=loginStaff.id;
+          const csYear=confirmedShift.year;
+          const csMonth=confirmedShift.month;
+          const myDays=[];
+          const csdays=daysIn(csYear,csMonth);
+          for(let d=1;d<=csdays;d++){
+            const day=confirmedShift.shifts[d];
+            if(!day) continue;
+            const slots=[];
+            if(day.morning&&day.morning.includes(sid)) slots.push({label:"朝",color:"#f97316"});
+            if(day.prep&&day.prep.includes(sid))       slots.push({label:"仕込",color:"#8b5cf6"});
+            if(day.night){
+              Object.entries(day.night).forEach(([time,ids])=>{
+                if(Array.isArray(ids)&&ids.includes(sid)) slots.push({label:`夜 ${time}`,color:NIGHT_TC[time]||"#3b82f6"});
+              });
+            }
+            if(slots.length>0) myDays.push({d,dow:getDow(csYear,csMonth,d),slots});
+          }
+          return(
+            <div style={{...card,marginTop:16}}>
+              <div style={{fontWeight:900,fontSize:14,color:"#276749",marginBottom:12}}>
+                📋 {csYear}年{csMonth+1}月 自分のシフト
+              </div>
+              {myDays.length===0?(
+                <div style={{textAlign:"center",color:C.muted,fontSize:13,padding:"20px 0"}}>シフトが割り当てられていません</div>
+              ):(
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  {myDays.map(({d,dow,slots})=>(
+                    <div key={d} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:10,background:"#fdfaf6",border:"1px solid rgba(39,103,73,0.12)"}}>
+                      <div style={{minWidth:44,fontWeight:900,fontSize:14,color:dow===0?"#c0392b":dow===6?"#1b2a5e":C.text}}>
+                        {d}日<span style={{fontSize:11,marginLeft:3,color:C.muted}}>({DOW_JP[dow]})</span>
+                      </div>
+                      <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                        {slots.map((s,i)=>(
+                          <span key={i} style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,background:s.color+"20",color:s.color,border:`1px solid ${s.color}40`}}>{s.label}</span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         {!gmMode&&!loginStaff&&(
           <div style={{textAlign:"center",padding:"80px 20px",color:C.muted}}>
             <div style={{width:80,height:80,borderRadius:40,background:"rgba(139,26,26,0.05)",display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:34,marginBottom:18,border:"1px solid rgba(139,26,26,0.1)"}}>👤</div>
@@ -1213,6 +1295,12 @@ export default function App(){
                     {exporting?"⏳ 出力中...":"📷 画像で保存"}
                   </button>
                 </div>
+                <button onClick={()=>{
+                  const cs=serializeConfirmedShift(result,year,month);
+                  if(cs){saveKey('confirmedShift',cs);setConfirmedShift(deserializeConfirmedShift(cs));alert(`${year}年${month+1}月のシフトを確定しました`);}
+                }} style={{width:"100%",marginBottom:16,padding:"13px",borderRadius:12,border:"none",cursor:"pointer",fontSize:14,fontWeight:900,background:"linear-gradient(135deg,#276749,#1a4731)",color:"#fff",boxShadow:"0 4px 14px rgba(39,103,73,0.3)"}}>
+                  ✅ スタッフにシフトを公開する
+                </button>
 
                 <div ref={shiftRef} style={{background:C.bg,padding:16,borderRadius:18}}>
                   <div style={{textAlign:"center",marginBottom:18}}>
