@@ -518,14 +518,13 @@ export default function App(){
       nextToSave=next;
       return next;
     });
-    if(nextToSave) debounceSave('savedResult',serializeResult(nextToSave));
   },[staff]);
 
   const handleGenerate=()=>{
     setGenerating(true);
     setTimeout(()=>{
       const r=generateShifts(staff,year,month,avail,nightSlotConfig,aisaniConfig,kitchenConfig);
-      setResult(r);saveResultLS(r);debounceSave('savedResult',serializeResult(r));setView("result");setGenerating(false);
+      setResult(r);saveResultLS(r);setView("result");setGenerating(false);
     },500);
   };
 
@@ -604,10 +603,6 @@ export default function App(){
         if(_ym===fbYm) setDayComments(comments);
         else setDayComments({});
       }
-      if(data.savedResult&&!pendingKeys.current.has('savedResult')){
-        const r=deserializeResult(data.savedResult);
-        if(r) setResult(r);
-      }
       if(data.confirmedShift){
         const cs=deserializeConfirmedShift(data.confirmedShift);
         setConfirmedShift(cs||null);
@@ -667,7 +662,6 @@ export default function App(){
       nextToSave=next;
       return next;
     });
-    if(nextToSave) debounceSave('savedResult',serializeResult(nextToSave));
   },[]);
   const handleGmLogin=()=>{
     if(pwInput===GM_PASSWORD){
