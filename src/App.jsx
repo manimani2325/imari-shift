@@ -199,6 +199,7 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
     const morningW=new Set(dayR.morning);
     const kitchenW=new Set(dayR.kitchen?[dayR.kitchen]:[]);
     const assignedNight=new Set();
+    const nightPickResults=[];
 
     const tomorrowMorningConfirmed=new Set();
     if(nextDayRisk&&d<days&&!isClosed(year,month,d+1)){
@@ -234,20 +235,29 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
       if(!nCands.length){ nCands=baseCands(true,false); relaxed="新人特別夜"; }
       if(!nCands.length){ nCands=baseCands(true,true); relaxed="朝夜連続+新人特別夜"; }
 
-      // 同日にすでに新人がいる場合はベテラン優先ソート
       const nPick=pick(nCands,1,{maxJunior:maxJ,needSeniorIfJunior:!nightHasJunior,balanceMode:'night'});
-      dayR.night[slotTime]=nPick[0]?.id||null;
       if(nPick[0]){
         addWorked(nPick[0],d,'night');
         assignedNight.add(nPick[0].id);
-        if(relaxed){
-          const r=[];
-          if(morningW.has(nPick[0].id)) r.push("朝夜連続");
-          if(isJunior(nPick[0].grade)&&spec) r.push("新人特別夜");
-          if(r.length) dayW.push(`${nPick[0].name}：${r.join("・")}（人手不足）`);
-        }
+        nightPickResults.push({slotTime,person:nPick[0],relaxed});
+      } else {
+        dayS.night[slotTime]=1;
       }
-      dayS.night[slotTime]=nPick[0]?0:1;
+    });
+
+    // 等級の高い順（GM>SM>M>L>J）に早い時間帯へ割り当て
+    const sortedSlots=[...nightPickResults.map(r=>r.slotTime)].sort((a,b)=>NIGHT_ORDER.indexOf(a)-NIGHT_ORDER.indexOf(b));
+    const sortedByGrade=[...nightPickResults].sort((a,b)=>GRADES.indexOf(b.person.grade)-GRADES.indexOf(a.person.grade));
+    sortedSlots.forEach((slotTime,i)=>{
+      const{person,relaxed}=sortedByGrade[i];
+      dayR.night[slotTime]=person.id;
+      dayS.night[slotTime]=0;
+      if(relaxed){
+        const r=[];
+        if(morningW.has(person.id)) r.push("朝夜連続");
+        if(isJunior(person.grade)&&spec) r.push("新人特別夜");
+        if(r.length) dayW.push(`${person.name}：${r.join("・")}（人手不足）`);
+      }
     });
 
     // ── アイサニ
