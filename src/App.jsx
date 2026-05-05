@@ -610,7 +610,9 @@ export default function App(){
       }
       if(data.confirmedShift){
         const cs=deserializeConfirmedShift(data.confirmedShift);
-        if(cs) setConfirmedShift(cs);
+        setConfirmedShift(cs||null);
+      } else {
+        setConfirmedShift(null);
       }
       setLoading(false);
     });
@@ -1301,12 +1303,23 @@ export default function App(){
                     {exporting?"⏳ 出力中...":"📷 画像で保存"}
                   </button>
                 </div>
-                <button onClick={()=>{
-                  const cs=serializeConfirmedShift(result,year,month);
-                  if(cs){saveKey('confirmedShift',cs);setConfirmedShift(deserializeConfirmedShift(cs));alert(`${year}年${month+1}月のシフトを確定しました`);}
-                }} style={{width:"100%",marginBottom:16,padding:"13px",borderRadius:12,border:"none",cursor:"pointer",fontSize:14,fontWeight:900,background:"linear-gradient(135deg,#276749,#1a4731)",color:"#fff",boxShadow:"0 4px 14px rgba(39,103,73,0.3)"}}>
-                  ✅ スタッフにシフトを公開する
-                </button>
+                <div style={{display:"flex",gap:8,marginBottom:16}}>
+                  <button onClick={()=>{
+                    const cs=serializeConfirmedShift(result,year,month);
+                    if(cs){saveKey('confirmedShift',cs);setConfirmedShift(deserializeConfirmedShift(cs));alert(`${year}年${month+1}月のシフトを公開しました`);}
+                  }} style={{flex:1,padding:"13px",borderRadius:12,border:"none",cursor:"pointer",fontSize:13,fontWeight:900,background:"linear-gradient(135deg,#276749,#1a4731)",color:"#fff",boxShadow:"0 4px 14px rgba(39,103,73,0.3)"}}>
+                    ✅ シフトを公開
+                  </button>
+                  {confirmedShift&&(
+                    <button onClick={()=>{
+                      if(window.confirm("公開中のシフトを取り消しますか？スタッフ側から非表示になります。")){
+                        saveKey('confirmedShift',null);setConfirmedShift(null);
+                      }
+                    }} style={{flex:1,padding:"13px",borderRadius:12,border:"1px solid rgba(192,57,43,0.3)",cursor:"pointer",fontSize:13,fontWeight:900,background:"rgba(192,57,43,0.06)",color:"#c0392b"}}>
+                      ✕ 公開を取り消す
+                    </button>
+                  )}
+                </div>
 
                 <div ref={shiftRef} style={{background:C.bg,padding:16,borderRadius:18}}>
                   <div style={{textAlign:"center",marginBottom:18}}>
