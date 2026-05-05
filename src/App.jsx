@@ -334,6 +334,8 @@ function serializeConfirmedShift(result, year, month) {
       morning: (day.morning && day.morning.length) ? day.morning : ['_EMPTY_'],
       prep:    (day.prep    && day.prep.length)    ? day.prep    : ['_EMPTY_'],
       night:   day.night || {},
+      aisani:  day.aisani  ?? null,
+      kitchen: day.kitchen ?? null,
     };
   });
   return { year, month, shifts };
@@ -348,6 +350,8 @@ function deserializeConfirmedShift(cs) {
         morning: Array.isArray(day.morning) ? day.morning.filter(x => x !== '_EMPTY_') : [],
         prep:    Array.isArray(day.prep)    ? day.prep.filter(x => x !== '_EMPTY_')    : [],
         night:   (day.night && typeof day.night === 'object') ? day.night : {},
+        aisani:  day.aisani  ?? null,
+        kitchen: day.kitchen ?? null,
       };
     });
     return { year: cs.year, month: cs.month, shifts };
@@ -1233,10 +1237,12 @@ export default function App(){
             if(day.morning&&day.morning.includes(sid)) slots.push({label:"朝",color:"#f97316"});
             if(day.prep&&day.prep.includes(sid))       slots.push({label:"朝仕込み",color:"#8b5cf6"});
             if(day.night){
-              Object.entries(day.night).forEach(([time,ids])=>{
-                if(Array.isArray(ids)&&ids.includes(sid)) slots.push({label:`夜 ${time}`,color:NIGHT_TC[time]||"#3b82f6"});
+              Object.entries(day.night).forEach(([time,id])=>{
+                if(id===sid||Number(id)===sid) slots.push({label:`夜 ${time}`,color:NIGHT_TC[time]||"#3b82f6"});
               });
             }
+            if(day.aisani===sid||Number(day.aisani)===sid) slots.push({label:"アイサニ",color:"#10b981"});
+            if(day.kitchen===sid||Number(day.kitchen)===sid) slots.push({label:"キッチン",color:"#276749"});
             if(slots.length>0) myDays.push({d,dow:getDow(csYear,csMonth,d),slots});
           }
           return(
