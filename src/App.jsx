@@ -197,6 +197,7 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
     const shimikomiCanDoNight=prepMode==="shimikomiNight"&&mCands.length>=3;
     const prepW=shimikomiCanDoNight?new Set():new Set(dayR.prep);
     const morningW=new Set(dayR.morning);
+    const kitchenW=new Set(dayR.kitchen?[dayR.kitchen]:[]);
     const assignedNight=new Set();
 
     const tomorrowMorningConfirmed=new Set();
@@ -211,6 +212,7 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
 
       const baseCands=(relaxJunior,relaxMorning)=>staff.filter(s=>{
         if(prepW.has(s.id)) return false;
+        if(kitchenW.has(s.id)) return false;
         if(assignedNight.has(s.id)) return false;
         // SM/GMは翌日保護対象外（人手不足でも入れる）
         if(tomorrowMorningConfirmed.has(s.id)&&nextDayRisk&&!isSenior(s.grade)) return false;
