@@ -1231,7 +1231,7 @@ export default function App(){
             if(!day) continue;
             const slots=[];
             if(day.morning&&day.morning.includes(sid)) slots.push({label:"朝",color:"#f97316"});
-            if(day.prep&&day.prep.includes(sid))       slots.push({label:"仕込",color:"#8b5cf6"});
+            if(day.prep&&day.prep.includes(sid))       slots.push({label:"朝仕込み",color:"#8b5cf6"});
             if(day.night){
               Object.entries(day.night).forEach(([time,ids])=>{
                 if(Array.isArray(ids)&&ids.includes(sid)) slots.push({label:`夜 ${time}`,color:NIGHT_TC[time]||"#3b82f6"});
