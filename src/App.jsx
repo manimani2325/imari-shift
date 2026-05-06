@@ -812,7 +812,7 @@ export default function App(){
             </div>
             <div style={{display:"flex",gap:6,alignItems:"center"}}>
               <div style={{display:"flex",background:"rgba(139,26,26,0.05)",borderRadius:999,padding:3,gap:2,border:"1px solid rgba(139,26,26,0.1)"}}>
-                <button onClick={()=>{if(gmMode)return;setPwModal(true);}} style={{...btn(gmMode,"linear-gradient(135deg,#8b1a1a,#b8860b)"),fontSize:11,padding:"5px 14px",borderRadius:999}}>GM</button>
+                <button onClick={()=>{if(gmMode)return;setPwModal(true);}} style={{...btn(gmMode,"linear-gradient(135deg,#8b1a1a,#b8860b)"),fontSize:11,padding:"5px 14px",borderRadius:999}}>管理者</button>
                 <button onClick={()=>{setGmMode(false);setView("avail");setLoginStaff(null);}} style={{...btn(!gmMode,"linear-gradient(135deg,#1b2a5e,#2d4a9e)"),fontSize:11,padding:"5px 14px",borderRadius:999}}>スタッフ</button>
               </div>
               {gmMode&&<button onClick={()=>setStaffPanelOpen(v=>!v)} style={{...btn(staffPanelOpen,"rgba(139,26,26,0.15)"),fontSize:11,padding:"7px 14px",border:staffPanelOpen?"none":`1px solid rgba(139,26,26,0.15)`}}>👥 スタッフ</button>}
