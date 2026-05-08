@@ -1278,17 +1278,25 @@ export default function App(){
           for(let d=1;d<=csdays;d++){
             const day=confirmedShift.shifts[d];
             if(!day) continue;
-            const slots=[];
-            if(day.morning&&day.morning.includes(sid)) slots.push({label:"朝",color:"#f97316"});
-            if(day.prep&&day.prep.includes(sid))       slots.push({label:"朝仕込み",color:"#8b5cf6"});
-            if(day.night){
-              Object.entries(day.night).forEach(([time,id])=>{
-                if(id===sid||Number(id)===sid) slots.push({label:`夜 ${time}`,color:NIGHT_TC[time]||"#3b82f6"});
-              });
+            const inMorning=day.morning?.includes(sid)||day.morning?.includes(Number(sid));
+            const inPrep=day.prep?.includes(sid)||day.prep?.includes(Number(sid));
+            const inNight=day.night&&Object.values(day.night).some(id=>id===sid||Number(id)===sid);
+            const inAisani=day.aisani===sid||Number(day.aisani)===sid;
+            const inKitchen=day.kitchen===sid||Number(day.kitchen)===sid;
+            if(!inMorning&&!inPrep&&!inNight&&!inAisani&&!inKitchen) continue;
+            const groups=[];
+            if(inMorning||inPrep){
+              const ids=[...(day.morning||[]),...(day.prep||[])];
+              groups.push({label:"朝・朝仕込み",color:"#f97316",members:ids.map(id=>staffMap[id]||staffMap[Number(id)]).filter(Boolean)});
             }
-            if(day.aisani===sid||Number(day.aisani)===sid) slots.push({label:"アイサニ",color:"#10b981"});
-            if(day.kitchen===sid||Number(day.kitchen)===sid) slots.push({label:"キッチン",color:"#276749"});
-            if(slots.length>0) myDays.push({d,dow:getDow(csYear,csMonth,d),slots});
+            if(inNight){
+              const nightMembers=[];
+              NIGHT_ORDER.forEach(t=>{const id=day.night[t];if(id!=null){const s=staffMap[id]||staffMap[Number(id)];if(s) nightMembers.push({person:s,time:t});}});
+              groups.push({label:"夜",color:"#3b82f6",night:true,members:nightMembers});
+            }
+            if(inAisani){const s=staffMap[day.aisani]||staffMap[Number(day.aisani)];groups.push({label:"アイサニ",color:"#10b981",members:s?[s]:[]});}
+            if(inKitchen){const s=staffMap[day.kitchen]||staffMap[Number(day.kitchen)];groups.push({label:"キッチン",color:"#276749",members:s?[s]:[]});}
+            myDays.push({d,dow:getDow(csYear,csMonth,d),groups});
           }
           return(
             <div style={{...card,marginTop:16}}>
@@ -1298,15 +1306,37 @@ export default function App(){
               {myDays.length===0?(
                 <div style={{textAlign:"center",color:C.muted,fontSize:13,padding:"20px 0"}}>シフトが割り当てられていません</div>
               ):(
-                <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                  {myDays.map(({d,dow,slots})=>(
-                    <div key={d} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:10,background:"#fdfaf6",border:"1px solid rgba(39,103,73,0.12)"}}>
-                      <div style={{minWidth:44,fontWeight:900,fontSize:14,color:dow===0?"#c0392b":dow===6?"#1b2a5e":C.text}}>
-                        {d}日<span style={{fontSize:11,marginLeft:3,color:C.muted}}>({DOW_JP[dow]})</span>
+                <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                  {myDays.map(({d,dow,groups})=>(
+                    <div key={d} style={{borderRadius:12,background:"#fdfaf6",border:"1px solid rgba(39,103,73,0.12)",overflow:"hidden"}}>
+                      <div style={{padding:"8px 14px",background:"rgba(39,103,73,0.06)",borderBottom:"1px solid rgba(39,103,73,0.1)",fontWeight:900,fontSize:14,color:dow===0?"#c0392b":dow===6?"#1b2a5e":C.text}}>
+                        {d}日<span style={{fontSize:11,marginLeft:4,fontWeight:600,color:C.muted}}>({DOW_JP[dow]})</span>
                       </div>
-                      <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
-                        {slots.map((s,i)=>(
-                          <span key={i} style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,background:s.color+"20",color:s.color,border:`1px solid ${s.color}40`}}>{s.label}</span>
+                      <div style={{padding:"10px 14px",display:"flex",flexDirection:"column",gap:10}}>
+                        {groups.map((g,gi)=>(
+                          <div key={gi}>
+                            <div style={{fontSize:10,fontWeight:700,color:g.color,marginBottom:5,letterSpacing:.5}}>{g.label}</div>
+                            <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                              {g.night
+                                ? g.members.map(({person,time},i)=>(
+                                    <span key={i} style={{fontSize:12,fontWeight:700,padding:"4px 11px",borderRadius:999,
+                                      background:(person.id===sid||Number(person.id)===sid)?g.color:"rgba(59,130,246,0.08)",
+                                      color:(person.id===sid||Number(person.id)===sid)?"#fff":C.text,
+                                      border:`1px solid ${g.color}${(person.id===sid||Number(person.id)===sid)?"":"30"}`}}>
+                                      {time} {person.name}
+                                    </span>
+                                  ))
+                                : g.members.map((person,i)=>(
+                                    <span key={i} style={{fontSize:12,fontWeight:700,padding:"4px 11px",borderRadius:999,
+                                      background:(person.id===sid||Number(person.id)===sid)?g.color:"rgba(0,0,0,0.04)",
+                                      color:(person.id===sid||Number(person.id)===sid)?"#fff":C.text,
+                                      border:`1px solid ${g.color}${(person.id===sid||Number(person.id)===sid)?"":"20"}`}}>
+                                      {person.name}
+                                    </span>
+                                  ))
+                              }
+                            </div>
+                          </div>
                         ))}
                       </div>
                     </div>
