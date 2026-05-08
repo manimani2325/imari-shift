@@ -1287,8 +1287,8 @@ export default function App(){
             const groups=[];
             if(inMorning||inPrep){
               const morningMembers=[];
-              (day.morning||[]).forEach(id=>{const s=staffMap[id]||staffMap[Number(id)];if(s) morningMembers.push({person:s,time:"朝"});});
-              (day.prep||[]).forEach(id=>{const s=staffMap[id]||staffMap[Number(id)];if(s) morningMembers.push({person:s,time:"朝仕込み"});});
+              (day.morning||[]).forEach(id=>{const s=staffMap[id]||staffMap[Number(id)];if(s) morningMembers.push({person:s,time:"朝（7:00〜11:00）"});});
+              (day.prep||[]).forEach(id=>{const s=staffMap[id]||staffMap[Number(id)];if(s) morningMembers.push({person:s,time:"朝仕込み（8:30〜16:00）"});});
               groups.push({label:"朝・朝仕込み",color:"#f97316",night:true,members:morningMembers});
             }
             if(inNight){
