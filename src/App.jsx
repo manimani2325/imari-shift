@@ -857,7 +857,7 @@ export default function App(){
                 <button onClick={()=>setLoginStaff(null)} style={{...btn(false),fontSize:10,padding:"3px 10px"}}>変更</button>
               </div>
               <div style={{display:"flex",gap:3,background:"rgba(139,26,26,0.04)",borderRadius:13,padding:3,border:"1px solid rgba(139,26,26,0.08)"}}>
-                {[["avail","📅 候補日入力"],["shift","📋 自分のシフト"]].map(([v,l])=>(
+                {[["avail","📅 候補日入力"],["shift","📋 自分のシフト"],["full","📆 全体シフト"]].map(([v,l])=>(
                   <button key={v} onClick={()=>setStaffTab(v)}
                     style={{flex:1,padding:"9px 4px",borderRadius:11,border:"none",cursor:"pointer",fontSize:12,fontWeight:700,transition:"all .2s",
                       background:staffTab===v?"linear-gradient(135deg,#8b1a1a,#b8860b)":"transparent",
@@ -1345,6 +1345,115 @@ export default function App(){
                   ))}
                 </div>
               )}
+            </div>
+          );
+        })()}
+
+        {/* ── スタッフ 全体シフト表示 */}
+        {!gmMode&&loginStaff&&staffTab==="full"&&(()=>{
+          if(!confirmedShift) return(
+            <div style={{...card,marginTop:16,textAlign:"center",padding:"48px 20px"}}>
+              <div style={{fontSize:36,marginBottom:14}}>📆</div>
+              <div style={{fontSize:14,color:C.muted}}>まだシフトが公開されていません</div>
+              <div style={{fontSize:11,color:C.muted,marginTop:6,opacity:.7}}>管理者がシフトを公開すると表示されます</div>
+            </div>
+          );
+          const csYear=confirmedShift.year;
+          const csMonth=confirmedShift.month;
+          const csdays=daysIn(csYear,csMonth);
+          const sid=loginStaff.id;
+          return(
+            <div style={{marginTop:16}}>
+              <div style={{textAlign:"center",marginBottom:14}}>
+                <div style={{fontSize:10,letterSpacing:6,fontWeight:700,color:C.gold,marginBottom:4}}>🍶 旬菜いまり</div>
+                <div style={{fontSize:20,fontWeight:900,color:C.text}}>{csYear}年{csMonth+1}月 シフト表</div>
+              </div>
+              {Array.from({length:csdays},(_,i)=>i+1).map(d=>{
+                const dow=getDow(csYear,csMonth,d),hol=isHol(csYear,csMonth,d);
+                const closed=isClosed(csYear,csMonth,d);
+                const day=confirmedShift.shifts[d];
+                if(!day&&closed) return null;
+                const nightEntries=day?Object.entries(day.night||{}).filter(([,id])=>id!=null).sort(([a],[b])=>NIGHT_ORDER.indexOf(a)-NIGHT_ORDER.indexOf(b)):[];
+                const hasAisani=day&&day.aisani!=null;
+                const hasKitchen=day&&day.kitchen!=null;
+                if(!day&&!closed) return null;
+                const myDay=day&&([...(day.morning||[]),...(day.prep||[])].some(id=>id===sid||Number(id)===sid)||
+                  Object.values(day.night||{}).some(id=>id===sid||Number(id)===sid)||
+                  day.aisani===sid||Number(day.aisani)===sid||day.kitchen===sid||Number(day.kitchen)===sid);
+                const bc=myDay?"rgba(139,26,26,0.12)":hol?"rgba(184,134,11,0.08)":dow===0?"rgba(192,57,43,0.06)":dow===6?"rgba(27,42,94,0.06)":"rgba(139,26,26,0.04)";
+                const borderCol=myDay?C.accent:hol?"#b8860b40":dow===0?"#c0392b30":dow===6?"#1b2a5e30":"rgba(139,26,26,0.1)";
+                return(
+                  <div key={d} style={{background:"#fff",borderRadius:14,border:`1.5px solid ${borderCol}`,padding:"12px 14px",marginBottom:8,boxShadow:myDay?"0 2px 10px rgba(139,26,26,0.1)":"0 1px 4px rgba(0,0,0,0.03)"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:closed?0:10,flexWrap:"wrap"}}>
+                      <span style={{fontWeight:900,fontSize:15,color:hol?"#b8860b":dow===0?"#c0392b":dow===6?"#1b2a5e":C.text}}>
+                        {csMonth+1}/{d}（{DOW_JP[dow]}）{hol?"🎌":""}
+                      </span>
+                      {closed&&<span style={{fontSize:9,padding:"3px 8px",borderRadius:999,background:"rgba(139,26,26,0.06)",color:C.muted,fontWeight:700,border:"1px solid rgba(139,26,26,0.12)"}}>定休日</span>}
+                      {myDay&&<span style={{fontSize:9,padding:"3px 8px",borderRadius:999,background:"rgba(139,26,26,0.08)",color:C.accent,fontWeight:700,border:`1px solid ${C.accent}30`}}>出勤</span>}
+                      {dayComments[d]&&<span style={{fontSize:10,color:"#b8860b",marginLeft:4}}>📝 {dayComments[d]}</span>}
+                    </div>
+                    {!closed&&day&&(
+                      <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                        {(day.morning||[]).length>0&&(
+                          <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                            <span style={{fontSize:10,fontWeight:700,color:"#b07d12",background:"#b07d1218",borderRadius:999,padding:"3px 10px",border:"1px solid #b07d1230",minWidth:60,textAlign:"center",flexShrink:0}}>朝</span>
+                            <span style={{fontSize:9,color:C.muted,flexShrink:0}}>7:00〜11:00</span>
+                            <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                              {(day.morning||[]).map(id=>{const s=staffMap[id]||staffMap[Number(id)];return s?(
+                                <span key={id} style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,
+                                  background:(id===sid||Number(id)===sid)?C.accent:"rgba(176,125,18,0.08)",
+                                  color:(id===sid||Number(id)===sid)?"#fff":"#b07d12",
+                                  border:`1px solid ${(id===sid||Number(id)===sid)?C.accent:"#b07d1230"}`}}>{s.name}</span>
+                              ):null;})}
+                            </div>
+                          </div>
+                        )}
+                        {(day.prep||[]).length>0&&(
+                          <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                            <span style={{fontSize:10,fontWeight:700,color:"#276749",background:"#27674918",borderRadius:999,padding:"3px 10px",border:"1px solid #27674930",minWidth:60,textAlign:"center",flexShrink:0}}>朝仕込み</span>
+                            <span style={{fontSize:9,color:C.muted,flexShrink:0}}>8:30〜16:00</span>
+                            <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                              {(day.prep||[]).map(id=>{const s=staffMap[id]||staffMap[Number(id)];return s?(
+                                <span key={id} style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,
+                                  background:(id===sid||Number(id)===sid)?C.accent:"rgba(39,103,73,0.08)",
+                                  color:(id===sid||Number(id)===sid)?"#fff":"#276749",
+                                  border:`1px solid ${(id===sid||Number(id)===sid)?C.accent:"#27674930"}`}}>{s.name}</span>
+                              ):null;})}
+                            </div>
+                          </div>
+                        )}
+                        {nightEntries.map(([t,id])=>{const s=staffMap[id]||staffMap[Number(id)];return s?(
+                          <div key={t} style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                            <span style={{fontSize:10,fontWeight:700,color:NIGHT_TC[t],background:NIGHT_TC[t]+"18",borderRadius:999,padding:"3px 10px",border:`1px solid ${NIGHT_TC[t]}30`,minWidth:60,textAlign:"center",flexShrink:0}}>夜 {t}</span>
+                            <span key={id} style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,
+                              background:(id===sid||Number(id)===sid)?NIGHT_TC[t]:"rgba(0,0,0,0.04)",
+                              color:(id===sid||Number(id)===sid)?"#fff":C.text,
+                              border:`1px solid ${(id===sid||Number(id)===sid)?NIGHT_TC[t]:"rgba(0,0,0,0.1)"}`}}>{s.name}</span>
+                          </div>
+                        ):null;})}
+                        {hasAisani&&(()=>{const s=staffMap[day.aisani]||staffMap[Number(day.aisani)];return s?(
+                          <div style={{display:"flex",alignItems:"center",gap:6}}>
+                            <span style={{fontSize:10,fontWeight:700,color:C.accent,background:C.accent+"18",borderRadius:999,padding:"3px 10px",border:`1px solid ${C.accent}30`,minWidth:60,textAlign:"center",flexShrink:0}}>アイサニ</span>
+                            <span style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,
+                              background:(day.aisani===sid||Number(day.aisani)===sid)?C.accent:"rgba(139,26,26,0.06)",
+                              color:(day.aisani===sid||Number(day.aisani)===sid)?"#fff":C.text,
+                              border:`1px solid ${(day.aisani===sid||Number(day.aisani)===sid)?C.accent:"rgba(139,26,26,0.15)"}`}}>{s.name}</span>
+                          </div>
+                        ):null;})()}
+                        {hasKitchen&&(()=>{const s=staffMap[day.kitchen]||staffMap[Number(day.kitchen)];return s?(
+                          <div style={{display:"flex",alignItems:"center",gap:6}}>
+                            <span style={{fontSize:10,fontWeight:700,color:"#276749",background:"#27674918",borderRadius:999,padding:"3px 10px",border:"1px solid #27674930",minWidth:60,textAlign:"center",flexShrink:0}}>キッチン</span>
+                            <span style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,
+                              background:(day.kitchen===sid||Number(day.kitchen)===sid)?"#276749":"rgba(39,103,73,0.06)",
+                              color:(day.kitchen===sid||Number(day.kitchen)===sid)?"#fff":C.text,
+                              border:`1px solid ${(day.kitchen===sid||Number(day.kitchen)===sid)?"#276749":"#27674930"}`}}>{s.name}</span>
+                          </div>
+                        ):null;})()}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           );
         })()}
