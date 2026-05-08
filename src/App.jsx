@@ -757,9 +757,9 @@ export default function App(){
           pointerEvents:loadingFading?"none":"auto"}}>
           <div style={{position:"absolute",inset:0,backgroundImage:"url(/imari.jpeg)",backgroundSize:"cover",backgroundPosition:"center top",backgroundRepeat:"no-repeat"}}/>
           <div style={{position:"absolute",inset:0,background:"rgba(255,255,255,0.18)"}}/>
-          <div style={{position:"relative",zIndex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:18,marginTop:"-15vh"}}>
+          <div style={{position:"absolute",bottom:"12vh",left:0,right:0,zIndex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:10}}>
             <div style={{background:"rgba(255,255,255,0.85)",borderRadius:999,padding:"10px 36px",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",boxShadow:"0 4px 24px rgba(139,26,26,0.12)"}}>
-              <div style={{fontSize:13,letterSpacing:6,color:C.accent,fontWeight:700,fontFamily:"serif"}}>読み込み中...</div>
+              <div style={{fontSize:13,letterSpacing:6,color:C.accent,fontWeight:700,fontFamily:"serif",textAlign:"center"}}>読み込み中...</div>
             </div>
             <div style={{fontSize:11,letterSpacing:4,color:"rgba(139,26,26,0.55)",fontFamily:"sans-serif",fontWeight:600}}>Loading...</div>
           </div>
