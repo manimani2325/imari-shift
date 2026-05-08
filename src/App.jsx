@@ -405,6 +405,7 @@ export default function App(){
   const [view,setView]=useState("slots"); // slots|avail|result
   const [gmMode,setGmMode]=useState(false);
   const [loginStaff,setLoginStaff]=useState(null);
+  const [staffTab,setStaffTab]=useState("avail"); // avail|shift
   const [newStaff,setNewStaff]=useState({name:"",grade:"L",aisaniOK:false,kitchenOK:false,password:""});
   const [staffPwModal,setStaffPwModal]=useState(null); // パスワード確認中のスタッフ
   const [staffPwInput,setStaffPwInput]=useState("");
@@ -848,11 +849,24 @@ export default function App(){
             </div>
           )}
           {!gmMode&&loginStaff&&(
-            <div style={{display:"flex",alignItems:"center",gap:8,paddingBottom:4}}>
-              <div style={{width:7,height:7,borderRadius:4,background:C.accent,boxShadow:`0 0 6px ${C.accent}`}}/>
-              <span style={{fontSize:11,color:C.muted}}>ログイン中：</span>
-              <span style={{fontWeight:800,fontSize:13}}>{loginStaff.name}</span>
-              <button onClick={()=>setLoginStaff(null)} style={{...btn(false),fontSize:10,padding:"3px 10px"}}>変更</button>
+            <div>
+              <div style={{display:"flex",alignItems:"center",gap:8,paddingBottom:8}}>
+                <div style={{width:7,height:7,borderRadius:4,background:C.accent,boxShadow:`0 0 6px ${C.accent}`}}/>
+                <span style={{fontSize:11,color:C.muted}}>ログイン中：</span>
+                <span style={{fontWeight:800,fontSize:13}}>{loginStaff.name}</span>
+                <button onClick={()=>setLoginStaff(null)} style={{...btn(false),fontSize:10,padding:"3px 10px"}}>変更</button>
+              </div>
+              <div style={{display:"flex",gap:3,background:"rgba(139,26,26,0.04)",borderRadius:13,padding:3,border:"1px solid rgba(139,26,26,0.08)"}}>
+                {[["avail","📅 候補日入力"],["shift","📋 自分のシフト"]].map(([v,l])=>(
+                  <button key={v} onClick={()=>setStaffTab(v)}
+                    style={{flex:1,padding:"9px 4px",borderRadius:11,border:"none",cursor:"pointer",fontSize:12,fontWeight:700,transition:"all .2s",
+                      background:staffTab===v?"linear-gradient(135deg,#8b1a1a,#b8860b)":"transparent",
+                      color:staffTab===v?"#fff":C.muted,
+                      boxShadow:staffTab===v?"0 2px 10px rgba(139,26,26,0.25)":"none"}}>
+                    {l}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
@@ -1033,7 +1047,7 @@ export default function App(){
         )}
 
         {/* ── ② 候補日入力 */}
-        {(gmMode?view==="avail":(!gmMode&&loginStaff))&&(
+        {(gmMode?view==="avail":(!gmMode&&loginStaff&&staffTab==="avail"))&&(
           <div className="fi">
             {gmMode&&(
               <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:14}}>
@@ -1248,7 +1262,14 @@ export default function App(){
         )}
 
         {/* ── スタッフ 自分のシフト表示 */}
-        {!gmMode&&loginStaff&&confirmedShift&&(()=>{
+        {!gmMode&&loginStaff&&staffTab==="shift"&&(()=>{
+          if(!confirmedShift) return(
+            <div style={{...card,marginTop:16,textAlign:"center",padding:"48px 20px"}}>
+              <div style={{fontSize:36,marginBottom:14}}>📋</div>
+              <div style={{fontSize:14,color:C.muted}}>まだシフトが公開されていません</div>
+              <div style={{fontSize:11,color:C.muted,marginTop:6,opacity:.7}}>管理者がシフトを公開すると表示されます</div>
+            </div>
+          );
           const sid=loginStaff.id;
           const csYear=confirmedShift.year;
           const csMonth=confirmedShift.month;
