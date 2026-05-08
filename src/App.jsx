@@ -530,6 +530,11 @@ export default function App(){
       nextToSave=next;
       return next;
     });
+    if(nextToSave){
+      const ser=serializeResult(nextToSave);
+      clearTimeout(saveTimers.current['resultBackup']);
+      saveTimers.current['resultBackup']=setTimeout(()=>saveKey('resultBackup',ser).catch(()=>{}),800);
+    }
   },[staff]);
 
   const handleGenerate=()=>{
@@ -537,6 +542,7 @@ export default function App(){
     setTimeout(()=>{
       const r=generateShifts(staff,year,month,avail,nightSlotConfig,aisaniConfig,kitchenConfig);
       setResult(r);saveResultLS(r);setView("result");setGenerating(false);
+      saveKey('resultBackup',serializeResult(r)).catch(()=>{});
     },500);
   };
 
@@ -621,16 +627,21 @@ export default function App(){
       } else {
         setConfirmedShift(null);
       }
+      if(!resultLoadedRef.current&&data.resultBackup){
+        const restored=deserializeResult(data.resultBackup);
+        if(restored){setResult(restored);saveResultLS(restored);resultLoadedRef.current=true;}
+      }
       setLoading(false);
     });
     const t=setTimeout(()=>setLoading(false),5000);
     return()=>{unsub();clearTimeout(t);};
   },[]);
 
-  // ── localStorage から result を復元（初回のみ）
+  // ── localStorage から result を復元、空なら Firebase バックアップから取得
+  const resultLoadedRef=useRef(false);
   useEffect(()=>{
     const r=loadResultLS();
-    if(r) setResult(r);
+    if(r){setResult(r);resultLoadedRef.current=true;}
   },[]);
 
   // ── デバウンス付き保存
@@ -674,6 +685,11 @@ export default function App(){
       nextToSave=next;
       return next;
     });
+    if(nextToSave){
+      const ser=serializeResult(nextToSave);
+      clearTimeout(saveTimers.current['resultBackup']);
+      saveTimers.current['resultBackup']=setTimeout(()=>saveKey('resultBackup',ser).catch(()=>{}),800);
+    }
   },[]);
   const handleGmLogin=()=>{
     if(pwInput===GM_PASSWORD){
