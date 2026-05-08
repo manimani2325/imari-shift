@@ -589,6 +589,11 @@ export default function App(){
   const [pwInput,setPwInput]=useState("");
   const [pwError,setPwError]=useState(false);
   const [loading,setLoading]=useState(true);
+  const [loadingFading,setLoadingFading]=useState(false);
+  const startLoadingFadeOut=useCallback(()=>{
+    setLoadingFading(true);
+    setTimeout(()=>{setLoading(false);setLoadingFading(false);},650);
+  },[]);
   const [syncing,setSyncing]=useState(false);
   const saveTimers=useRef({});
   const pendingKeys=useRef(new Set());
@@ -632,11 +637,11 @@ export default function App(){
         const restored=deserializeResult(data.resultBackup);
         if(restored){setResult(restored);saveResultLS(restored);resultLoadedRef.current=true;}
       }
-      setLoading(false);
+      startLoadingFadeOut();
     });
-    const t=setTimeout(()=>setLoading(false),5000);
+    const t=setTimeout(()=>startLoadingFadeOut(),5000);
     return()=>{unsub();clearTimeout(t);};
-  },[]);
+  },[startLoadingFadeOut]);
 
   // ── localStorage から result を復元、空なら Firebase バックアップから取得
   const resultLoadedRef=useRef(false);
@@ -719,19 +724,6 @@ export default function App(){
     ?(selectedStaffTab?staff.find(s=>s.id===selectedStaffTab):staff[0])
     :loginStaff;
 
-  if(loading) return(
-    <div style={{minHeight:"100vh",position:"relative",overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:0}}>
-      <div style={{position:"absolute",inset:0,backgroundImage:"url(/imari.jpeg)",backgroundSize:"cover",backgroundPosition:"center top",backgroundRepeat:"no-repeat"}}/>
-      <div style={{position:"absolute",inset:0,background:"rgba(255,255,255,0.18)"}}/>
-      <div style={{position:"relative",zIndex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:18,marginTop:"-15vh"}}>
-        <div style={{background:"rgba(255,255,255,0.85)",borderRadius:999,padding:"10px 36px",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",boxShadow:"0 4px 24px rgba(139,26,26,0.12)"}}>
-          <div style={{fontSize:13,letterSpacing:6,color:C.accent,fontWeight:700,fontFamily:"serif"}}>読み込み中...</div>
-        </div>
-        <div style={{fontSize:11,letterSpacing:4,color:"rgba(139,26,26,0.55)",fontFamily:"sans-serif",fontWeight:600}}>Loading...</div>
-      </div>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-    </div>
-  );
 
   return(
     <div style={{fontFamily:"'Zen Kaku Gothic New',sans-serif",minHeight:"100vh",background:C.bg,color:C.text}}>
@@ -745,6 +737,10 @@ export default function App(){
         .fi{animation:fi .28s cubic-bezier(.22,1,.36,1)}
         @keyframes fi{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
         @keyframes spin{to{transform:rotate(360deg)}}
+        @keyframes loadIn{from{opacity:0;transform:scale(1.04)}to{opacity:1;transform:none}}
+        @keyframes loadOut{from{opacity:1;transform:none}to{opacity:0;transform:scale(1.06)}}
+        .main-content{animation:mainIn .5s cubic-bezier(.22,1,.36,1)}
+        @keyframes mainIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
         .sth{position:sticky;top:0;background:rgba(253,250,246,0.97);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:5}
         .avail-row:hover td{background:rgba(139,26,26,0.03)!important}
         .inp{outline:none;transition:border-color .2s,box-shadow .2s}
@@ -753,6 +749,22 @@ export default function App(){
         ::-webkit-scrollbar-track{background:transparent}
         ::-webkit-scrollbar-thumb{background:rgba(139,26,26,0.2);border-radius:4px}
       `}</style>
+
+      {/* ── ローディングオーバーレイ */}
+      {(loading||loadingFading)&&(
+        <div style={{position:"fixed",inset:0,zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",
+          animation:loadingFading?"loadOut .65s cubic-bezier(.4,0,1,1) forwards":"loadIn .4s ease",
+          pointerEvents:loadingFading?"none":"auto"}}>
+          <div style={{position:"absolute",inset:0,backgroundImage:"url(/imari.jpeg)",backgroundSize:"cover",backgroundPosition:"center top",backgroundRepeat:"no-repeat"}}/>
+          <div style={{position:"absolute",inset:0,background:"rgba(255,255,255,0.18)"}}/>
+          <div style={{position:"relative",zIndex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:18,marginTop:"-15vh"}}>
+            <div style={{background:"rgba(255,255,255,0.85)",borderRadius:999,padding:"10px 36px",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",boxShadow:"0 4px 24px rgba(139,26,26,0.12)"}}>
+              <div style={{fontSize:13,letterSpacing:6,color:C.accent,fontWeight:700,fontFamily:"serif"}}>読み込み中...</div>
+            </div>
+            <div style={{fontSize:11,letterSpacing:4,color:"rgba(139,26,26,0.55)",fontFamily:"sans-serif",fontWeight:600}}>Loading...</div>
+          </div>
+        </div>
+      )}
 
       {/* GMパスワードモーダル */}
       {pwModal&&(
@@ -813,7 +825,7 @@ export default function App(){
       )}
 
       {/* ── ヘッダー */}
-      <div style={{background:"rgba(253,250,246,0.95)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",borderBottom:"1px solid rgba(139,26,26,0.12)",padding:"12px 16px",position:"sticky",top:0,zIndex:30}}>
+      <div className="main-content" style={{background:"rgba(253,250,246,0.95)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",borderBottom:"1px solid rgba(139,26,26,0.12)",padding:"12px 16px",position:"sticky",top:0,zIndex:30}}>
         <div style={{maxWidth:900,margin:"0 auto"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:(gmMode||(!gmMode&&loginStaff)||(!gmMode&&!loginStaff))?10:0}}>
             <div style={{display:"flex",alignItems:"center",gap:10}}>
