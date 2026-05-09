@@ -573,7 +573,7 @@ export default function App(){
   };
 
   // スタッフモード: 自分の名前でログイン
-  const staffModeStaff=staff.filter(s=>s.grade!=="GM");
+  const staffModeStaff=staff;
   const handleStaffSelect=(s)=>{
     if(s.password){setStaffPwModal(s);setStaffPwInput("");setStaffPwError(false);}
     else setLoginStaff(s);
