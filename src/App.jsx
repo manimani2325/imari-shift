@@ -18,6 +18,8 @@ const HOLIDAYS = new Set([
 // ── 等級定義
 // J=新人相当, L=中堅, M=中堅〜ベテラン間, SM=ベテラン相当, GM=管理者
 const GRADES = ["J","L","M","SM","GM"];
+const GRADE_SORT = {GM:0,SM:1,M:2,L:3,J:4};
+const sortByGrade = arr=>[...arr].sort((a,b)=>(GRADE_SORT[a.grade]??5)-(GRADE_SORT[b.grade]??5));
 const GRADE_COLOR = { J:"#34d399", L:"#60a5fa", M:"#facc15", SM:"#f97316", GM:"#e879f9" };
 const GRADE_LABEL = { J:"J", L:"L", M:"M", SM:"SM", GM:"GM" };
 // 新人相当: J  中堅相当: L,M  ベテラン相当: SM,GM
@@ -656,7 +658,7 @@ export default function App(){
   useEffect(()=>{
     cleanupStaleKeys();
     const unsub=subscribeAll((data)=>{
-      if(data.staff&&Array.isArray(data.staff)&&!pendingKeys.current.has('staff')) setStaff(data.staff);
+      if(data.staff&&Array.isArray(data.staff)&&!pendingKeys.current.has('staff')) setStaff(sortByGrade(data.staff));
       if(data.yearMonth&&!pendingKeys.current.has('yearMonth')){setYear(data.yearMonth.y);setMonth(data.yearMonth.m);}
       // Firebase の yearMonth を基準に月別キーで読み込む
       const fbYm=data.yearMonth?`${data.yearMonth.y}_${data.yearMonth.m}`:ymRef.current;
@@ -707,7 +709,7 @@ export default function App(){
   },[]);
 
   // ── 状態変更 → Firebase保存
-  const updateStaff=val=>{setStaff(val);debounceSave('staff',val);};
+  const updateStaff=val=>{const s=sortByGrade(val);setStaff(s);debounceSave('staff',s);};
   const updateAvail=val=>{setAvail(val);debounceSave(`avail_${ymRef.current}`,val);};
   const updateNightSlot=val=>{
     setNightSlotConfig(val);
