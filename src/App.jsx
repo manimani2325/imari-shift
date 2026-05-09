@@ -659,30 +659,18 @@ export default function App(){
       if(data.staff&&Array.isArray(data.staff)&&!pendingKeys.current.has('staff')) setStaff(data.staff);
       if(data.avail          &&!pendingKeys.current.has('avail'))          setAvail(data.avail);
       if(data.yearMonth      &&!pendingKeys.current.has('yearMonth'))      {setYear(data.yearMonth.y);setMonth(data.yearMonth.m);}
-      // Firebase の yearMonth を基準に _ym チェック（setYear/setMonth は非同期なので ymRef は使わない）
+      // Firebase の yearMonth を基準に月別キーで読み込む
       const fbYm=data.yearMonth?`${data.yearMonth.y}_${data.yearMonth.m}`:ymRef.current;
-      if(data.aisaniConfig&&!pendingKeys.current.has('aisaniConfig')){
-        const{_ym,...cfg}=data.aisaniConfig;
-        if(_ym===fbYm) setAisaniConfig(cfg); else setAisaniConfig({});
-      }
-      if(data.kitchenConfig&&!pendingKeys.current.has('kitchenConfig')){
-        const{_ym,...cfg}=data.kitchenConfig;
-        if(_ym===fbYm) setKitchenConfig(cfg); else setKitchenConfig({});
-      }
-      if(data.nightSlotConfig&&!pendingKeys.current.has('nightSlotConfig')){
-        const{_ym,...slots}=data.nightSlotConfig;
-        if(_ym===fbYm) setNightSlotConfig(slots);
-        else setNightSlotConfig({});
-      }
-      if(data.dayComments&&!pendingKeys.current.has('dayComments')){
-        const{_ym,...comments}=data.dayComments;
-        if(_ym===fbYm) setDayComments(comments);
-        else setDayComments({});
-      }
-      if(data.dayTypeConfig&&!pendingKeys.current.has('dayTypeConfig')){
-        const{_ym,...cfg}=data.dayTypeConfig;
-        if(_ym===fbYm) setDayTypeConfig(cfg); else setDayTypeConfig({});
-      }
+      const aiKey=`aisaniConfig_${fbYm}`;
+      const kitKey=`kitchenConfig_${fbYm}`;
+      const nsKey=`nightSlotConfig_${fbYm}`;
+      const dcKey=`dayComments_${fbYm}`;
+      const dtKey=`dayTypeConfig_${fbYm}`;
+      if(!pendingKeys.current.has(aiKey))  setAisaniConfig(data[aiKey]||{});
+      if(!pendingKeys.current.has(kitKey)) setKitchenConfig(data[kitKey]||{});
+      if(!pendingKeys.current.has(nsKey))  setNightSlotConfig(data[nsKey]||{});
+      if(!pendingKeys.current.has(dcKey))  setDayComments(data[dcKey]||{});
+      if(!pendingKeys.current.has(dtKey))  setDayTypeConfig(data[dtKey]||{});
       if(data.confirmedShift){
         const cs=deserializeConfirmedShift(data.confirmedShift);
         setConfirmedShift(cs||null);
@@ -723,18 +711,19 @@ export default function App(){
   const updateAvail=val=>{setAvail(val);debounceSave('avail',val);};
   const updateNightSlot=val=>{
     setNightSlotConfig(val);
-    debounceSave('nightSlotConfig',{_ym:ymRef.current,...val});
+    debounceSave(`nightSlotConfig_${ymRef.current}`,val);
   };
-  const updateAisaniCfg=val=>{setAisaniConfig(val);debounceSave('aisaniConfig',{_ym:ymRef.current,...val});};
-  const updateKitchenCfg=val=>{setKitchenConfig(val);debounceSave('kitchenConfig',{_ym:ymRef.current,...val});};
-  const updateDayTypeCfg=val=>{setDayTypeConfig(val);debounceSave('dayTypeConfig',{_ym:ymRef.current,...val});};
+  const updateAisaniCfg=val=>{setAisaniConfig(val);debounceSave(`aisaniConfig_${ymRef.current}`,val);};
+  const updateKitchenCfg=val=>{setKitchenConfig(val);debounceSave(`kitchenConfig_${ymRef.current}`,val);};
+  const updateDayTypeCfg=val=>{setDayTypeConfig(val);debounceSave(`dayTypeConfig_${ymRef.current}`,val);};
   const updateYearMonth=(y,m)=>{
     setYear(y);setMonth(m);debounceSave('yearMonth',{y,m});
-    setNightSlotConfig({});setDayComments({});setResult(null);setDayTypeConfig({});
+    setNightSlotConfig({});setAisaniConfig({});setKitchenConfig({});
+    setDayComments({});setResult(null);setDayTypeConfig({});
   };
   const updateDayComments=val=>{
     setDayComments(val);
-    debounceSave('dayComments',{_ym:ymRef.current,...val});
+    debounceSave(`dayComments_${ymRef.current}`,val);
   };
   const dismissShortage=useCallback((d,slotType,slotTime=null)=>{
     let nextToSave=null;
