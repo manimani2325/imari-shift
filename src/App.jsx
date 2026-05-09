@@ -810,7 +810,7 @@ export default function App(){
       {/* ── ローディングオーバーレイ */}
       {(loading||loadingFading)&&(
         <div style={{position:"fixed",inset:0,zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",
-          animation:loadingFading?"loadOut .65s cubic-bezier(.4,0,1,1) forwards":"loadIn .4s ease",
+          animation:loadingFading?"loadOut .65s cubic-bezier(.4,0,1,1) forwards":"none",
           pointerEvents:loadingFading?"none":"auto"}}>
           <div style={{position:"absolute",inset:0,backgroundImage:"url(/imari.jpeg)",backgroundSize:"cover",backgroundPosition:"center top",backgroundRepeat:"no-repeat"}}/>
           <div style={{position:"absolute",inset:0,background:"rgba(255,255,255,0.18)"}}/>
