@@ -117,8 +117,7 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
     const morningClosed=dayTypeConfig[d]==="morning_closed";
 
     if(isClosed(year,month,d)||manualClosed){
-      // 手動休業日はアイサニも無し、定休日はアイサニ設定に従う
-      const aiConf=manualClosed?null:aisaniConfig[d];
+      const aiConf=aisaniConfig[d];
       let aisaniId=null,aisaniShortage=0;
       if(aiConf&&aiConf.enabled){
         const aiCands=staff.filter(s=>s.aisaniOK&&isAvail(s.id,`${d}_aisani`));
@@ -1090,22 +1089,22 @@ export default function App(){
                         })}
                       </div>
                     )}
-                    {!allClosed&&(
-                      <div style={{display:"flex",gap:2,justifyContent:"center",marginBottom:2}}>
-                        <button onClick={()=>toggleAisani(d)}
-                          style={{padding:"2px 5px",borderRadius:5,border:"none",cursor:"pointer",fontSize:7,fontWeight:800,
-                            background:aiOn?"#8b1a1a":"rgba(139,26,26,0.07)",color:aiOn?"#fff":"#8c7b6b",
-                            transition:"all .15s"}}>
-                          アイサニ
-                        </button>
+                    <div style={{display:"flex",gap:2,justifyContent:"center",marginBottom:2}}>
+                      <button onClick={()=>toggleAisani(d)}
+                        style={{padding:"2px 5px",borderRadius:5,border:"none",cursor:"pointer",fontSize:7,fontWeight:800,
+                          background:aiOn?"#8b1a1a":"rgba(139,26,26,0.07)",color:aiOn?"#fff":"#8c7b6b",
+                          transition:"all .15s"}}>
+                        アイサニ
+                      </button>
+                      {!allClosed&&(
                         <button onClick={()=>toggleKitchen(d)}
                           style={{padding:"2px 5px",borderRadius:5,border:"none",cursor:"pointer",fontSize:7,fontWeight:800,
                             background:kitOn?"#276749":"rgba(39,103,73,0.08)",color:kitOn?"#fff":"#8c7b6b",
                             transition:"all .15s"}}>
                           キッチン
                         </button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                     {!closed&&(
                       <div style={{display:"flex",gap:2,justifyContent:"center"}}>
                         <button onClick={()=>toggleDayType(d,"morning_closed")}
@@ -1239,7 +1238,7 @@ export default function App(){
                               {allClosed?(
                                 <>
                                   <td colSpan={3+NIGHT_TIMES.length+(availViewStaff.kitchenOK?1:0)} style={{background:rowBg,textAlign:"center",fontSize:10,color:"#b0a090",padding:"6px"}}>{manualClosed?"休業日":"定休日"}</td>
-                                  {availViewStaff.aisaniOK&&!manualClosed&&(
+                                  {availViewStaff.aisaniOK&&(
                                     <td style={{background:rowBg,textAlign:"center",padding:"3px 3px"}}>
                                       {aisaniConfig[d]?.enabled?(
                                         <button onClick={()=>toggleAvail(sid,`${d}_aisani`)}
