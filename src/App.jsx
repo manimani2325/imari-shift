@@ -590,7 +590,10 @@ export default function App(){
   const [pwError,setPwError]=useState(false);
   const [loading,setLoading]=useState(true);
   const [loadingFading,setLoadingFading]=useState(false);
+  const initialLoadDone=useRef(false);
   const startLoadingFadeOut=useCallback(()=>{
+    if(initialLoadDone.current) return;
+    initialLoadDone.current=true;
     setLoadingFading(true);
     setTimeout(()=>{setLoading(false);setLoadingFading(false);},650);
   },[]);
