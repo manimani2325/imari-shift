@@ -657,25 +657,25 @@ export default function App(){
     cleanupStaleKeys();
     const unsub=subscribeAll((data)=>{
       if(data.staff&&Array.isArray(data.staff)&&!pendingKeys.current.has('staff')) setStaff(data.staff);
-      if(data.avail          &&!pendingKeys.current.has('avail'))          setAvail(data.avail);
-      if(data.yearMonth      &&!pendingKeys.current.has('yearMonth'))      {setYear(data.yearMonth.y);setMonth(data.yearMonth.m);}
+      if(data.yearMonth&&!pendingKeys.current.has('yearMonth')){setYear(data.yearMonth.y);setMonth(data.yearMonth.m);}
       // Firebase の yearMonth を基準に月別キーで読み込む
       const fbYm=data.yearMonth?`${data.yearMonth.y}_${data.yearMonth.m}`:ymRef.current;
+      const avKey=`avail_${fbYm}`;
       const aiKey=`aisaniConfig_${fbYm}`;
       const kitKey=`kitchenConfig_${fbYm}`;
       const nsKey=`nightSlotConfig_${fbYm}`;
       const dcKey=`dayComments_${fbYm}`;
       const dtKey=`dayTypeConfig_${fbYm}`;
+      const csKey=`confirmedShift_${fbYm}`;
+      if(!pendingKeys.current.has(avKey))  setAvail(data[avKey]||{});
       if(!pendingKeys.current.has(aiKey))  setAisaniConfig(data[aiKey]||{});
       if(!pendingKeys.current.has(kitKey)) setKitchenConfig(data[kitKey]||{});
       if(!pendingKeys.current.has(nsKey))  setNightSlotConfig(data[nsKey]||{});
       if(!pendingKeys.current.has(dcKey))  setDayComments(data[dcKey]||{});
       if(!pendingKeys.current.has(dtKey))  setDayTypeConfig(data[dtKey]||{});
-      if(data.confirmedShift){
-        const cs=deserializeConfirmedShift(data.confirmedShift);
+      if(!pendingKeys.current.has(csKey)){
+        const cs=deserializeConfirmedShift(data[csKey]);
         setConfirmedShift(cs||null);
-      } else {
-        setConfirmedShift(null);
       }
       if(!resultLoadedRef.current&&data.resultBackup){
         const restored=deserializeResult(data.resultBackup);
@@ -708,7 +708,7 @@ export default function App(){
 
   // ── 状態変更 → Firebase保存
   const updateStaff=val=>{setStaff(val);debounceSave('staff',val);};
-  const updateAvail=val=>{setAvail(val);debounceSave('avail',val);};
+  const updateAvail=val=>{setAvail(val);debounceSave(`avail_${ymRef.current}`,val);};
   const updateNightSlot=val=>{
     setNightSlotConfig(val);
     debounceSave(`nightSlotConfig_${ymRef.current}`,val);
@@ -720,6 +720,7 @@ export default function App(){
     setYear(y);setMonth(m);debounceSave('yearMonth',{y,m});
     setNightSlotConfig({});setAisaniConfig({});setKitchenConfig({});
     setDayComments({});setResult(null);setDayTypeConfig({});
+    setAvail({});setConfirmedShift(null);
   };
   const updateDayComments=val=>{
     setDayComments(val);
@@ -1588,14 +1589,14 @@ export default function App(){
                 <div style={{display:"flex",gap:8,marginBottom:16}}>
                   <button onClick={()=>{
                     const cs=serializeConfirmedShift(result,year,month);
-                    if(cs){saveKey('confirmedShift',cs);setConfirmedShift(deserializeConfirmedShift(cs));alert(`${year}年${month+1}月のシフトを公開しました`);}
+                    if(cs){saveKey(`confirmedShift_${ymRef.current}`,cs);setConfirmedShift(deserializeConfirmedShift(cs));alert(`${year}年${month+1}月のシフトを公開しました`);}
                   }} style={{flex:1,padding:"13px",borderRadius:12,border:"none",cursor:"pointer",fontSize:13,fontWeight:900,background:"linear-gradient(135deg,#276749,#1a4731)",color:"#fff",boxShadow:"0 4px 14px rgba(39,103,73,0.3)"}}>
                     ✅ シフトを公開
                   </button>
                   {confirmedShift&&(
                     <button onClick={()=>{
                       if(window.confirm("公開中のシフトを取り消しますか？スタッフ側から非表示になります。")){
-                        saveKey('confirmedShift',null);setConfirmedShift(null);
+                        saveKey(`confirmedShift_${ymRef.current}`,null);setConfirmedShift(null);
                       }
                     }} style={{flex:1,padding:"13px",borderRadius:12,border:"1px solid rgba(192,57,43,0.3)",cursor:"pointer",fontSize:13,fontWeight:900,background:"rgba(192,57,43,0.06)",color:"#c0392b"}}>
                       ✕ 公開を取り消す
