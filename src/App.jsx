@@ -1699,7 +1699,7 @@ export default function App(){
                         <div style={{display:"flex",flexDirection:"column",gap:5}}>
                           {!allClosed&&!morningClosed&&<SRow label="朝" time="7:00〜11:00" color="#b07d12"
                             people={(day.morning||[]).map(id=>staffMap[id]).filter(Boolean)} shortage={sh.morning||0}
-                            candidates={staff.filter(s=>avail[s.id]?.[`${d}_morning`]&&!(day.morning||[]).includes(s.id))}
+                            candidates={staff.filter(s=>(avail[s.id]?.[`${d}_morning`]||avail[s.id]?.[`${d}_prep`])&&!(day.morning||[]).includes(s.id)&&!(day.prep||[]).includes(s.id))}
                             onSwap={newId=>swapShiftAssignment(d,'morning',null,newId)}
                             onRemove={id=>swapShiftAssignment(d,'morning',null,null,id)}
                             onDismissShortage={(sh.morning||0)>0?()=>dismissShortage(d,'morning'):null}/>}
