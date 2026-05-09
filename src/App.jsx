@@ -1482,7 +1482,7 @@ export default function App(){
                 const borderCol=myDay?C.accent:hol?"#b8860b40":dow===0?"#c0392b30":dow===6?"#1b2a5e30":"rgba(139,26,26,0.1)";
                 return(
                   <div key={d} style={{background:"#fff",borderRadius:14,border:`1.5px solid ${borderCol}`,padding:"12px 14px",marginBottom:8,boxShadow:myDay?"0 2px 10px rgba(139,26,26,0.1)":"0 1px 4px rgba(0,0,0,0.03)"}}>
-                    <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:closed?0:10,flexWrap:"wrap"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:(hasAisani||hasKitchen||!closed)?10:0,flexWrap:"wrap"}}>
                       <span style={{fontWeight:900,fontSize:15,color:hol?"#b8860b":dow===0?"#c0392b":dow===6?"#1b2a5e":C.text}}>
                         {csMonth+1}/{d}（{DOW_JP[dow]}）{hol?"🎌":""}
                       </span>
@@ -1490,9 +1490,9 @@ export default function App(){
                       {myDay&&<span style={{fontSize:9,padding:"3px 8px",borderRadius:999,background:"rgba(139,26,26,0.08)",color:C.accent,fontWeight:700,border:`1px solid ${C.accent}30`}}>出勤</span>}
                       {dayComments[d]&&<span style={{fontSize:10,color:"#b8860b",marginLeft:4}}>📝 {dayComments[d]}</span>}
                     </div>
-                    {!closed&&day&&(
+                    {day&&(
                       <div style={{display:"flex",flexDirection:"column",gap:5}}>
-                        {(day.morning||[]).length>0&&(
+                        {!closed&&(day.morning||[]).length>0&&(
                           <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
                             <span style={{fontSize:10,fontWeight:700,color:"#b07d12",background:"#b07d1218",borderRadius:999,padding:"3px 10px",border:"1px solid #b07d1230",minWidth:60,textAlign:"center",flexShrink:0}}>朝</span>
                             <span style={{fontSize:9,color:C.muted,flexShrink:0}}>7:00〜11:00</span>
@@ -1506,7 +1506,7 @@ export default function App(){
                             </div>
                           </div>
                         )}
-                        {(day.prep||[]).length>0&&(
+                        {!closed&&(day.prep||[]).length>0&&(
                           <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
                             <span style={{fontSize:10,fontWeight:700,color:"#276749",background:"#27674918",borderRadius:999,padding:"3px 10px",border:"1px solid #27674930",minWidth:60,textAlign:"center",flexShrink:0}}>朝仕込み</span>
                             <span style={{fontSize:9,color:C.muted,flexShrink:0}}>8:30〜16:00</span>
@@ -1520,7 +1520,7 @@ export default function App(){
                             </div>
                           </div>
                         )}
-                        {nightEntries.map(([t,id])=>{const s=staffMap[id]||staffMap[Number(id)];return s?(
+                        {!closed&&nightEntries.map(([t,id])=>{const s=staffMap[id]||staffMap[Number(id)];return s?(
                           <div key={t} style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
                             <span style={{fontSize:10,fontWeight:700,color:NIGHT_TC[t],background:NIGHT_TC[t]+"18",borderRadius:999,padding:"3px 10px",border:`1px solid ${NIGHT_TC[t]}30`,minWidth:60,textAlign:"center",flexShrink:0}}>夜 {t}</span>
                             <span key={id} style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,
