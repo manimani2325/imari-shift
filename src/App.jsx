@@ -413,13 +413,13 @@ function deserializeConfirmedShift(cs) {
   } catch(_) { return null; }
 }
 
-const LS_KEY = 'imari_result';
-function saveResultLS(r) {
-  try { localStorage.setItem(LS_KEY, JSON.stringify(serializeResult(r))); } catch(_) {}
+const LS_KEY = (ym) => `imari_result_${ym}`;
+function saveResultLS(r, ym) {
+  try { localStorage.setItem(LS_KEY(ym), JSON.stringify(serializeResult(r))); } catch(_) {}
 }
-function loadResultLS() {
+function loadResultLS(ym) {
   try {
-    const s = localStorage.getItem(LS_KEY);
+    const s = localStorage.getItem(LS_KEY(ym));
     if (s) return deserializeResult(JSON.parse(s));
   } catch(_) {}
   return null;
@@ -578,14 +578,14 @@ export default function App(){
       const totalC=staff.reduce((a,s)=>a+(prev.candW[s.id]||0),0);
       const newAvgRate=totalC>0?Math.round(totalW/totalC*100):0;
       const next={...prev,shifts:newShifts,worked:newWorked,workedDays:wd,shortage:newShortage,avgRate:newAvgRate};
-      saveResultLS(next);
+      saveResultLS(next,ymRef.current);
       nextToSave=next;
       return next;
     });
     if(nextToSave){
       const ser=serializeResult(nextToSave);
       clearTimeout(saveTimers.current['resultBackup']);
-      saveTimers.current['resultBackup']=setTimeout(()=>saveKey('resultBackup',ser).catch(()=>{}),800);
+      saveTimers.current['resultBackup']=setTimeout(()=>saveKey(`resultBackup_${ymRef.current}`,ser).catch(()=>{}),800);
     }
   },[staff]);
 
@@ -593,8 +593,8 @@ export default function App(){
     setGenerating(true);
     setTimeout(()=>{
       const r=generateShifts(staff,year,month,avail,nightSlotConfig,aisaniConfig,kitchenConfig,dayTypeConfig);
-      setResult(r);saveResultLS(r);setView("result");setGenerating(false);
-      saveKey('resultBackup',serializeResult(r)).catch(()=>{});
+      setResult(r);saveResultLS(r,ymRef.current);setView("result");setGenerating(false);
+      saveKey(`resultBackup_${ymRef.current}`,serializeResult(r)).catch(()=>{});
     },500);
   };
 
@@ -679,9 +679,10 @@ export default function App(){
         const cs=deserializeConfirmedShift(data[csKey]);
         setConfirmedShift(cs||null);
       }
-      if(!resultLoadedRef.current&&data.resultBackup){
-        const restored=deserializeResult(data.resultBackup);
-        if(restored){setResult(restored);saveResultLS(restored);resultLoadedRef.current=true;}
+      const rbKey=`resultBackup_${fbYm}`;
+      if(!resultLoadedRef.current&&data[rbKey]){
+        const restored=deserializeResult(data[rbKey]);
+        if(restored){setResult(restored);saveResultLS(restored,fbYm);resultLoadedRef.current=true;}
       }
       startLoadingFadeOut();
     });
@@ -692,7 +693,7 @@ export default function App(){
   // ── localStorage から result を復元、空なら Firebase バックアップから取得
   const resultLoadedRef=useRef(false);
   useEffect(()=>{
-    const r=loadResultLS();
+    const r=loadResultLS(ymRef.current);
     if(r){setResult(r);resultLoadedRef.current=true;}
   },[]);
 
@@ -721,8 +722,14 @@ export default function App(){
   const updateYearMonth=(y,m)=>{
     setYear(y);setMonth(m);debounceSave('yearMonth',{y,m});
     setNightSlotConfig({});setAisaniConfig({});setKitchenConfig({});
-    setDayComments({});setResult(null);setDayTypeConfig({});
+    setDayComments({});setDayTypeConfig({});
     setAvail({});setConfirmedShift(null);
+    // 新しい月の result を即座に復元（なければリセット）
+    resultLoadedRef.current=false;
+    const newYm=`${y}_${m}`;
+    const saved=loadResultLS(newYm);
+    if(saved){setResult(saved);resultLoadedRef.current=true;}
+    else setResult(null);
   };
   const updateDayComments=val=>{
     setDayComments(val);
@@ -736,14 +743,14 @@ export default function App(){
       if(slotType==='night') newShortage[d]={...newShortage[d],night:{...(newShortage[d]?.night||{}),[slotTime]:0}};
       else newShortage[d]={...newShortage[d],[slotType]:0};
       const next={...prev,shortage:newShortage};
-      saveResultLS(next);
+      saveResultLS(next,ymRef.current);
       nextToSave=next;
       return next;
     });
     if(nextToSave){
       const ser=serializeResult(nextToSave);
       clearTimeout(saveTimers.current['resultBackup']);
-      saveTimers.current['resultBackup']=setTimeout(()=>saveKey('resultBackup',ser).catch(()=>{}),800);
+      saveTimers.current['resultBackup']=setTimeout(()=>saveKey(`resultBackup_${ymRef.current}`,ser).catch(()=>{}),800);
     }
   },[]);
   const handleGmLogin=()=>{
