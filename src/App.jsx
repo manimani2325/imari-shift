@@ -684,7 +684,7 @@ export default function App(){
         const restored=deserializeResult(data[rbKey]);
         if(restored){setResult(restored);saveResultLS(restored,fbYm);resultLoadedRef.current=true;}
       }
-      startLoadingFadeOut();
+      setTimeout(()=>startLoadingFadeOut(),500);
     });
     const t=setTimeout(()=>startLoadingFadeOut(),5000);
     return()=>{unsub();clearTimeout(t);};
