@@ -465,6 +465,7 @@ function deserializeResult(r){
       warnings:r.warnings||{},
       avgRate:r.avgRate||0,
       workedDays:{},
+      savedAt:r.savedAt||0,
     };
   }catch(_){ return null; }
 }
@@ -534,7 +535,14 @@ export default function App(){
   const [aisaniConfig,setAisaniConfig]=useState({});
   const [kitchenConfig,setKitchenConfig]=useState({});
   const [dayTypeConfig,setDayTypeConfig]=useState({});
-  const [result,setResult]=useState(null);
+  const [result,_setResultRaw]=useState(null);
+  const resultRef=useRef(null);
+  // setResult: resultRefを同期更新してからReact stateを更新（updaterの非同期問題を回避）
+  const setResult=(valOrFn)=>{
+    const next=typeof valOrFn==='function'?valOrFn(resultRef.current):valOrFn;
+    resultRef.current=next;
+    _setResultRaw(next);
+  };
   const [confirmedShift,setConfirmedShift]=useState(null);
   const [dayComments,setDayComments]=useState({});
   const [view,setView]=useState("slots"); // slots|avail|result
@@ -614,80 +622,75 @@ export default function App(){
   };
 
   const swapShiftAssignment=useCallback((d,slotType,slotTime,newId,removeId=null)=>{
-    let nextToSave=null;
-    setResult(prev=>{
-      if(!prev) return prev;
-      const newShifts={...prev.shifts};
-      const dayShift={...newShifts[d],night:{...(newShifts[d]?.night||{})}};
-      let oldId=null;
-      if(slotType==='night'){
-        oldId=dayShift.night[slotTime]||null;
-        dayShift.night[slotTime]=newId;
-      } else if(slotType==='aisani'){
-        oldId=dayShift.aisani; dayShift.aisani=newId;
-      } else if(slotType==='kitchen'){
-        oldId=dayShift.kitchen; dayShift.kitchen=newId;
-      } else if(slotType==='prep'){
-        if(removeId){
-          oldId=removeId; dayShift.prep=[];
-        } else {
-          oldId=dayShift.prep[0]||null; dayShift.prep=newId?[newId]:[];
-        }
-      } else if(slotType==='morning'){
-        if(removeId){
-          oldId=removeId; dayShift.morning=dayShift.morning.filter(id=>id!==removeId);
-        } else {
-          if(newId&&dayShift.morning.includes(newId)) return prev;
-          const arr=[...dayShift.morning];
-          if(arr.length<3){
-            if(newId) arr.push(newId);
-          } else {
-            const ri=arr.reduce((mi,id,i)=>(prev.worked[id]||0)>(prev.worked[arr[mi]]||0)?i:mi,0);
-            oldId=arr[ri]; if(newId) arr[ri]=newId; else arr.splice(ri,1);
-          }
-          dayShift.morning=arr;
-        }
+    const prev=resultRef.current;
+    if(!prev) return;
+    const newShifts={...prev.shifts};
+    const dayShift={...newShifts[d],night:{...(newShifts[d]?.night||{})}};
+    let oldId=null;
+    if(slotType==='night'){
+      oldId=dayShift.night[slotTime]||null;
+      dayShift.night[slotTime]=newId;
+    } else if(slotType==='aisani'){
+      oldId=dayShift.aisani; dayShift.aisani=newId;
+    } else if(slotType==='kitchen'){
+      oldId=dayShift.kitchen; dayShift.kitchen=newId;
+    } else if(slotType==='prep'){
+      if(removeId){
+        oldId=removeId; dayShift.prep=[];
+      } else {
+        oldId=dayShift.prep[0]||null; dayShift.prep=newId?[newId]:[];
       }
-      if(!removeId&&oldId===newId) return prev;
-      newShifts[d]=dayShift;
-      // workedDaysを全シフトから再計算
-      const wd={};
-      staff.forEach(s=>{wd[s.id]=new Set();});
-      Object.entries(newShifts).forEach(([ds,sh])=>{
-        const dd=Number(ds);
-        [...(sh.morning||[]),...(sh.prep||[])].forEach(id=>{if(wd[id]) wd[id].add(dd);});
-        Object.values(sh.night||{}).filter(Boolean).forEach(id=>{if(wd[id]) wd[id].add(dd);});
-        if(sh.aisani&&wd[sh.aisani]) wd[sh.aisani].add(dd);
-        if(sh.kitchen&&wd[sh.kitchen]) wd[sh.kitchen].add(dd);
-      });
-      const newWorked={};
-      staff.forEach(s=>{newWorked[s.id]=wd[s.id].size;});
-      // shortageも更新
-      const newShortage={...prev.shortage,[d]:{...(prev.shortage[d]||{})}};
-      if(slotType==='night') newShortage[d]={...newShortage[d],night:{...(newShortage[d]?.night||{}),[slotTime]:(newId&&!removeId)?0:1}};
-      else if(slotType==='aisani') newShortage[d]={...newShortage[d],aisani:(newId&&!removeId)?0:1};
-      else if(slotType==='kitchen') newShortage[d]={...newShortage[d],kitchen:(newId&&!removeId)?0:1};
-      else if(slotType==='prep') newShortage[d]={...newShortage[d],prep:(dayShift.prep.length>0)?0:1};
-      else if(slotType==='morning') newShortage[d]={...newShortage[d],morning:Math.max(0,(prev.shortage[d]?.morning||0)+(removeId?1:0)-(newId&&!removeId?1:0))};
-      const totalW=staff.reduce((a,s)=>a+wd[s.id].size,0);
-      const totalC=staff.reduce((a,s)=>a+(prev.candW[s.id]||0),0);
-      const newAvgRate=totalC>0?Math.round(totalW/totalC*100):0;
-      const next={...prev,shifts:newShifts,worked:newWorked,workedDays:wd,shortage:newShortage,avgRate:newAvgRate};
-      saveResultLS(next,ymRef.current);
-      nextToSave=next;
-      return next;
-    });
-    if(nextToSave){
-      debounceSave(`resultBackup_${ymRef.current}`,serializeResult(nextToSave));
+    } else if(slotType==='morning'){
+      if(removeId){
+        oldId=removeId; dayShift.morning=dayShift.morning.filter(id=>id!==removeId);
+      } else {
+        if(newId&&dayShift.morning.includes(newId)) return;
+        const arr=[...dayShift.morning];
+        if(arr.length<3){
+          if(newId) arr.push(newId);
+        } else {
+          const ri=arr.reduce((mi,id,i)=>(prev.worked[id]||0)>(prev.worked[arr[mi]]||0)?i:mi,0);
+          oldId=arr[ri]; if(newId) arr[ri]=newId; else arr.splice(ri,1);
+        }
+        dayShift.morning=arr;
+      }
     }
+    if(!removeId&&oldId===newId) return;
+    newShifts[d]=dayShift;
+    const wd={};
+    staff.forEach(s=>{wd[s.id]=new Set();});
+    Object.entries(newShifts).forEach(([ds,sh])=>{
+      const dd=Number(ds);
+      [...(sh.morning||[]),...(sh.prep||[])].forEach(id=>{if(wd[id]) wd[id].add(dd);});
+      Object.values(sh.night||{}).filter(Boolean).forEach(id=>{if(wd[id]) wd[id].add(dd);});
+      if(sh.aisani&&wd[sh.aisani]) wd[sh.aisani].add(dd);
+      if(sh.kitchen&&wd[sh.kitchen]) wd[sh.kitchen].add(dd);
+    });
+    const newWorked={};
+    staff.forEach(s=>{newWorked[s.id]=wd[s.id].size;});
+    const newShortage={...prev.shortage,[d]:{...(prev.shortage[d]||{})}};
+    if(slotType==='night') newShortage[d]={...newShortage[d],night:{...(newShortage[d]?.night||{}),[slotTime]:(newId&&!removeId)?0:1}};
+    else if(slotType==='aisani') newShortage[d]={...newShortage[d],aisani:(newId&&!removeId)?0:1};
+    else if(slotType==='kitchen') newShortage[d]={...newShortage[d],kitchen:(newId&&!removeId)?0:1};
+    else if(slotType==='prep') newShortage[d]={...newShortage[d],prep:(dayShift.prep.length>0)?0:1};
+    else if(slotType==='morning') newShortage[d]={...newShortage[d],morning:Math.max(0,(prev.shortage[d]?.morning||0)+(removeId?1:0)-(newId&&!removeId?1:0))};
+    const totalW=staff.reduce((a,s)=>a+wd[s.id].size,0);
+    const totalC=staff.reduce((a,s)=>a+(prev.candW[s.id]||0),0);
+    const newAvgRate=totalC>0?Math.round(totalW/totalC*100):0;
+    const next={...prev,shifts:newShifts,worked:newWorked,workedDays:wd,shortage:newShortage,avgRate:newAvgRate,savedAt:Date.now()};
+    setResult(next);
+    saveResultLS(next,ymRef.current);
+    debounceSave(`resultBackup_${ymRef.current}`,serializeResult(next));
   },[staff]);
 
   const handleGenerate=()=>{
     setGenerating(true);
     setTimeout(()=>{
-      const r=generateShifts(staff,year,month,avail,nightSlotConfig,aisaniConfig,kitchenConfig,dayTypeConfig);
+      const r={...generateShifts(staff,year,month,avail,nightSlotConfig,aisaniConfig,kitchenConfig,dayTypeConfig),savedAt:Date.now()};
       setResult(r);saveResultLS(r,ymRef.current);setView("result");setGenerating(false);
-      saveKey(`resultBackup_${ymRef.current}`,serializeResult(r)).catch(()=>{});
+      const rbKey=`resultBackup_${ymRef.current}`;
+      pendingKeys.current.add(rbKey);
+      saveKey(rbKey,serializeResult(r)).catch(()=>{}).finally(()=>{pendingKeys.current.delete(rbKey);});
     },500);
   };
 
@@ -775,7 +778,10 @@ export default function App(){
       const rbKey=`resultBackup_${fbYm}`;
       if(!pendingKeys.current.has(rbKey)&&data[rbKey]){
         const restored=deserializeResult(data[rbKey]);
-        if(restored){setResult(restored);saveResultLS(restored,fbYm);}
+        // タイムスタンプ比較: Firebaseのデータが現在より新しい場合のみ上書き
+        if(restored&&(restored.savedAt||0)>(resultRef.current?.savedAt||0)){
+          setResult(restored);saveResultLS(restored,fbYm);
+        }
       }
       setTimeout(()=>startLoadingFadeOut(),500);
     });
@@ -783,20 +789,22 @@ export default function App(){
     return()=>{unsub();clearTimeout(t);};
   },[startLoadingFadeOut]);
 
-  // ── localStorage から result を復元、空なら Firebase バックアップから取得
-  const resultLoadedRef=useRef(false);
+  // ── localStorage から result を起動時に復元
   const prevAvailRef=useRef({});
   useEffect(()=>{
     const r=loadResultLS(ymRef.current);
-    if(r){setResult(r);resultLoadedRef.current=true;}
+    if(r) setResult(r);
   },[]);
 
   // ── avail変更時にシフト結果を同期（候補消去→除去、候補追加→不足補充）
   // 補充は「新たに追加された候補」のみ対象（クリア時の連鎖バグ防止）
   useEffect(()=>{
-    if(!result||!initialLoadDone.current) return;
+    if(!initialLoadDone.current) return;
     const prevAvail=prevAvailRef.current;
     prevAvailRef.current=avail;
+
+    // 初回ロード（prevAvailが空）はスキップ：结果とavailは保存時点で整合済み
+    if(Object.keys(prevAvail).length===0) return;
 
     // availの中身が実質変化していなければスキップ（Firebase再送などの誤発火防止）
     const allSids=new Set([...Object.keys(prevAvail),...Object.keys(avail)]);
@@ -808,91 +816,101 @@ export default function App(){
     }
     if(!reallyChanged) return;
 
-    // 月切替直後など prevAvail が空の場合は初回ロード扱い（全候補が「新規追加」と誤判定されるのを防ぐ）
-    const isInitialLoad=Object.keys(prevAvail).length===0;
-    // 新たにONになったavailキーを記録（初回ロード時は補充しない）
-    const newlyAdded=(sid,key)=>!isInitialLoad&&!!avail[sid]?.[key]&&!prevAvail[sid]?.[key];
+    const prev=resultRef.current;
+    if(!prev) return;
 
-    let nextToSave=null;
-    setResult(prev=>{
-      if(!prev) return prev;
-      let anyChanged=false;
-      const newShifts={...prev.shifts};
-      const newShortage={...prev.shortage};
+    // 新たにONになったavailキーを記録
+    const newlyAdded=(sid,key)=>!!avail[sid]?.[key]&&!prevAvail[sid]?.[key];
 
-      Object.entries(prev.shifts||{}).forEach(([dStr,day])=>{
-        const d=parseInt(dStr);
-        if(!day) return;
-        const dayShortage={...(prev.shortage[d]||{morning:0,prep:0,night:{},aisani:0,kitchen:0})};
-        dayShortage.night={...(dayShortage.night||{})};
-        let dayChanged=false;
-        let newDay={...day,night:{...(day.night||{})}};
+    let anyChanged=false;
+    const newShifts={...prev.shifts};
+    const newShortage={...prev.shortage};
 
-        // 朝: availがなくなった人を除去
-        const validMorning=(day.morning||[]).filter(id=>!!avail[id]?.[`${d}_morning`]);
-        const removedM=(day.morning||[]).length-validMorning.length;
-        if(removedM>0){dayShortage.morning=(dayShortage.morning||0)+removedM;newDay.morning=validMorning;dayChanged=true;}
+    Object.entries(prev.shifts||{}).forEach(([dStr,day])=>{
+      const d=parseInt(dStr);
+      if(!day) return;
+      const dayShortage={...(prev.shortage[d]||{morning:0,prep:0,night:{},aisani:0,kitchen:0})};
+      dayShortage.night={...(dayShortage.night||{})};
+      let dayChanged=false;
+      let newDay={...day,night:{...(day.night||{})}};
 
-        // 朝仕込み: availがなくなった人を除去
-        const validPrep=(day.prep||[]).filter(id=>!!avail[id]?.[`${d}_prep`]||!!avail[id]?.[`${d}_shimikomi`]);
-        const removedP=(day.prep||[]).length-validPrep.length;
-        if(removedP>0){dayShortage.prep=(dayShortage.prep||0)+removedP;newDay.prep=validPrep;dayChanged=true;}
+      // 朝: availがなくなった人を除去
+      const validMorning=(day.morning||[]).filter(id=>!!avail[id]?.[`${d}_morning`]);
+      const removedM=(day.morning||[]).length-validMorning.length;
+      if(removedM>0){dayShortage.morning=(dayShortage.morning||0)+removedM;newDay.morning=validMorning;dayChanged=true;}
 
-        // 夜: availがなくなった人を除去
-        Object.entries(day.night||{}).forEach(([t,id])=>{
-          if(id&&!avail[id]?.[`${d}_night_${t}`]){
-            delete newDay.night[t];
-            dayShortage.night[t]=(dayShortage.night[t]||0)+1;
-            dayChanged=true;
-          }
-        });
+      // 朝仕込み: availがなくなった人を除去
+      const validPrep=(day.prep||[]).filter(id=>!!avail[id]?.[`${d}_prep`]||!!avail[id]?.[`${d}_shimikomi`]);
+      const removedP=(day.prep||[]).length-validPrep.length;
+      if(removedP>0){dayShortage.prep=(dayShortage.prep||0)+removedP;newDay.prep=validPrep;dayChanged=true;}
 
-        // アイサニ: availがなくなった人を除去
-        if(day.aisani&&!avail[day.aisani]?.[`${d}_aisani`]&&!NIGHT_TIMES.some(t=>!!avail[day.aisani]?.[`${d}_night_${t}`])){
-          newDay.aisani=null;dayShortage.aisani=(dayShortage.aisani||0)+1;dayChanged=true;
+      // 夜: availがなくなった人を除去
+      Object.entries(day.night||{}).forEach(([t,id])=>{
+        if(id&&!avail[id]?.[`${d}_night_${t}`]){
+          delete newDay.night[t];
+          dayShortage.night[t]=(dayShortage.night[t]||0)+1;
+          dayChanged=true;
         }
-
-        // キッチン: availがなくなった人を除去
-        if(day.kitchen&&!avail[day.kitchen]?.[`${d}_kitchen`]){
-          newDay.kitchen=null;dayShortage.kitchen=(dayShortage.kitchen||0)+1;dayChanged=true;
-        }
-
-        // 不足補充: 朝（新たに追加された候補のみ）
-        if((dayShortage.morning||0)>0){
-          const alreadyDay=new Set([...newDay.morning,...newDay.prep,...Object.values(newDay.night).filter(Boolean)]);
-          const cands=staff.filter(s=>newlyAdded(s.id,`${d}_morning`)&&!alreadyDay.has(s.id));
-          const fill=cands.slice(0,dayShortage.morning);
-          if(fill.length>0){newDay.morning=[...newDay.morning,...fill.map(s=>s.id)];dayShortage.morning-=fill.length;dayChanged=true;}
-        }
-
-        // 不足補充: 朝仕込み（新たに追加された候補のみ）
-        if((dayShortage.prep||0)>0&&newDay.prep.length===0){
-          const alreadyDay=new Set([...newDay.morning,...Object.values(newDay.night).filter(Boolean)]);
-          const cands=staff.filter(s=>(newlyAdded(s.id,`${d}_prep`)||newlyAdded(s.id,`${d}_shimikomi`))&&!alreadyDay.has(s.id));
-          if(cands.length>0){newDay.prep=[cands[0].id];dayShortage.prep=0;dayChanged=true;}
-        }
-
-        // 不足補充: 夜（新たに追加された候補のみ）
-        Object.entries(dayShortage.night||{}).forEach(([t,sh])=>{
-          if(sh>0&&!newDay.night[t]){
-            const alreadyDay=new Set([...newDay.morning,...newDay.prep,...Object.values(newDay.night).filter(Boolean)]);
-            const cands=staff.filter(s=>newlyAdded(s.id,`${d}_night_${t}`)&&!alreadyDay.has(s.id));
-            if(cands.length>0){newDay.night[t]=cands[0].id;dayShortage.night[t]=0;dayChanged=true;}
-          }
-        });
-
-        if(dayChanged){anyChanged=true;newShifts[d]=newDay;newShortage[d]=dayShortage;}
       });
 
-      if(!anyChanged) return prev;
-      const next={...prev,shifts:newShifts,shortage:newShortage};
-      nextToSave=next;
-      return next;
+      // アイサニ: availがなくなった人を除去
+      if(day.aisani&&!avail[day.aisani]?.[`${d}_aisani`]&&!NIGHT_TIMES.some(t=>!!avail[day.aisani]?.[`${d}_night_${t}`])){
+        newDay.aisani=null;dayShortage.aisani=(dayShortage.aisani||0)+1;dayChanged=true;
+      }
+
+      // キッチン: availがなくなった人を除去
+      if(day.kitchen&&!avail[day.kitchen]?.[`${d}_kitchen`]){
+        newDay.kitchen=null;dayShortage.kitchen=(dayShortage.kitchen||0)+1;dayChanged=true;
+      }
+
+      // 不足補充: 朝（朝が2人未満なら新規追加候補で補充）
+      const morningNeed=Math.max(0,2-newDay.morning.length);
+      if(morningNeed>0){
+        const alreadyDay=new Set([...newDay.morning,...newDay.prep,...Object.values(newDay.night).filter(Boolean)]);
+        const cands=staff.filter(s=>newlyAdded(s.id,`${d}_morning`)&&!alreadyDay.has(s.id));
+        const fill=cands.slice(0,morningNeed);
+        if(fill.length>0){newDay.morning=[...newDay.morning,...fill.map(s=>s.id)];dayShortage.morning=Math.max(0,(dayShortage.morning||0)-fill.length);dayChanged=true;}
+      }
+
+      // 不足補充: 朝仕込み（prepが0人なら新規追加候補で補充）
+      if(newDay.prep.length===0){
+        const alreadyDay=new Set([...newDay.morning,...Object.values(newDay.night).filter(Boolean)]);
+        const cands=staff.filter(s=>(newlyAdded(s.id,`${d}_prep`)||newlyAdded(s.id,`${d}_shimikomi`))&&!alreadyDay.has(s.id));
+        if(cands.length>0){newDay.prep=[cands[0].id];dayShortage.prep=0;dayChanged=true;}
+      }
+
+      // 不足補充: 夜（設定された時間帯が空なら新規追加候補で補充）
+      (nightSlotConfig[d]||[]).forEach(t=>{
+        if(!newDay.night[t]){
+          const alreadyDay=new Set([...newDay.morning,...newDay.prep,...Object.values(newDay.night).filter(Boolean)]);
+          const cands=staff.filter(s=>newlyAdded(s.id,`${d}_night_${t}`)&&!alreadyDay.has(s.id));
+          if(cands.length>0){newDay.night[t]=cands[0].id;if(dayShortage.night[t]!==undefined)dayShortage.night[t]=0;dayChanged=true;}
+        }
+      });
+
+      // 不足補充: アイサニ（設定あり・未割当なら補充）
+      if(!newDay.aisani&&aisaniConfig[d]?.enabled){
+        const alreadyDay=new Set([...newDay.morning,...newDay.prep,...Object.values(newDay.night).filter(Boolean)]);
+        const cands=staff.filter(s=>s.aisaniOK&&newlyAdded(s.id,`${d}_aisani`)&&!alreadyDay.has(s.id));
+        if(cands.length>0){newDay.aisani=cands[0].id;dayShortage.aisani=0;dayChanged=true;}
+      }
+
+      // 不足補充: キッチン（設定あり・未割当なら補充）
+      if(!newDay.kitchen&&kitchenConfig[d]?.enabled){
+        const alreadyDay=new Set([...newDay.morning,...newDay.prep,...Object.values(newDay.night).filter(Boolean)]);
+        if(newDay.aisani) alreadyDay.add(newDay.aisani);
+        const cands=staff.filter(s=>s.kitchenOK&&newlyAdded(s.id,`${d}_kitchen`)&&!alreadyDay.has(s.id));
+        if(cands.length>0){newDay.kitchen=cands[0].id;dayShortage.kitchen=0;dayChanged=true;}
+      }
+
+      if(dayChanged){anyChanged=true;newShifts[d]=newDay;newShortage[d]=dayShortage;}
     });
-    if(nextToSave){
-      saveResultLS(nextToSave,ymRef.current);
-      debounceSave(`resultBackup_${ymRef.current}`,serializeResult(nextToSave));
-    }
+
+    if(!anyChanged) return;
+    const next={...prev,shifts:newShifts,shortage:newShortage,savedAt:Date.now()};
+    setResult(next);
+    saveResultLS(next,ymRef.current);
+    debounceSave(`resultBackup_${ymRef.current}`,serializeResult(next));
   },[avail]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── デバウンス付き保存
@@ -924,31 +942,24 @@ export default function App(){
     setAvail({});setConfirmedShift(null);
     prevAvailRef.current={};
     // 新しい月の result を即座に復元（なければリセット）
-    resultLoadedRef.current=false;
     const newYm=`${y}_${m}`;
     const saved=loadResultLS(newYm);
-    if(saved){setResult(saved);resultLoadedRef.current=true;}
-    else setResult(null);
+    setResult(saved||null);
   };
   const updateDayComments=val=>{
     setDayComments(val);
     debounceSave(`dayComments_${ymRef.current}`,val);
   };
   const dismissShortage=useCallback((d,slotType,slotTime=null)=>{
-    let nextToSave=null;
-    setResult(prev=>{
-      if(!prev) return prev;
-      const newShortage={...prev.shortage,[d]:{...(prev.shortage[d]||{})}};
-      if(slotType==='night') newShortage[d]={...newShortage[d],night:{...(newShortage[d]?.night||{}),[slotTime]:0}};
-      else newShortage[d]={...newShortage[d],[slotType]:0};
-      const next={...prev,shortage:newShortage};
-      saveResultLS(next,ymRef.current);
-      nextToSave=next;
-      return next;
-    });
-    if(nextToSave){
-      debounceSave(`resultBackup_${ymRef.current}`,serializeResult(nextToSave));
-    }
+    const prev=resultRef.current;
+    if(!prev) return;
+    const newShortage={...prev.shortage,[d]:{...(prev.shortage[d]||{})}};
+    if(slotType==='night') newShortage[d]={...newShortage[d],night:{...(newShortage[d]?.night||{}),[slotTime]:0}};
+    else newShortage[d]={...newShortage[d],[slotType]:0};
+    const next={...prev,shortage:newShortage,savedAt:Date.now()};
+    setResult(next);
+    saveResultLS(next,ymRef.current);
+    debounceSave(`resultBackup_${ymRef.current}`,serializeResult(next));
   },[]);
   const handleGmLogin=()=>{
     if(pwInput===GM_PASSWORD){
