@@ -342,14 +342,36 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
     warnings[d]=dayW;
   }
 
-  // 日数ベース達成率
-  const workedDaysCounts={};
-  staff.forEach(s=>{ workedDaysCounts[s.id]=workedDays[s.id].size; });
-  const totalW=staff.reduce((a,s)=>a+workedDays[s.id].size,0);
+  // 新カウント方式で勤務実績数を計算
+  // 朝仕込み=2, 朝夜=2, 仕込み夜=2, 夜朝=夜1+翌朝1=合計2, 朝のみ=1, 夜のみ=1, 仕込みのみ=1
+  const workedCounts={};
+  staff.forEach(s=>{ workedCounts[s.id]=0; });
+  for(let d=1;d<=days;d++){
+    const dayR=result[d];
+    if(!dayR) continue;
+    staff.forEach(s=>{
+      const inPrep=(dayR.prep||[]).includes(s.id);
+      const inMorning=(dayR.morning||[]).includes(s.id);
+      const inNight=Object.values(dayR.night||{}).some(id=>id===s.id);
+      const inAisani=dayR.aisani===s.id;
+      const inKitchen=dayR.kitchen===s.id;
+      if(inPrep){
+        // 朝仕込み(prep持ち)または仕込み夜 → 2、仕込みのみ → 1
+        workedCounts[s.id]+=(isAvail(s.id,`${d}_prep`)||inNight)?2:1;
+      } else if(inMorning){
+        workedCounts[s.id]+=inNight?2:1; // 朝夜=2, 朝のみ=1
+      } else if(inNight){
+        workedCounts[s.id]+=1; // 夜のみ=1（翌日朝は翌日側で+1され合計2になる）
+      } else if(inAisani||inKitchen){
+        workedCounts[s.id]+=1;
+      }
+    });
+  }
+  const totalW=staff.reduce((a,s)=>a+workedCounts[s.id],0);
   const totalC=staff.reduce((a,s)=>a+candDays[s.id],0);
   const avgRate=totalC>0?Math.round(totalW/totalC*100):0;
 
-  return {shifts:result,worked:workedDaysCounts,candW:candDays,shortage,warnings,avgRate,workedDays};
+  return {shifts:result,worked:workedCounts,candW:candDays,shortage,warnings,avgRate,workedDays};
 }
 
 function staffById_local(staffArr,id){ return staffArr.find(s=>s.id===id); }
