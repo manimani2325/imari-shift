@@ -1346,22 +1346,6 @@ export default function App(){
                     {gmMode&&<span style={{fontSize:10,padding:"3px 10px",borderRadius:999,fontWeight:700,background:GRADE_COLOR[availViewStaff.grade]+"20",color:GRADE_COLOR[availViewStaff.grade],border:`1px solid ${GRADE_COLOR[availViewStaff.grade]}40`}}>{availViewStaff.grade}</span>}
                     {isJ&&<span style={{fontSize:10,color:"#f87171",background:"rgba(248,113,113,0.08)",borderRadius:999,padding:"3px 10px",border:"1px solid rgba(248,113,113,0.2)"}}>金土日祝の夜は原則NG</span>}
                   </div>
-                  <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:12}}>
-                    {[
-                      {label:"朝 全ON",color:"#b07d12",onClick:()=>setAllMorningTypeAvail(sid,"morning")},
-                      {label:"朝仕込 全ON",color:"#276749",onClick:()=>setAllMorningTypeAvail(sid,"prep")},
-                      {label:"仕込み 全ON",color:"#5b7fa6",onClick:()=>setAllMorningTypeAvail(sid,"shimikomi")},
-                      ...NIGHT_TIMES.map(t=>({label:`夜${t} 全ON`,color:NIGHT_TC[t],onClick:()=>setAllAvail(sid,`night_${t}`,true)})),
-                      ...(availViewStaff.aisaniOK?[{label:"アイサニ 全ON",color:C.accent,onClick:()=>setAllAvail(sid,"aisani",true)}]:[]),
-                      ...(availViewStaff.kitchenOK?[{label:"厨房 全ON",color:"#276749",onClick:()=>setAllAvail(sid,"kitchen",true)}]:[]),
-                    ].map(({label,color,onClick})=>(
-                      <button key={label} onClick={onClick}
-                        style={{fontSize:10,padding:"5px 12px",borderRadius:999,border:`1px solid ${color}30`,background:color+"10",color,cursor:"pointer",fontWeight:700}}>
-                        {label}
-                      </button>
-                    ))}
-                    <button onClick={()=>setAvail(p=>({...p,[sid]:{}}))} style={{...btn(false),fontSize:10,padding:"5px 12px"}}>クリア</button>
-                  </div>
                   <div style={{overflowX:"auto",overflowY:"auto",maxHeight:"58vh",borderRadius:14,border:"1px solid rgba(139,26,26,0.1)"}}>
                     <table style={{borderCollapse:"collapse",width:"100%",minWidth:540,background:"#fff"}}>
                       <thead>
