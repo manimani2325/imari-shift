@@ -214,7 +214,7 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
     if(pPick[0]&&prevNight.has(pPick[0].id)) dayW.push(`${pPick[0].name}：前日夜→仕込み（人手不足）`);
     dayR.prep=pPick.map(s=>s.id);
     pPick.forEach(s=>addWorked(s,d,'prep'));
-    dayS.prep=prepMode==="none"?0:Math.max(0,1-pPick.length);
+    dayS.prep=Math.max(0,1-pPick.length);
 
     // ── 朝（morningTarget人）: 朝のみ選択者（または朝+仕込み両方選択者）が対象
     const mStrict=staff.filter(s=>
