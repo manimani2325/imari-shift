@@ -1332,14 +1332,15 @@ export default function App(){
                                     const shimikomiOn=!!a[`${d}_shimikomi`];
                                     return MORNING_TYPES.map(type=>{
                                       const on=!!a[`${d}_${type}`];
-                                      const locked=type==="prep"?(morningOn||shimikomiOn)&&!on:prepOn&&!on;
+                                      const mcLocked=morningClosed&&(type==="morning"||type==="prep");
+                                      const locked=mcLocked||(type==="prep"?(morningOn||shimikomiOn)&&!on:prepOn&&!on);
                                       const col=type==="morning"?"#b07d12":type==="prep"?"#276749":"#5b7fa6";
                                       return(
                                         <td key={type} style={{background:rowBg,textAlign:"center",padding:"3px 5px"}}>
-                                          <button onClick={()=>toggleMorningTypeAvail(sid,d,type)}
+                                          <button onClick={()=>!locked&&toggleMorningTypeAvail(sid,d,type)}
                                             style={{width:34,height:28,borderRadius:8,
                                               border:on?"none":`1px solid ${col}90`,
-                                              cursor:"pointer",fontSize:13,fontWeight:800,
+                                              cursor:locked?"not-allowed":"pointer",fontSize:13,fontWeight:800,
                                               background:on?col:"rgba(139,26,26,0.03)",
                                               color:on?"#fff":col+"99",
                                               boxShadow:on?`0 2px 8px ${col}44`:"none",
