@@ -76,7 +76,7 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
       const hasAisani=s.aisaniOK&&isAvail(s.id,`${d}_aisani`);
       const hasKitchen=s.kitchenOK&&isAvail(s.id,`${d}_kitchen`);
       if(!hasMorning&&!hasPrep&&!hasShimikomi&&!hasNight&&!hasAisani&&!hasKitchen) continue;
-      if(hasPrep){
+      if(hasPrep||(hasMorning&&hasShimikomi)){
         candDays[s.id]+=2;
       } else {
         const hadPrevNight=d>1&&NIGHT_TIMES.some(t=>isAvail(s.id,`${d-1}_night_${t}`));
@@ -412,7 +412,7 @@ function calcCandCount(s, avail, year, month){
     const hasAisani=s.aisaniOK&&!!avail[s.id]?.[`${d}_aisani`];
     const hasKitchen=s.kitchenOK&&!!avail[s.id]?.[`${d}_kitchen`];
     if(!hasMorning&&!hasPrep&&!hasShimikomi&&!hasNight&&!hasAisani&&!hasKitchen) continue;
-    if(hasPrep){
+    if(hasPrep||(hasMorning&&hasShimikomi)){
       count+=2;
     } else {
       const hadPrevNight=d>1&&NIGHT_TIMES.some(t=>!!avail[s.id]?.[`${d-1}_night_${t}`]);
