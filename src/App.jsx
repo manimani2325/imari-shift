@@ -207,7 +207,7 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
     if(pPick[0]&&prevNight.has(pPick[0].id)) dayW.push(`${pPick[0].name}：前日夜→仕込み（人手不足）`);
     dayR.prep=pPick.map(s=>s.id);
     pPick.forEach(s=>addWorked(s,d,'prep'));
-    dayS.prep=Math.max(0,1-pPick.length);
+    dayS.prep=prepMode==="none"?0:Math.max(0,1-pPick.length);
 
     // ── 朝（morningTarget人）: 朝のみ選択者（または朝+仕込み両方選択者）が対象
     const mStrict=staff.filter(s=>
@@ -1707,7 +1707,7 @@ export default function App(){
                             onDismissShortage={(sh.morning||0)>0?()=>dismissShortage(d,'morning'):null}/>}
                           {!allClosed&&<SRow label={morningClosed?"仕込み":"朝仕込"} time={morningClosed?"":"8:30〜16:00"} color="#276749"
                             people={(day.prep||[]).map(id=>staffMap[id]).filter(Boolean)} shortage={sh.prep||0}
-                            candidates={staff.filter(s=>(avail[s.id]?.[`${d}_prep`]||avail[s.id]?.[`${d}_shimikomi`])&&!(day.prep||[]).includes(s.id))}
+                            candidates={staff.filter(s=>(avail[s.id]?.[`${d}_prep`]||(avail[s.id]?.[`${d}_shimikomi`]&&!avail[s.id]?.[`${d}_morning`]&&!avail[s.id]?.[`${d}_prep`]))&&!(day.prep||[]).includes(s.id))}
                             onSwap={newId=>swapShiftAssignment(d,'prep',null,newId)}
                             onRemove={id=>swapShiftAssignment(d,'prep',null,null,id)}
                             onDismissShortage={(sh.prep||0)>0?()=>dismissShortage(d,'prep'):null}/>}
