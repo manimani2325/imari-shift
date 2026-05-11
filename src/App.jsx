@@ -61,18 +61,33 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
   const workedMorning = {}; // 朝/夜バランス用
   const workedNight   = {};
   const workedDays    = {}; // 日数ベース達成率用
-  const candDays      = {}; // 候補日数
+  const candDays      = {}; // 候補数
   staff.forEach(s=>{ worked[s.id]=0; workedMorning[s.id]=0; workedNight[s.id]=0; workedDays[s.id]=new Set(); candDays[s.id]=0; });
 
   const isAvail = (sid,key) => !!avail[sid]?.[key];
 
-  // 事前に候補日数を集計
+  // 事前に候補数を集計（朝仕込み=2, 前日夜→翌朝=合計1, それ以外=1）
   staff.forEach(s=>{
     for(let d=1;d<=days;d++){
-      const hasAny=isAvail(s.id,`${d}_morning`)||isAvail(s.id,`${d}_prep`)||isAvail(s.id,`${d}_shimikomi`)||
-        NIGHT_TIMES.some(t=>isAvail(s.id,`${d}_night_${t}`))||
-        (s.aisaniOK&&isAvail(s.id,`${d}_aisani`))||(s.kitchenOK&&isAvail(s.id,`${d}_kitchen`));
-      if(hasAny) candDays[s.id]++;
+      const hasPrep=isAvail(s.id,`${d}_prep`);
+      const hasMorning=isAvail(s.id,`${d}_morning`);
+      const hasShimikomi=isAvail(s.id,`${d}_shimikomi`);
+      const hasNight=NIGHT_TIMES.some(t=>isAvail(s.id,`${d}_night_${t}`));
+      const hasAisani=s.aisaniOK&&isAvail(s.id,`${d}_aisani`);
+      const hasKitchen=s.kitchenOK&&isAvail(s.id,`${d}_kitchen`);
+      if(!hasMorning&&!hasPrep&&!hasShimikomi&&!hasNight&&!hasAisani&&!hasKitchen) continue;
+      if(hasPrep){
+        candDays[s.id]+=2;
+      } else {
+        const hadPrevNight=d>1&&NIGHT_TIMES.some(t=>isAvail(s.id,`${d-1}_night_${t}`));
+        const hasMorningShift=hasMorning||hasShimikomi;
+        if(hasMorningShift&&hadPrevNight){
+          // 前日夜→今日朝 は合計1カウント（前日夜側で計上済み）。今日の夜があれば+1
+          if(hasNight) candDays[s.id]+=1;
+        } else {
+          candDays[s.id]+=1;
+        }
+      }
     }
   });
 
@@ -1631,7 +1646,7 @@ export default function App(){
 
                   <div style={{...card,marginBottom:16}}>
                     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12,flexWrap:"wrap",gap:6}}>
-                      <div style={{fontSize:11,fontWeight:700,color:C.accent}}>勤務実績 / 候補日数（達成率）</div>
+                      <div style={{fontSize:11,fontWeight:700,color:C.accent}}>勤務実績 / 候補数（達成率）</div>
                       {resultStaffFilter&&<button onClick={()=>setResultStaffFilter(null)} style={{...btn(false),fontSize:10,padding:"4px 12px"}}>全員表示</button>}
                     </div>
                     <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
@@ -1648,9 +1663,9 @@ export default function App(){
                               border:`1.5px solid ${sel?C.accent:GRADE_COLOR[s.grade]+"22"}`,minWidth:84,cursor:"pointer",transition:"all .15s",
                               boxShadow:sel?"0 2px 12px rgba(139,26,26,0.18)":"none"}}>
                             <div style={{fontSize:10,fontWeight:700,color:GRADE_COLOR[s.grade]}}>{s.name}</div>
-                            <div style={{fontSize:19,fontWeight:900,marginTop:4,color:C.text}}>{w}<span style={{fontSize:10,color:C.muted,fontWeight:400}}>/{c}日</span></div>
+                            <div style={{fontSize:19,fontWeight:900,marginTop:4,color:C.text}}>{w}<span style={{fontSize:10,color:C.muted,fontWeight:400}}>/{c}</span></div>
                             <div style={{fontSize:12,fontWeight:800,color:dc}}>{pct}%</div>
-                            <div style={{fontSize:8,color:C.muted,opacity:.6,marginTop:2}}>実績/候補日数</div>
+                            <div style={{fontSize:8,color:C.muted,opacity:.6,marginTop:2}}>実績/候補数</div>
                           </div>
                         );
                       })}
