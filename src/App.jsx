@@ -678,9 +678,7 @@ export default function App(){
       return next;
     });
     if(nextToSave){
-      const ser=serializeResult(nextToSave);
-      clearTimeout(saveTimers.current['resultBackup']);
-      saveTimers.current['resultBackup']=setTimeout(()=>saveKey(`resultBackup_${ymRef.current}`,ser).catch(()=>{}),800);
+      debounceSave(`resultBackup_${ymRef.current}`,serializeResult(nextToSave));
     }
   },[staff]);
 
@@ -775,9 +773,9 @@ export default function App(){
         setConfirmedShift(cs||null);
       }
       const rbKey=`resultBackup_${fbYm}`;
-      if(!resultLoadedRef.current&&data[rbKey]){
+      if(!pendingKeys.current.has(rbKey)&&data[rbKey]){
         const restored=deserializeResult(data[rbKey]);
-        if(restored){setResult(restored);saveResultLS(restored,fbYm);resultLoadedRef.current=true;}
+        if(restored){setResult(restored);saveResultLS(restored,fbYm);}
       }
       setTimeout(()=>startLoadingFadeOut(),500);
     });
@@ -810,9 +808,12 @@ export default function App(){
     }
     if(!reallyChanged) return;
 
-    // 新たにONになったavailキーを記録
-    const newlyAdded=(sid,key)=>!!avail[sid]?.[key]&&!prevAvail[sid]?.[key];
+    // 月切替直後など prevAvail が空の場合は初回ロード扱い（全候補が「新規追加」と誤判定されるのを防ぐ）
+    const isInitialLoad=Object.keys(prevAvail).length===0;
+    // 新たにONになったavailキーを記録（初回ロード時は補充しない）
+    const newlyAdded=(sid,key)=>!isInitialLoad&&!!avail[sid]?.[key]&&!prevAvail[sid]?.[key];
 
+    let nextToSave=null;
     setResult(prev=>{
       if(!prev) return prev;
       let anyChanged=false;
@@ -884,8 +885,14 @@ export default function App(){
       });
 
       if(!anyChanged) return prev;
-      return {...prev,shifts:newShifts,shortage:newShortage};
+      const next={...prev,shifts:newShifts,shortage:newShortage};
+      nextToSave=next;
+      return next;
     });
+    if(nextToSave){
+      saveResultLS(nextToSave,ymRef.current);
+      debounceSave(`resultBackup_${ymRef.current}`,serializeResult(nextToSave));
+    }
   },[avail]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── デバウンス付き保存
@@ -940,9 +947,7 @@ export default function App(){
       return next;
     });
     if(nextToSave){
-      const ser=serializeResult(nextToSave);
-      clearTimeout(saveTimers.current['resultBackup']);
-      saveTimers.current['resultBackup']=setTimeout(()=>saveKey(`resultBackup_${ymRef.current}`,ser).catch(()=>{}),800);
+      debounceSave(`resultBackup_${ymRef.current}`,serializeResult(nextToSave));
     }
   },[]);
   const handleGmLogin=()=>{
