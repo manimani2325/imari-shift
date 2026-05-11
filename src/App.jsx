@@ -76,7 +76,7 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
       const hasAisani=s.aisaniOK&&isAvail(s.id,`${d}_aisani`);
       const hasKitchen=s.kitchenOK&&isAvail(s.id,`${d}_kitchen`);
       if(!hasMorning&&!hasPrep&&!hasShimikomi&&!hasNight&&!hasAisani&&!hasKitchen) continue;
-      if(hasPrep){
+      if(hasPrep||(hasMorning&&hasShimikomi)){
         candDays[s.id]+=2;
       } else {
         const hadPrevNight=d>1&&NIGHT_TIMES.some(t=>isAvail(s.id,`${d-1}_night_${t}`));
@@ -412,7 +412,7 @@ function calcCandCount(s, avail, year, month){
     const hasAisani=s.aisaniOK&&!!avail[s.id]?.[`${d}_aisani`];
     const hasKitchen=s.kitchenOK&&!!avail[s.id]?.[`${d}_kitchen`];
     if(!hasMorning&&!hasPrep&&!hasShimikomi&&!hasNight&&!hasAisani&&!hasKitchen) continue;
-    if(hasPrep){
+    if(hasPrep||(hasMorning&&hasShimikomi)){
       count+=2;
     } else {
       const hadPrevNight=d>1&&NIGHT_TIMES.some(t=>!!avail[s.id]?.[`${d-1}_night_${t}`]);
@@ -787,14 +787,21 @@ export default function App(){
 
   // ── localStorage から result を復元、空なら Firebase バックアップから取得
   const resultLoadedRef=useRef(false);
+  const prevAvailRef=useRef({});
   useEffect(()=>{
     const r=loadResultLS(ymRef.current);
     if(r){setResult(r);resultLoadedRef.current=true;}
   },[]);
 
   // ── avail変更時にシフト結果を同期（候補消去→除去、候補追加→不足補充）
+  // 補充は「新たに追加された候補」のみ対象（クリア時の連鎖バグ防止）
   useEffect(()=>{
     if(!result||!initialLoadDone.current) return;
+    const prevAvail=prevAvailRef.current;
+    prevAvailRef.current=avail;
+    // 新たにONになったavailキーを記録
+    const newlyAdded=(sid,key)=>!!avail[sid]?.[key]&&!prevAvail[sid]?.[key];
+
     setResult(prev=>{
       if(!prev) return prev;
       let anyChanged=false;
@@ -828,26 +835,26 @@ export default function App(){
           }
         });
 
-        // 不足補充: 朝
+        // 不足補充: 朝（新たに追加された候補のみ）
         if((dayShortage.morning||0)>0){
           const alreadyDay=new Set([...newDay.morning,...newDay.prep,...Object.values(newDay.night).filter(Boolean)]);
-          const cands=staff.filter(s=>!!avail[s.id]?.[`${d}_morning`]&&!alreadyDay.has(s.id)&&!newDay.morning.includes(s.id));
+          const cands=staff.filter(s=>newlyAdded(s.id,`${d}_morning`)&&!alreadyDay.has(s.id));
           const fill=cands.slice(0,dayShortage.morning);
           if(fill.length>0){newDay.morning=[...newDay.morning,...fill.map(s=>s.id)];dayShortage.morning-=fill.length;dayChanged=true;}
         }
 
-        // 不足補充: 朝仕込み
+        // 不足補充: 朝仕込み（新たに追加された候補のみ）
         if((dayShortage.prep||0)>0&&newDay.prep.length===0){
           const alreadyDay=new Set([...newDay.morning,...Object.values(newDay.night).filter(Boolean)]);
-          const cands=staff.filter(s=>(!!avail[s.id]?.[`${d}_prep`]||!!avail[s.id]?.[`${d}_shimikomi`])&&!alreadyDay.has(s.id));
+          const cands=staff.filter(s=>(newlyAdded(s.id,`${d}_prep`)||newlyAdded(s.id,`${d}_shimikomi`))&&!alreadyDay.has(s.id));
           if(cands.length>0){newDay.prep=[cands[0].id];dayShortage.prep=0;dayChanged=true;}
         }
 
-        // 不足補充: 夜
+        // 不足補充: 夜（新たに追加された候補のみ）
         Object.entries(dayShortage.night||{}).forEach(([t,sh])=>{
           if(sh>0&&!newDay.night[t]){
             const alreadyDay=new Set([...newDay.morning,...newDay.prep,...Object.values(newDay.night).filter(Boolean)]);
-            const cands=staff.filter(s=>!!avail[s.id]?.[`${d}_night_${t}`]&&!alreadyDay.has(s.id));
+            const cands=staff.filter(s=>newlyAdded(s.id,`${d}_night_${t}`)&&!alreadyDay.has(s.id));
             if(cands.length>0){newDay.night[t]=cands[0].id;dayShortage.night[t]=0;dayChanged=true;}
           }
         });
