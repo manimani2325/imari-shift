@@ -400,6 +400,32 @@ function calcWorkedCount(sid, shifts, avail){
   return count;
 }
 
+// 候補数をavailから動的計算（朝仕込み=2, 前日夜→翌朝=合計1, それ以外=1）
+function calcCandCount(s, avail, year, month){
+  const days=new Date(year,month,0).getDate();
+  let count=0;
+  for(let d=1;d<=days;d++){
+    const hasPrep=!!avail[s.id]?.[`${d}_prep`];
+    const hasMorning=!!avail[s.id]?.[`${d}_morning`];
+    const hasShimikomi=!!avail[s.id]?.[`${d}_shimikomi`];
+    const hasNight=NIGHT_TIMES.some(t=>!!avail[s.id]?.[`${d}_night_${t}`]);
+    const hasAisani=s.aisaniOK&&!!avail[s.id]?.[`${d}_aisani`];
+    const hasKitchen=s.kitchenOK&&!!avail[s.id]?.[`${d}_kitchen`];
+    if(!hasMorning&&!hasPrep&&!hasShimikomi&&!hasNight&&!hasAisani&&!hasKitchen) continue;
+    if(hasPrep){
+      count+=2;
+    } else {
+      const hadPrevNight=d>1&&NIGHT_TIMES.some(t=>!!avail[s.id]?.[`${d-1}_night_${t}`]);
+      if((hasMorning||hasShimikomi)&&hadPrevNight){
+        if(hasNight) count+=1;
+      } else {
+        count+=1;
+      }
+    }
+  }
+  return count;
+}
+
 // result をFirebase保存用にシリアライズ（Sets除去、空配列を_EMPTYマーカー化）
 function serializeResult(r){
   if(!r) return null;
@@ -1767,11 +1793,11 @@ export default function App(){
                     <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
                       {(()=>{
                         const totalW=staff.reduce((a,s)=>a+calcWorkedCount(s.id,result.shifts,avail),0);
-                        const totalC=staff.reduce((a,s)=>a+(result.candW[s.id]||0),0);
+                        const totalC=staff.reduce((a,s)=>a+calcCandCount(s,avail,year,month),0);
                         const dynAvgRate=totalC>0?Math.round(totalW/totalC*100):0;
                         return staff.map(s=>{
                         const w=calcWorkedCount(s.id,result.shifts,avail);
-                        const c=result.candW[s.id]||0;
+                        const c=calcCandCount(s,avail,year,month);
                         const pct=c>0?Math.round(w/c*100):0;
                         const dc=pct>=70?"#1a6bbf":pct>=60?"#276749":pct>=40?"#b07d12":"#c0392b";
                         const sel=resultStaffFilter===s.id;
@@ -1790,7 +1816,7 @@ export default function App(){
                       })()}
                     </div>
                     <div style={{fontSize:10,color:C.muted,marginTop:10,opacity:.6}}>
-                      {(()=>{const totalW2=staff.reduce((a,s)=>a+calcWorkedCount(s.id,result.shifts,avail),0);const totalC2=staff.reduce((a,s)=>a+(result.candW[s.id]||0),0);const r=totalC2>0?Math.round(totalW2/totalC2*100):0;return `平均達成率：${r}%`;})()}　{resultStaffFilter?"（名前タップで全員表示）":"（名前タップで個別確認）"}
+                      {(()=>{const totalW2=staff.reduce((a,s)=>a+calcWorkedCount(s.id,result.shifts,avail),0);const totalC2=staff.reduce((a,s)=>a+calcCandCount(s,avail,year,month),0);const r=totalC2>0?Math.round(totalW2/totalC2*100):0;return `平均達成率：${r}%`;})()}　{resultStaffFilter?"（名前タップで全員表示）":"（名前タップで個別確認）"}
                     </div>
                   </div>
 
