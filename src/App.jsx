@@ -766,6 +766,74 @@ export default function App(){
     if(r){setResult(r);resultLoadedRef.current=true;}
   },[]);
 
+  // ── avail変更時にシフト結果を同期（候補消去→除去、候補追加→不足補充）
+  useEffect(()=>{
+    if(!result||!initialLoadDone.current) return;
+    setResult(prev=>{
+      if(!prev) return prev;
+      let anyChanged=false;
+      const newShifts={...prev.shifts};
+      const newShortage={...prev.shortage};
+
+      Object.entries(prev.shifts||{}).forEach(([dStr,day])=>{
+        const d=parseInt(dStr);
+        if(!day) return;
+        const dayShortage={...(prev.shortage[d]||{morning:0,prep:0,night:{},aisani:0,kitchen:0})};
+        dayShortage.night={...(dayShortage.night||{})};
+        let dayChanged=false;
+        let newDay={...day,night:{...(day.night||{})}};
+
+        // 朝: availがなくなった人を除去
+        const validMorning=(day.morning||[]).filter(id=>!!avail[id]?.[`${d}_morning`]);
+        const removedM=(day.morning||[]).length-validMorning.length;
+        if(removedM>0){dayShortage.morning=(dayShortage.morning||0)+removedM;newDay.morning=validMorning;dayChanged=true;}
+
+        // 朝仕込み: availがなくなった人を除去
+        const validPrep=(day.prep||[]).filter(id=>!!avail[id]?.[`${d}_prep`]||!!avail[id]?.[`${d}_shimikomi`]);
+        const removedP=(day.prep||[]).length-validPrep.length;
+        if(removedP>0){dayShortage.prep=(dayShortage.prep||0)+removedP;newDay.prep=validPrep;dayChanged=true;}
+
+        // 夜: availがなくなった人を除去
+        Object.entries(day.night||{}).forEach(([t,id])=>{
+          if(id&&!avail[id]?.[`${d}_night_${t}`]){
+            delete newDay.night[t];
+            dayShortage.night[t]=(dayShortage.night[t]||0)+1;
+            dayChanged=true;
+          }
+        });
+
+        // 不足補充: 朝
+        if((dayShortage.morning||0)>0){
+          const alreadyDay=new Set([...newDay.morning,...newDay.prep,...Object.values(newDay.night).filter(Boolean)]);
+          const cands=staff.filter(s=>!!avail[s.id]?.[`${d}_morning`]&&!alreadyDay.has(s.id)&&!newDay.morning.includes(s.id));
+          const fill=cands.slice(0,dayShortage.morning);
+          if(fill.length>0){newDay.morning=[...newDay.morning,...fill.map(s=>s.id)];dayShortage.morning-=fill.length;dayChanged=true;}
+        }
+
+        // 不足補充: 朝仕込み
+        if((dayShortage.prep||0)>0&&newDay.prep.length===0){
+          const alreadyDay=new Set([...newDay.morning,...Object.values(newDay.night).filter(Boolean)]);
+          const cands=staff.filter(s=>(!!avail[s.id]?.[`${d}_prep`]||!!avail[s.id]?.[`${d}_shimikomi`])&&!alreadyDay.has(s.id));
+          if(cands.length>0){newDay.prep=[cands[0].id];dayShortage.prep=0;dayChanged=true;}
+        }
+
+        // 不足補充: 夜
+        Object.entries(dayShortage.night||{}).forEach(([t,sh])=>{
+          if(sh>0&&!newDay.night[t]){
+            const alreadyDay=new Set([...newDay.morning,...newDay.prep,...Object.values(newDay.night).filter(Boolean)]);
+            const cands=staff.filter(s=>!!avail[s.id]?.[`${d}_night_${t}`]&&!alreadyDay.has(s.id));
+            if(cands.length>0){newDay.night[t]=cands[0].id;dayShortage.night[t]=0;dayChanged=true;}
+          }
+        });
+
+        if(dayChanged){anyChanged=true;newShifts[d]=newDay;newShortage[d]=dayShortage;}
+      });
+
+      if(!anyChanged) return prev;
+      return {...prev,shifts:newShifts,shortage:newShortage};
+    });
+  },[avail]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── デバウンス付き保存
   const debounceSave=useCallback((key,val)=>{
     clearTimeout(saveTimers.current[key]);
