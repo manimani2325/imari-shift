@@ -376,6 +376,30 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
 
 function staffById_local(staffArr,id){ return staffArr.find(s=>s.id===id); }
 
+// 新カウント方式で勤務実績数をシフト結果から動的計算
+function calcWorkedCount(sid, shifts, avail){
+  let count=0;
+  Object.entries(shifts||{}).forEach(([dStr,dayR])=>{
+    if(!dayR) return;
+    const d=parseInt(dStr);
+    const inPrep=(dayR.prep||[]).includes(sid);
+    const inMorning=(dayR.morning||[]).includes(sid);
+    const inNight=Object.values(dayR.night||{}).some(id=>id===sid);
+    const inAisani=dayR.aisani===sid;
+    const inKitchen=dayR.kitchen===sid;
+    if(inPrep){
+      count+=(avail[sid]?.[`${d}_prep`]||inNight)?2:1;
+    } else if(inMorning){
+      count+=inNight?2:1;
+    } else if(inNight){
+      count+=1;
+    } else if(inAisani||inKitchen){
+      count+=1;
+    }
+  });
+  return count;
+}
+
 // result をFirebase保存用にシリアライズ（Sets除去、空配列を_EMPTYマーカー化）
 function serializeResult(r){
   if(!r) return null;
@@ -1672,8 +1696,12 @@ export default function App(){
                       {resultStaffFilter&&<button onClick={()=>setResultStaffFilter(null)} style={{...btn(false),fontSize:10,padding:"4px 12px"}}>全員表示</button>}
                     </div>
                     <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-                      {staff.map(s=>{
-                        const w=result.worked[s.id]||0;
+                      {(()=>{
+                        const totalW=staff.reduce((a,s)=>a+calcWorkedCount(s.id,result.shifts,avail),0);
+                        const totalC=staff.reduce((a,s)=>a+(result.candW[s.id]||0),0);
+                        const dynAvgRate=totalC>0?Math.round(totalW/totalC*100):0;
+                        return staff.map(s=>{
+                        const w=calcWorkedCount(s.id,result.shifts,avail);
                         const c=result.candW[s.id]||0;
                         const pct=c>0?Math.round(w/c*100):0;
                         const dc=pct>=70?"#1a6bbf":pct>=60?"#276749":pct>=40?"#b07d12":"#c0392b";
@@ -1689,10 +1717,11 @@ export default function App(){
                             <div style={{fontSize:8,color:C.muted,opacity:.6,marginTop:2}}>実績/候補数</div>
                           </div>
                         );
-                      })}
+                      });
+                      })()}
                     </div>
                     <div style={{fontSize:10,color:C.muted,marginTop:10,opacity:.6}}>
-                      平均達成率：{result.avgRate}%　{resultStaffFilter?"（名前タップで全員表示）":"（名前タップで個別確認）"}
+                      {(()=>{const totalW2=staff.reduce((a,s)=>a+calcWorkedCount(s.id,result.shifts,avail),0);const totalC2=staff.reduce((a,s)=>a+(result.candW[s.id]||0),0);const r=totalC2>0?Math.round(totalW2/totalC2*100):0;return `平均達成率：${r}%`;})()}　{resultStaffFilter?"（名前タップで全員表示）":"（名前タップで個別確認）"}
                     </div>
                   </div>
 
