@@ -212,12 +212,12 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
     pPick.forEach(s=>addWorked(s,d,'prep'));
     dayS.prep=Math.max(0,1-pPick.length);
 
-    // ── 朝（morningTarget人）: 朝仕込み選択者も候補に含める
+    // ── 朝（morningTarget人）: 朝のみ選択者（または朝+仕込み両方選択者）が対象
     const mStrict=staff.filter(s=>
-      (isAvail(s.id,`${d}_morning`)||isAvail(s.id,`${d}_prep`))&&
+      isAvail(s.id,`${d}_morning`)&&
       !dayR.prep.includes(s.id)&&!prevNight.has(s.id)
     );
-    const mAll=staff.filter(s=>(isAvail(s.id,`${d}_morning`)||isAvail(s.id,`${d}_prep`))&&!dayR.prep.includes(s.id));
+    const mAll=staff.filter(s=>isAvail(s.id,`${d}_morning`)&&!dayR.prep.includes(s.id));
     const mCands=mStrict.length>=morningTarget?mStrict:mAll;
     const mPick=pick(mCands,morningTarget,{maxJunior:1,balanceMode:'morning'});
     mPick.forEach(s=>{ if(prevNight.has(s.id)) dayW.push(`${s.name}：前日夜→朝（人手不足）`); });
@@ -1698,7 +1698,7 @@ export default function App(){
                         <div style={{display:"flex",flexDirection:"column",gap:5}}>
                           {!allClosed&&!morningClosed&&<SRow label="朝" time="7:00〜11:00" color="#b07d12"
                             people={(day.morning||[]).map(id=>staffMap[id]).filter(Boolean)} shortage={sh.morning||0}
-                            candidates={staff.filter(s=>(avail[s.id]?.[`${d}_morning`]||avail[s.id]?.[`${d}_prep`])&&!(day.morning||[]).includes(s.id)&&!(day.prep||[]).includes(s.id))}
+                            candidates={staff.filter(s=>avail[s.id]?.[`${d}_morning`]&&!(day.morning||[]).includes(s.id))}
                             onSwap={newId=>swapShiftAssignment(d,'morning',null,newId)}
                             onRemove={id=>swapShiftAssignment(d,'morning',null,null,id)}
                             onDismissShortage={(sh.morning||0)>0?()=>dismissShortage(d,'morning'):null}/>}
