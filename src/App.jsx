@@ -493,7 +493,10 @@ export default function App(){
     const key=`${d}_${type}`;
     const newVal=!cur[key];
     const next={...cur,[key]:newVal};
-    if(newVal) MORNING_TYPES.forEach(t=>{if(t!==type) next[`${d}_${t}`]=false;});
+    if(newVal){
+      if(type==="prep"){MORNING_TYPES.forEach(t=>{if(t!==type) next[`${d}_${t}`]=false;});}
+      else{next[`${d}_prep`]=false;}
+    }
     updateAvail({...avail,[sid]:next});
   };
   const setAllMorningTypeAvail=(sid,type)=>{
@@ -501,7 +504,8 @@ export default function App(){
     for(let d=1;d<=days;d++){
       if(isClosed(year,month,d)) continue;
       next[`${d}_${type}`]=true;
-      MORNING_TYPES.forEach(t=>{if(t!==type) next[`${d}_${t}`]=false;});
+      if(type==="prep"){MORNING_TYPES.forEach(t=>{if(t!==type) next[`${d}_${t}`]=false;});}
+      else{next[`${d}_prep`]=false;}
     }
     updateAvail({...avail,[sid]:next});
   };
@@ -1258,10 +1262,12 @@ export default function App(){
                               ):(
                                 <>
                                   {(()=>{
-                                    const anyMorningOn=MORNING_TYPES.some(t=>!!a[`${d}_${t}`]);
+                                    const prepOn=!!a[`${d}_prep`];
+                                    const morningOn=!!a[`${d}_morning`];
+                                    const shimikomiOn=!!a[`${d}_shimikomi`];
                                     return MORNING_TYPES.map(type=>{
                                       const on=!!a[`${d}_${type}`];
-                                      const locked=anyMorningOn&&!on;
+                                      const locked=type==="prep"?(morningOn||shimikomiOn)&&!on:prepOn&&!on;
                                       const col=type==="morning"?"#b07d12":type==="prep"?"#276749":"#5b7fa6";
                                       return(
                                         <td key={type} style={{background:rowBg,textAlign:"center",padding:"3px 5px"}}>
