@@ -185,26 +185,23 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
     const prepAll=staff.filter(s=>isAvail(s.id,`${d}_prep`));
     const shimikomiStrict=staff.filter(s=>isAvail(s.id,`${d}_shimikomi`)&&!prevNight.has(s.id));
     const shimikomiAll=staff.filter(s=>isAvail(s.id,`${d}_shimikomi`));
-    const shimikomiOnlyAll=shimikomiAll.filter(s=>!NIGHT_TIMES.some(t=>isAvail(s.id,`${d}_night_${t}`)));
-    const shimikomiOnlyStrict=shimikomiStrict.filter(s=>!NIGHT_TIMES.some(t=>isAvail(s.id,`${d}_night_${t}`)));
-    const shimikomiNightAll=shimikomiAll.filter(s=>NIGHT_TIMES.some(t=>isAvail(s.id,`${d}_night_${t}`)));
-    const shimikomiNightStrict=shimikomiStrict.filter(s=>NIGHT_TIMES.some(t=>isAvail(s.id,`${d}_night_${t}`)));
+    // 仕込みのみ候補者：朝・朝仕込みに候補を出していない人（夜の有無は問わない）
+    const shimikomiPureAll=shimikomiAll.filter(s=>!isAvail(s.id,`${d}_morning`)&&!isAvail(s.id,`${d}_prep`));
+    const shimikomiPureStrict=shimikomiStrict.filter(s=>!isAvail(s.id,`${d}_morning`)&&!isAvail(s.id,`${d}_prep`));
 
     let pPick=[];
-    let morningTarget=3;
+    let morningTarget=2;
     let prepMode="none";
 
     if(prepAll.length>0){
       pPick=pick(prepStrict.length>=1?prepStrict:prepAll,1);
       morningTarget=2; prepMode="prep";
-    } else if(shimikomiOnlyAll.length>0){
-      pPick=pick(shimikomiOnlyStrict.length>=1?shimikomiOnlyStrict:shimikomiOnlyAll,1);
+    } else if(shimikomiPureAll.length>0){
+      // 例外：仕込みのみ候補者がいて朝仕込み候補がいない場合のみ朝3人+仕込み1人
+      pPick=pick(shimikomiPureStrict.length>=1?shimikomiPureStrict:shimikomiPureAll,1);
       morningTarget=3; prepMode="shimikomiOnly";
-    } else if(shimikomiNightAll.length>0){
-      pPick=pick(shimikomiNightStrict.length>=1?shimikomiNightStrict:shimikomiNightAll,1);
-      morningTarget=3; prepMode="shimikomiNight";
     } else {
-      morningTarget=3; prepMode="none";
+      morningTarget=2; prepMode="none";
     }
 
     if(pPick[0]&&prevNight.has(pPick[0].id)) dayW.push(`${pPick[0].name}：前日夜→仕込み（人手不足）`);
@@ -237,7 +234,7 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
     }
 
     // ── 夜
-    const shimikomiCanDoNight=prepMode==="shimikomiNight"&&mCands.length>=3;
+    const shimikomiCanDoNight=prepMode==="shimikomiOnly"&&pPick[0]&&NIGHT_TIMES.some(t=>isAvail(pPick[0].id,`${d}_night_${t}`))&&mCands.length>=3;
     const prepW=shimikomiCanDoNight?new Set():new Set(dayR.prep);
     const morningW=new Set(dayR.morning);
     const kitchenW=new Set(dayR.kitchen?[dayR.kitchen]:[]);
