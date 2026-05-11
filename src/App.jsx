@@ -799,6 +799,17 @@ export default function App(){
     if(!result||!initialLoadDone.current) return;
     const prevAvail=prevAvailRef.current;
     prevAvailRef.current=avail;
+
+    // availの中身が実質変化していなければスキップ（Firebase再送などの誤発火防止）
+    const allSids=new Set([...Object.keys(prevAvail),...Object.keys(avail)]);
+    let reallyChanged=false;
+    outer: for(const sid of allSids){
+      const pA=prevAvail[sid]||{};const nA=avail[sid]||{};
+      const allKeys=new Set([...Object.keys(pA),...Object.keys(nA)]);
+      for(const k of allKeys){if(!!pA[k]!==!!nA[k]){reallyChanged=true;break outer;}}
+    }
+    if(!reallyChanged) return;
+
     // 新たにONになったavailキーを記録
     const newlyAdded=(sid,key)=>!!avail[sid]?.[key]&&!prevAvail[sid]?.[key];
 
@@ -834,6 +845,16 @@ export default function App(){
             dayChanged=true;
           }
         });
+
+        // アイサニ: availがなくなった人を除去
+        if(day.aisani&&!avail[day.aisani]?.[`${d}_aisani`]&&!NIGHT_TIMES.some(t=>!!avail[day.aisani]?.[`${d}_night_${t}`])){
+          newDay.aisani=null;dayShortage.aisani=(dayShortage.aisani||0)+1;dayChanged=true;
+        }
+
+        // キッチン: availがなくなった人を除去
+        if(day.kitchen&&!avail[day.kitchen]?.[`${d}_kitchen`]){
+          newDay.kitchen=null;dayShortage.kitchen=(dayShortage.kitchen||0)+1;dayChanged=true;
+        }
 
         // 不足補充: 朝（新たに追加された候補のみ）
         if((dayShortage.morning||0)>0){
@@ -894,6 +915,7 @@ export default function App(){
     setNightSlotConfig({});setAisaniConfig({});setKitchenConfig({});
     setDayComments({});setDayTypeConfig({});
     setAvail({});setConfirmedShift(null);
+    prevAvailRef.current={};
     // 新しい月の result を即座に復元（なければリセット）
     resultLoadedRef.current=false;
     const newYm=`${y}_${m}`;
