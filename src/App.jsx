@@ -778,8 +778,8 @@ export default function App(){
       const rbKey=`resultBackup_${fbYm}`;
       if(!pendingKeys.current.has(rbKey)&&data[rbKey]){
         const restored=deserializeResult(data[rbKey]);
-        // タイムスタンプ比較: Firebaseのデータが現在より新しい場合のみ上書き
-        if(restored&&(restored.savedAt||0)>(resultRef.current?.savedAt||0)){
+        // ローカル未取得またはFirebaseが新しい場合のみ上書き
+        if(restored&&(!resultRef.current||(restored.savedAt||0)>(resultRef.current?.savedAt||0))){
           setResult(restored);saveResultLS(restored,fbYm);
         }
       }
@@ -799,9 +799,11 @@ export default function App(){
   // ── avail変更時にシフト結果を同期（候補消去→除去、候補追加→不足補充）
   // 補充は「新たに追加された候補」のみ対象（クリア時の連鎖バグ防止）
   useEffect(()=>{
-    if(!initialLoadDone.current) return;
+    // prevAvailRefは常に更新（early returnより前に）
     const prevAvail=prevAvailRef.current;
     prevAvailRef.current=avail;
+
+    if(!initialLoadDone.current) return;
 
     // 初回ロード（prevAvailが空）はスキップ：结果とavailは保存時点で整合済み
     if(Object.keys(prevAvail).length===0) return;
