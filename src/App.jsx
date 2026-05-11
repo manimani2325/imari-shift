@@ -1654,8 +1654,7 @@ export default function App(){
                         const w=result.worked[s.id]||0;
                         const c=result.candW[s.id]||0;
                         const pct=c>0?Math.round(w/c*100):0;
-                        const avg=result.avgRate;
-                        const dc=pct>avg?"#276749":pct<avg?"#c0392b":C.muted;
+                        const dc=pct>=70?"#1a6bbf":pct>=60?"#276749":pct>=40?"#b07d12":"#c0392b";
                         const sel=resultStaffFilter===s.id;
                         return(
                           <div key={s.id} onClick={()=>setResultStaffFilter(sel?null:s.id)}
