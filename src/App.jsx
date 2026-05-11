@@ -180,12 +180,15 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
     const prevNight=new Set(d>1?Object.values(result[d-1]?.night||{}).filter(Boolean):[]);
     const nextDayRisk=morningRisk(d+1);
 
-    // ── 仕込みスロット: 朝仕込み > 仕込みのみ > 仕込み夜 の優先で埋める
+    // ── 仕込みスロット: 朝仕込み > 朝+仕込み > 仕込みのみ の優先で埋める
     const prepStrict=staff.filter(s=>isAvail(s.id,`${d}_prep`)&&!prevNight.has(s.id));
     const prepAll=staff.filter(s=>isAvail(s.id,`${d}_prep`));
     const shimikomiStrict=staff.filter(s=>isAvail(s.id,`${d}_shimikomi`)&&!prevNight.has(s.id));
     const shimikomiAll=staff.filter(s=>isAvail(s.id,`${d}_shimikomi`));
-    // 仕込みのみ候補者：朝・朝仕込みに候補を出していない人（夜の有無は問わない）
+    // 朝+仕込み両方チェック: 朝のみ or 朝仕込みどちらにも割り当て可能（通常扱い・morningTarget=2）
+    const shimikomiMorningAll=shimikomiAll.filter(s=>isAvail(s.id,`${d}_morning`));
+    const shimikomiMorningStrict=shimikomiStrict.filter(s=>isAvail(s.id,`${d}_morning`));
+    // 仕込みのみ: 朝も朝仕込みも持たない → 朝仕込み候補が誰もいない場合のみ例外（朝3人）
     const shimikomiPureAll=shimikomiAll.filter(s=>!isAvail(s.id,`${d}_morning`)&&!isAvail(s.id,`${d}_prep`));
     const shimikomiPureStrict=shimikomiStrict.filter(s=>!isAvail(s.id,`${d}_morning`)&&!isAvail(s.id,`${d}_prep`));
 
@@ -196,8 +199,12 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
     if(prepAll.length>0){
       pPick=pick(prepStrict.length>=1?prepStrict:prepAll,1);
       morningTarget=2; prepMode="prep";
+    } else if(shimikomiMorningAll.length>0){
+      // 朝+仕込み両方チェック → 仕込みスロットに割り当て（morningTarget=2）
+      pPick=pick(shimikomiMorningStrict.length>=1?shimikomiMorningStrict:shimikomiMorningAll,1);
+      morningTarget=2; prepMode="shimikomiMorning";
     } else if(shimikomiPureAll.length>0){
-      // 例外：仕込みのみ候補者がいて朝仕込み候補がいない場合のみ朝3人+仕込み1人
+      // 例外：朝・朝仕込み候補が誰もいない場合のみ朝3人+仕込み1人
       pPick=pick(shimikomiPureStrict.length>=1?shimikomiPureStrict:shimikomiPureAll,1);
       morningTarget=3; prepMode="shimikomiOnly";
     } else {
@@ -1707,7 +1714,7 @@ export default function App(){
                             onDismissShortage={(sh.morning||0)>0?()=>dismissShortage(d,'morning'):null}/>}
                           {!allClosed&&<SRow label={morningClosed?"仕込み":"朝仕込"} time={morningClosed?"":"8:30〜16:00"} color="#276749"
                             people={(day.prep||[]).map(id=>staffMap[id]).filter(Boolean)} shortage={sh.prep||0}
-                            candidates={staff.filter(s=>(avail[s.id]?.[`${d}_prep`]||(avail[s.id]?.[`${d}_shimikomi`]&&!avail[s.id]?.[`${d}_morning`]&&!avail[s.id]?.[`${d}_prep`]))&&!(day.prep||[]).includes(s.id))}
+                            candidates={staff.filter(s=>(avail[s.id]?.[`${d}_prep`]||avail[s.id]?.[`${d}_shimikomi`])&&!(day.prep||[]).includes(s.id))}
                             onSwap={newId=>swapShiftAssignment(d,'prep',null,newId)}
                             onRemove={id=>swapShiftAssignment(d,'prep',null,null,id)}
                             onDismissShortage={(sh.prep||0)>0?()=>dismissShortage(d,'prep'):null}/>}
