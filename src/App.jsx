@@ -704,7 +704,7 @@ export default function App(){
   };
 
   // GMパスワード
-  const GM_PASSWORD="0625";
+  const GM_PASSWORD="20030625";
   const [pwModal,setPwModal]=useState(false);
   const [pwInput,setPwInput]=useState("");
   const [pwError,setPwError]=useState(false);
