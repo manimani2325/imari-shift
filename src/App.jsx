@@ -863,29 +863,45 @@ export default function App(){
         newDay.kitchen=null;dayShortage.kitchen=(dayShortage.kitchen||0)+1;dayChanged=true;
       }
 
-      // 不足補充: 朝（新たに追加された候補のみ）
-      if((dayShortage.morning||0)>0){
+      // 不足補充: 朝（朝が2人未満なら新規追加候補で補充）
+      const morningNeed=Math.max(0,2-newDay.morning.length);
+      if(morningNeed>0){
         const alreadyDay=new Set([...newDay.morning,...newDay.prep,...Object.values(newDay.night).filter(Boolean)]);
         const cands=staff.filter(s=>newlyAdded(s.id,`${d}_morning`)&&!alreadyDay.has(s.id));
-        const fill=cands.slice(0,dayShortage.morning);
-        if(fill.length>0){newDay.morning=[...newDay.morning,...fill.map(s=>s.id)];dayShortage.morning-=fill.length;dayChanged=true;}
+        const fill=cands.slice(0,morningNeed);
+        if(fill.length>0){newDay.morning=[...newDay.morning,...fill.map(s=>s.id)];dayShortage.morning=Math.max(0,(dayShortage.morning||0)-fill.length);dayChanged=true;}
       }
 
-      // 不足補充: 朝仕込み（新たに追加された候補のみ）
-      if((dayShortage.prep||0)>0&&newDay.prep.length===0){
+      // 不足補充: 朝仕込み（prepが0人なら新規追加候補で補充）
+      if(newDay.prep.length===0){
         const alreadyDay=new Set([...newDay.morning,...Object.values(newDay.night).filter(Boolean)]);
         const cands=staff.filter(s=>(newlyAdded(s.id,`${d}_prep`)||newlyAdded(s.id,`${d}_shimikomi`))&&!alreadyDay.has(s.id));
         if(cands.length>0){newDay.prep=[cands[0].id];dayShortage.prep=0;dayChanged=true;}
       }
 
-      // 不足補充: 夜（新たに追加された候補のみ）
-      Object.entries(dayShortage.night||{}).forEach(([t,sh])=>{
-        if(sh>0&&!newDay.night[t]){
+      // 不足補充: 夜（設定された時間帯が空なら新規追加候補で補充）
+      (nightSlotConfig[d]||[]).forEach(t=>{
+        if(!newDay.night[t]){
           const alreadyDay=new Set([...newDay.morning,...newDay.prep,...Object.values(newDay.night).filter(Boolean)]);
           const cands=staff.filter(s=>newlyAdded(s.id,`${d}_night_${t}`)&&!alreadyDay.has(s.id));
-          if(cands.length>0){newDay.night[t]=cands[0].id;dayShortage.night[t]=0;dayChanged=true;}
+          if(cands.length>0){newDay.night[t]=cands[0].id;if(dayShortage.night[t]!==undefined)dayShortage.night[t]=0;dayChanged=true;}
         }
       });
+
+      // 不足補充: アイサニ（設定あり・未割当なら補充）
+      if(!newDay.aisani&&aisaniConfig[d]?.enabled){
+        const alreadyDay=new Set([...newDay.morning,...newDay.prep,...Object.values(newDay.night).filter(Boolean)]);
+        const cands=staff.filter(s=>s.aisaniOK&&newlyAdded(s.id,`${d}_aisani`)&&!alreadyDay.has(s.id));
+        if(cands.length>0){newDay.aisani=cands[0].id;dayShortage.aisani=0;dayChanged=true;}
+      }
+
+      // 不足補充: キッチン（設定あり・未割当なら補充）
+      if(!newDay.kitchen&&kitchenConfig[d]?.enabled){
+        const alreadyDay=new Set([...newDay.morning,...newDay.prep,...Object.values(newDay.night).filter(Boolean)]);
+        if(newDay.aisani) alreadyDay.add(newDay.aisani);
+        const cands=staff.filter(s=>s.kitchenOK&&newlyAdded(s.id,`${d}_kitchen`)&&!alreadyDay.has(s.id));
+        if(cands.length>0){newDay.kitchen=cands[0].id;dayShortage.kitchen=0;dayChanged=true;}
+      }
 
       if(dayChanged){anyChanged=true;newShifts[d]=newDay;newShortage[d]=dayShortage;}
     });
