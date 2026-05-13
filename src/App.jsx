@@ -760,8 +760,10 @@ export default function App(){
     const unsub=subscribeAll((data)=>{
       if(data.staff&&Array.isArray(data.staff)&&!pendingKeys.current.has('staff')) setStaff(sortByGrade(data.staff));
       if(data.yearMonth&&!pendingKeys.current.has('yearMonth')){setYear(data.yearMonth.y);setMonth(data.yearMonth.m);}
-      // Firebase の yearMonth を基準に月別キーで読み込む
-      const fbYm=data.yearMonth?`${data.yearMonth.y}_${data.yearMonth.m}`:ymRef.current;
+      // yearMonthが保存中（月切替直後）はymRef.currentを使う。
+      // そうしないとFirebaseの古いyearMonthで別月のデータがロードされてしまう。
+      const fbYm=(data.yearMonth&&!pendingKeys.current.has('yearMonth'))
+        ?`${data.yearMonth.y}_${data.yearMonth.m}`:ymRef.current;
       const avKey=`avail_${fbYm}`;
       const aiKey=`aisaniConfig_${fbYm}`;
       const kitKey=`kitchenConfig_${fbYm}`;
@@ -947,9 +949,18 @@ export default function App(){
   const updateKitchenCfg=val=>{setKitchenConfig(val);debounceSave(`kitchenConfig_${ymRef.current}`,val);};
   const updateDayTypeCfg=val=>{setDayTypeConfig(val);debounceSave(`dayTypeConfig_${ymRef.current}`,val);};
   const updateYearMonth=(y,m)=>{
+    // 月切替前に現在月のresultをFirebaseへ即時フラッシュ（600msデバウンスをキャンセルして即保存）
+    const curYm=ymRef.current;
+    const rbKey=`resultBackup_${curYm}`;
+    clearTimeout(saveTimers.current[rbKey]);
+    delete saveTimers.current[rbKey];
+    pendingKeys.current.delete(rbKey);
+    if(resultRef.current){
+      saveKey(rbKey,serializeResult(resultRef.current)).catch(e=>console.warn('flush save error',e));
+    }
     setYear(y);setMonth(m);debounceSave('yearMonth',{y,m});
     setNightSlotConfig({});setAisaniConfig({});setKitchenConfig({});
-    setDayComments({});setDayTypeConfig({});
+    setDayComments({});setDayTypeConfig({});setStarOverrides({});
     setAvail({});setConfirmedShift(null);
     prevAvailRef.current={};
     // 新しい月の result を即座に復元（なければリセット）
