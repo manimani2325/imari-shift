@@ -1736,13 +1736,15 @@ export default function App(){
                 if(csNOv==="none")csNStar=null;else if(csNOv)csNStar=csNOv;
                 return(
                   <div key={d} style={{background:"#fff",borderRadius:14,border:`1.5px solid ${borderCol}`,padding:"12px 14px",marginBottom:8,boxShadow:myDay?"0 2px 10px rgba(139,26,26,0.1)":"0 1px 4px rgba(0,0,0,0.03)"}}>
-                    <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:(hasAisani||hasKitchen||!closed)?10:0,flexWrap:"wrap"}}>
-                      <span style={{fontWeight:900,fontSize:15,color:hol?"#b8860b":dow===0?"#c0392b":dow===6?"#1b2a5e":C.text}}>
-                        {csMonth+1}/{d}（{DOW_JP[dow]}）{hol?"🎌":""}
-                      </span>
-                      {closed&&<span style={{fontSize:9,padding:"3px 8px",borderRadius:999,background:"rgba(139,26,26,0.06)",color:C.muted,fontWeight:700,border:"1px solid rgba(139,26,26,0.12)"}}>定休日</span>}
-                      {myDay&&<span style={{fontSize:9,padding:"3px 8px",borderRadius:999,background:"rgba(139,26,26,0.08)",color:C.accent,fontWeight:700,border:`1px solid ${C.accent}30`}}>出勤</span>}
-                      {dayComments[d]&&<span style={{fontSize:10,color:"#b8860b",marginLeft:4}}>📝 {dayComments[d]}</span>}
+                    <div style={{marginBottom:(hasAisani||hasKitchen||!closed)?10:0}}>
+                      <div style={{display:"flex",alignItems:"center",gap:7,flexWrap:"wrap"}}>
+                        <span style={{fontWeight:900,fontSize:15,color:hol?"#b8860b":dow===0?"#c0392b":dow===6?"#1b2a5e":C.text}}>
+                          {csMonth+1}/{d}（{DOW_JP[dow]}）{hol?"🎌":""}
+                        </span>
+                        {closed&&<span style={{fontSize:9,padding:"3px 8px",borderRadius:999,background:"rgba(139,26,26,0.06)",color:C.muted,fontWeight:700,border:"1px solid rgba(139,26,26,0.12)"}}>定休日</span>}
+                        {myDay&&<span style={{fontSize:9,padding:"3px 8px",borderRadius:999,background:"rgba(139,26,26,0.08)",color:C.accent,fontWeight:700,border:`1px solid ${C.accent}30`}}>出勤</span>}
+                      </div>
+                      {dayComments[d]&&<div style={{marginTop:5,fontSize:13,color:"#7a5c00",background:"rgba(184,134,11,0.07)",border:"1px solid rgba(184,134,11,0.18)",borderRadius:8,padding:"5px 10px",fontWeight:600,lineHeight:1.5}}>📝 {dayComments[d]}</div>}
                     </div>
                     {day&&(
                       <div style={{display:"flex",flexDirection:"column",gap:5}}>
