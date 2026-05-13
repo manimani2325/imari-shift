@@ -1862,7 +1862,20 @@ export default function App(){
                     const morningClosed=dayTypeConfig[d]==="morning_closed";
                     const allClosed=closed||manualClosed;
                     const aiOn=aisaniConfig[d]?.enabled;
-                    if(allClosed&&!aiOn) return null;
+                    if(allClosed&&!aiOn){
+                      if(resultStaffFilter) return null;
+                      const bc2=dow===0?"rgba(192,57,43,0.06)":dow===6?"rgba(27,42,94,0.06)":"rgba(139,26,26,0.04)";
+                      return(
+                        <div key={d} style={{background:"#fdfaf6",borderRadius:14,border:`1px solid ${bc2}`,padding:"10px 14px",marginBottom:8,opacity:0.55}}>
+                          <div style={{display:"flex",alignItems:"center",gap:7}}>
+                            <span style={{fontWeight:900,fontSize:15,color:hol?"#b8860b":dow===0?"#c0392b":dow===6?"#1b2a5e":C.text}}>
+                              {month+1}/{d}（{DOW_JP[dow]}）{hol?"🎌":""}
+                            </span>
+                            <span style={{fontSize:9,padding:"3px 8px",borderRadius:999,background:"rgba(139,26,26,0.06)",color:"#8c7b6b",fontWeight:700,border:"1px solid rgba(139,26,26,0.12)"}}>{manualClosed?"休業日":"定休日"}</span>
+                          </div>
+                        </div>
+                      );
+                    }
                     const day=result.shifts[d];
                     if(!day) return null;
                     // 個別フィルター: 選択スタッフが入っている日のみ表示
@@ -1957,10 +1970,10 @@ function SRow({label,time,color,people,shortage=0,candidates=[],onSwap=null,onRe
           {people.map(s=>(
             onRemove
               ? <button key={s.id} onClick={()=>onRemove(s.id)} title="タップで削除" style={{fontSize:12,padding:"4px 12px",borderRadius:999,background:"rgba(139,26,26,0.05)",color:"#1a0a00",fontWeight:700,border:"1px solid rgba(139,26,26,0.12)",cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:4}}>
-                  {s.name}<span style={{fontSize:9,color:"#c0392b",fontWeight:900}}>×</span>
+                  {s.grade==='J'?'🍀':''}{s.name}<span style={{fontSize:9,color:"#c0392b",fontWeight:900}}>×</span>
                 </button>
               : <span key={s.id} style={{fontSize:12,padding:"4px 14px",borderRadius:999,background:"rgba(139,26,26,0.05)",color:"#1a0a00",fontWeight:700,border:"1px solid rgba(139,26,26,0.12)"}}>
-                  {s.name}
+                  {s.grade==='J'?'🍀':''}{s.name}
                 </span>
           ))}
           {shortage>0&&(
