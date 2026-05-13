@@ -846,12 +846,15 @@ export default function App(){
       const removedP=(day.prep||[]).length-validPrep.length;
       if(removedP>0){dayShortage.prep=(dayShortage.prep||0)+removedP;newDay.prep=validPrep;dayChanged=true;}
 
-      // 夜: availがなくなった人を除去
+      // 夜: availがなくなった人を除去（nightCompatで割り当てられた可能性があるため互換性チェック）
       Object.entries(day.night||{}).forEach(([t,id])=>{
-        if(id&&!avail[id]?.[`${d}_night_${t}`]){
-          delete newDay.night[t];
-          dayShortage.night[t]=(dayShortage.night[t]||0)+1;
-          dayChanged=true;
+        if(id){
+          const hasCompatNight=NIGHT_TIMES.some(nt=>!!avail[id]?.[`${d}_night_${nt}`]&&nightCompat(nt,t));
+          if(!hasCompatNight){
+            delete newDay.night[t];
+            dayShortage.night[t]=(dayShortage.night[t]||0)+1;
+            dayChanged=true;
+          }
         }
       });
 
@@ -885,7 +888,7 @@ export default function App(){
       (nightSlotConfig[d]||[]).forEach(t=>{
         if(!newDay.night[t]){
           const alreadyDay=new Set([...newDay.morning,...newDay.prep,...Object.values(newDay.night).filter(Boolean)]);
-          const cands=staff.filter(s=>newlyAdded(s.id,`${d}_night_${t}`)&&!alreadyDay.has(s.id));
+          const cands=staff.filter(s=>!alreadyDay.has(s.id)&&NIGHT_TIMES.some(nt=>newlyAdded(s.id,`${d}_night_${nt}`)&&nightCompat(nt,t)));
           if(cands.length>0){newDay.night[t]=cands[0].id;if(dayShortage.night[t]!==undefined)dayShortage.night[t]=0;dayChanged=true;}
         }
       });
