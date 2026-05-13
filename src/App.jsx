@@ -1866,13 +1866,18 @@ export default function App(){
                       if(resultStaffFilter) return null;
                       const bc2=dow===0?"rgba(192,57,43,0.06)":dow===6?"rgba(27,42,94,0.06)":"rgba(139,26,26,0.04)";
                       return(
-                        <div key={d} style={{background:"#fdfaf6",borderRadius:14,border:`1px solid ${bc2}`,padding:"10px 14px",marginBottom:8,opacity:0.55}}>
-                          <div style={{display:"flex",alignItems:"center",gap:7}}>
+                        <div key={d} style={{background:"#fdfaf6",borderRadius:14,border:`1px solid ${bc2}`,padding:"10px 14px",marginBottom:8}}>
+                          <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:8,opacity:0.55}}>
                             <span style={{fontWeight:900,fontSize:15,color:hol?"#b8860b":dow===0?"#c0392b":dow===6?"#1b2a5e":C.text}}>
                               {month+1}/{d}（{DOW_JP[dow]}）{hol?"🎌":""}
                             </span>
                             <span style={{fontSize:9,padding:"3px 8px",borderRadius:999,background:"rgba(139,26,26,0.06)",color:"#8c7b6b",fontWeight:700,border:"1px solid rgba(139,26,26,0.12)"}}>{manualClosed?"休業日":"定休日"}</span>
                           </div>
+                          <input type="text" placeholder="📝 この日のコメントを追加（任意）"
+                            value={dayComments[d]||""}
+                            onChange={e=>updateDayComments({...dayComments,[d]:e.target.value})}
+                            style={{width:"100%",boxSizing:"border-box",padding:"7px 12px",borderRadius:8,border:"1px solid rgba(139,26,26,0.15)",background:"rgba(139,26,26,0.02)",fontSize:11,color:"#1a0a00",outline:"none",fontFamily:"inherit"}}
+                          />
                         </div>
                       );
                     }
