@@ -1600,16 +1600,25 @@ export default function App(){
             const inAisani=day.aisani===sid||Number(day.aisani)===sid;
             const inKitchen=day.kitchen===sid||Number(day.kitchen)===sid;
             if(!inMorning&&!inPrep&&!inNight&&!inAisani&&!inKitchen) continue;
+            // 🌟計算
+            const myMP=(day.morning||[]).map(id=>staffMap[id]||staffMap[Number(id)]).filter(Boolean);
+            const myMAT=myMP.length?myMP.reduce((b,s)=>GRADE_SORT[s.grade]<GRADE_SORT[b.grade]?s:b):null;
+            const myMOv=(starOverrides[d]||{}).morning;
+            const myMStar=myMOv==="none"?null:(myMOv??myMAT?.id??null);
+            let myNStar=null;
+            for(const nt of NIGHT_ORDER){const pid=day.night?.[nt];if(!pid)continue;const ps=staffMap[pid]||staffMap[Number(pid)];if(ps?.grade!=='J'){myNStar=pid;break;}}
+            const myNOv=(starOverrides[d]||{}).night;
+            if(myNOv==="none")myNStar=null;else if(myNOv)myNStar=myNOv;
             const groups=[];
             if(inMorning||inPrep){
               const morningMembers=[];
-              (day.morning||[]).forEach(id=>{const s=staffMap[id]||staffMap[Number(id)];if(s) morningMembers.push({person:s,time:"朝（7:00〜11:00）"});});
-              (day.prep||[]).forEach(id=>{const s=staffMap[id]||staffMap[Number(id)];if(s) morningMembers.push({person:s,time:"朝仕込み（8:30〜16:00）"});});
+              (day.morning||[]).forEach(id=>{const s=staffMap[id]||staffMap[Number(id)];if(s) morningMembers.push({person:s,time:"朝（7:00〜11:00）",isStar:(id===myMStar||Number(id)===myMStar),isJ:s.grade==='J'});});
+              (day.prep||[]).forEach(id=>{const s=staffMap[id]||staffMap[Number(id)];if(s) morningMembers.push({person:s,time:"朝仕込み（8:30〜16:00）",isStar:false,isJ:s.grade==='J'});});
               groups.push({label:"朝・朝仕込み",color:"#f97316",night:true,members:morningMembers});
             }
             if(inNight){
               const nightMembers=[];
-              NIGHT_ORDER.forEach(t=>{const id=day.night[t];if(id!=null){const s=staffMap[id]||staffMap[Number(id)];if(s) nightMembers.push({person:s,time:t});}});
+              NIGHT_ORDER.forEach(t=>{const id=day.night[t];if(id!=null){const s=staffMap[id]||staffMap[Number(id)];if(s) nightMembers.push({person:s,time:t,isStar:(id===myNStar||Number(id)===myNStar),isJ:s.grade==='J'});}});
               groups.push({label:"夜",color:"#3b82f6",night:true,members:nightMembers});
             }
             if(inAisani){const s=staffMap[day.aisani]||staffMap[Number(day.aisani)];groups.push({label:"アイサニ",color:"#10b981",members:s?[s]:[]});}
@@ -1636,12 +1645,12 @@ export default function App(){
                             <div style={{fontSize:10,fontWeight:700,color:g.color,marginBottom:5,letterSpacing:.5}}>{g.label}</div>
                             <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
                               {g.night
-                                ? g.members.map(({person,time},i)=>(
+                                ? g.members.map(({person,time,isStar,isJ},i)=>(
                                     <span key={i} style={{fontSize:12,fontWeight:700,padding:"4px 11px",borderRadius:999,
                                       background:(person.id===sid||Number(person.id)===sid)?g.color:"rgba(59,130,246,0.08)",
                                       color:(person.id===sid||Number(person.id)===sid)?"#fff":C.text,
                                       border:`1px solid ${g.color}${(person.id===sid||Number(person.id)===sid)?"":"30"}`}}>
-                                      {time} {person.name}
+                                      {time} {isStar?'🌟':''}{isJ?'🍀':''}{person.name}
                                     </span>
                                   ))
                                 : g.members.map((person,i)=>(
@@ -1649,7 +1658,7 @@ export default function App(){
                                       background:(person.id===sid||Number(person.id)===sid)?g.color:"rgba(0,0,0,0.04)",
                                       color:(person.id===sid||Number(person.id)===sid)?"#fff":C.text,
                                       border:`1px solid ${g.color}${(person.id===sid||Number(person.id)===sid)?"":"20"}`}}>
-                                      {person.name}
+                                      {person.grade==='J'?'🍀':''}{person.name}
                                     </span>
                                   ))
                               }
@@ -1698,6 +1707,15 @@ export default function App(){
                   day.aisani===sid||Number(day.aisani)===sid||day.kitchen===sid||Number(day.kitchen)===sid);
                 const bc=myDay?"rgba(139,26,26,0.12)":hol?"rgba(184,134,11,0.08)":dow===0?"rgba(192,57,43,0.06)":dow===6?"rgba(27,42,94,0.06)":"rgba(139,26,26,0.04)";
                 const borderCol=myDay?C.accent:hol?"#b8860b40":dow===0?"#c0392b30":dow===6?"#1b2a5e30":"rgba(139,26,26,0.1)";
+                // 🌟計算（confirmedShift用）
+                const csMP=(day?.morning||[]).map(id=>staffMap[id]||staffMap[Number(id)]).filter(Boolean);
+                const csMAT=csMP.length?csMP.reduce((b,s)=>GRADE_SORT[s.grade]<GRADE_SORT[b.grade]?s:b):null;
+                const csMOv=(starOverrides[d]||{}).morning;
+                const csMStar=csMOv==="none"?null:(csMOv??csMAT?.id??null);
+                let csNStar=null;
+                for(const nt of NIGHT_ORDER){const pid=day?.night?.[nt];if(!pid)continue;const ps=staffMap[pid]||staffMap[Number(pid)];if(ps?.grade!=='J'){csNStar=pid;break;}}
+                const csNOv=(starOverrides[d]||{}).night;
+                if(csNOv==="none")csNStar=null;else if(csNOv)csNStar=csNOv;
                 return(
                   <div key={d} style={{background:"#fff",borderRadius:14,border:`1.5px solid ${borderCol}`,padding:"12px 14px",marginBottom:8,boxShadow:myDay?"0 2px 10px rgba(139,26,26,0.1)":"0 1px 4px rgba(0,0,0,0.03)"}}>
                     <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:(hasAisani||hasKitchen||!closed)?10:0,flexWrap:"wrap"}}>
@@ -1719,7 +1737,7 @@ export default function App(){
                                 <span key={id} style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,
                                   background:(id===sid||Number(id)===sid)?C.accent:"rgba(176,125,18,0.08)",
                                   color:(id===sid||Number(id)===sid)?"#fff":"#b07d12",
-                                  border:`1px solid ${(id===sid||Number(id)===sid)?C.accent:"#b07d1230"}`}}>{s.name}</span>
+                                  border:`1px solid ${(id===sid||Number(id)===sid)?C.accent:"#b07d1230"}`}}>{(id===csMStar||Number(id)===csMStar)?'🌟':''}{s.grade==='J'?'🍀':''}{s.name}</span>
                               ):null;})}
                             </div>
                           </div>
@@ -1733,7 +1751,7 @@ export default function App(){
                                 <span key={id} style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,
                                   background:(id===sid||Number(id)===sid)?C.accent:"rgba(39,103,73,0.08)",
                                   color:(id===sid||Number(id)===sid)?"#fff":"#276749",
-                                  border:`1px solid ${(id===sid||Number(id)===sid)?C.accent:"#27674930"}`}}>{s.name}</span>
+                                  border:`1px solid ${(id===sid||Number(id)===sid)?C.accent:"#27674930"}`}}>{s.grade==='J'?'🍀':''}{s.name}</span>
                               ):null;})}
                             </div>
                           </div>
@@ -1744,7 +1762,7 @@ export default function App(){
                             <span key={id} style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,
                               background:(id===sid||Number(id)===sid)?NIGHT_TC[t]:"rgba(0,0,0,0.04)",
                               color:(id===sid||Number(id)===sid)?"#fff":C.text,
-                              border:`1px solid ${(id===sid||Number(id)===sid)?NIGHT_TC[t]:"rgba(0,0,0,0.1)"}`}}>{s.name}</span>
+                              border:`1px solid ${(id===sid||Number(id)===sid)?NIGHT_TC[t]:"rgba(0,0,0,0.1)"}`}}>{(id===csNStar||Number(id)===csNStar)?'🌟':''}{s.grade==='J'?'🍀':''}{s.name}</span>
                           </div>
                         ):null;})}
                         {hasAisani&&(()=>{const s=staffMap[day.aisani]||staffMap[Number(day.aisani)];return s?(
@@ -1753,7 +1771,7 @@ export default function App(){
                             <span style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,
                               background:(day.aisani===sid||Number(day.aisani)===sid)?C.accent:"rgba(139,26,26,0.06)",
                               color:(day.aisani===sid||Number(day.aisani)===sid)?"#fff":C.text,
-                              border:`1px solid ${(day.aisani===sid||Number(day.aisani)===sid)?C.accent:"rgba(139,26,26,0.15)"}`}}>{s.name}</span>
+                              border:`1px solid ${(day.aisani===sid||Number(day.aisani)===sid)?C.accent:"rgba(139,26,26,0.15)"}`}}>{s.grade==='J'?'🍀':''}{s.name}</span>
                           </div>
                         ):null;})()}
                         {hasKitchen&&(()=>{const s=staffMap[day.kitchen]||staffMap[Number(day.kitchen)];return s?(
@@ -1762,7 +1780,7 @@ export default function App(){
                             <span style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,
                               background:(day.kitchen===sid||Number(day.kitchen)===sid)?"#276749":"rgba(39,103,73,0.06)",
                               color:(day.kitchen===sid||Number(day.kitchen)===sid)?"#fff":C.text,
-                              border:`1px solid ${(day.kitchen===sid||Number(day.kitchen)===sid)?"#276749":"#27674930"}`}}>{s.name}</span>
+                              border:`1px solid ${(day.kitchen===sid||Number(day.kitchen)===sid)?"#276749":"#27674930"}`}}>{s.grade==='J'?'🍀':''}{s.name}</span>
                           </div>
                         ):null;})()}
                       </div>
