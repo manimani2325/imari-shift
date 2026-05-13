@@ -753,6 +753,9 @@ export default function App(){
   const pendingKeys=useRef(new Set());
   const ymRef=useRef(`${year}_${month}`);
   ymRef.current=`${year}_${month}`;
+  // pendingYmRef: updateYearMonth呼び出し時に即座に更新（レンダー前でも正しい月を反映）
+  const pendingYmRef=useRef(`${year}_${month}`);
+  pendingYmRef.current=`${year}_${month}`;
 
   // ── Firebase 起動時クリーンアップ + リアルタイム購読
   useEffect(()=>{
@@ -760,10 +763,11 @@ export default function App(){
     const unsub=subscribeAll((data)=>{
       if(data.staff&&Array.isArray(data.staff)&&!pendingKeys.current.has('staff')) setStaff(sortByGrade(data.staff));
       if(data.yearMonth&&!pendingKeys.current.has('yearMonth')){setYear(data.yearMonth.y);setMonth(data.yearMonth.m);}
-      // yearMonthが保存中（月切替直後）はymRef.currentを使う。
-      // そうしないとFirebaseの古いyearMonthで別月のデータがロードされてしまう。
+      // yearMonthが保存中（月切替直後）はpendingYmRef.currentを使う。
+      // ymRef.currentはレンダー後に更新されるため、レンダー前に発火したFirebase購読では
+      // 古い月の値になってしまう。pendingYmRefはupdateYearMonth呼び出し時に即座に更新される。
       const fbYm=(data.yearMonth&&!pendingKeys.current.has('yearMonth'))
-        ?`${data.yearMonth.y}_${data.yearMonth.m}`:ymRef.current;
+        ?`${data.yearMonth.y}_${data.yearMonth.m}`:pendingYmRef.current;
       const avKey=`avail_${fbYm}`;
       const aiKey=`aisaniConfig_${fbYm}`;
       const kitKey=`kitchenConfig_${fbYm}`;
@@ -949,6 +953,8 @@ export default function App(){
   const updateKitchenCfg=val=>{setKitchenConfig(val);debounceSave(`kitchenConfig_${ymRef.current}`,val);};
   const updateDayTypeCfg=val=>{setDayTypeConfig(val);debounceSave(`dayTypeConfig_${ymRef.current}`,val);};
   const updateYearMonth=(y,m)=>{
+    // pendingYmRefを即座に新しい月に更新（レンダー前にFirebase購読が発火しても正しい月を参照できる）
+    pendingYmRef.current=`${y}_${m}`;
     // 月切替前に現在月のresultをFirebaseへ即時フラッシュ（600msデバウンスをキャンセルして即保存）
     const curYm=ymRef.current;
     const rbKey=`resultBackup_${curYm}`;
