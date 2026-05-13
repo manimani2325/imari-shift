@@ -541,6 +541,7 @@ export default function App(){
   };
   const [confirmedShift,setConfirmedShift]=useState(null);
   const [dayComments,setDayComments]=useState({});
+  const [starOverrides,setStarOverrides]=useState({}); // {[d]:{morning:sid|"none",night:sid|"none"}}
   const [view,setView]=useState("slots"); // slots|avail|result
   const [gmMode,setGmMode]=useState(false);
   const [loginStaff,setLoginStaff]=useState(null);
@@ -759,6 +760,7 @@ export default function App(){
       const kitKey=`kitchenConfig_${fbYm}`;
       const nsKey=`nightSlotConfig_${fbYm}`;
       const dcKey=`dayComments_${fbYm}`;
+      const soKey=`starOverrides_${fbYm}`;
       const dtKey=`dayTypeConfig_${fbYm}`;
       const csKey=`confirmedShift_${fbYm}`;
       if(!pendingKeys.current.has(avKey))  setAvail(data[avKey]||{});
@@ -766,6 +768,7 @@ export default function App(){
       if(!pendingKeys.current.has(kitKey)) setKitchenConfig(data[kitKey]||{});
       if(!pendingKeys.current.has(nsKey))  setNightSlotConfig(data[nsKey]||{});
       if(!pendingKeys.current.has(dcKey))  setDayComments(data[dcKey]||{});
+      if(!pendingKeys.current.has(soKey))  setStarOverrides(data[soKey]||{});
       if(!pendingKeys.current.has(dtKey))  setDayTypeConfig(data[dtKey]||{});
       if(!pendingKeys.current.has(csKey)){
         const cs=deserializeConfirmedShift(data[csKey]);
@@ -950,6 +953,15 @@ export default function App(){
   const updateDayComments=val=>{
     setDayComments(val);
     debounceSave(`dayComments_${ymRef.current}`,val);
+  };
+  const updateStarOverrides=val=>{
+    setStarOverrides(val);
+    debounceSave(`starOverrides_${ymRef.current}`,val);
+  };
+  const toggleStar=(d,type,sid)=>{
+    const cur=(starOverrides[d]||{})[type];
+    const next=cur===sid?"none":sid;
+    updateStarOverrides({...starOverrides,[d]:{...(starOverrides[d]||{}),[type]:next}});
   };
   const dismissShortage=useCallback((d,slotType,slotTime=null)=>{
     const prev=resultRef.current;
@@ -1883,19 +1895,23 @@ export default function App(){
                     }
                     const day=result.shifts[d];
                     if(!day) return null;
-                    // 朝: day.morningのみ最高等級者に🌟（朝仕込みは除外）
+                    // 朝: day.morningのみ最高等級者1人に🌟（朝仕込みは除外）、手動override対応
                     const mPeople=(day.morning||[]).map(id=>staffMap[id]).filter(Boolean);
-                    const mTop=mPeople.length?mPeople.reduce((b,s)=>GRADE_SORT[s.grade]<GRADE_SORT[b.grade]?s:b):null;
-                    const mTopIds=mTop?new Set(mPeople.filter(s=>s.grade===mTop.grade).map(s=>s.id)):null;
-                    // 夜: NIGHT_TIMES順で最も早い枠のJ以外の人に🌟
-                    let nTopId=null;
+                    const mAutoTop=mPeople.length?mPeople.reduce((b,s)=>GRADE_SORT[s.grade]<GRADE_SORT[b.grade]?s:b):null;
+                    const mOverride=(starOverrides[d]||{}).morning;
+                    const mStarId=mOverride==="none"?null:mOverride??mAutoTop?.id??null;
+                    const mTopIds=mStarId?new Set([mStarId]):null;
+                    // 夜: NIGHT_TIMES順で最も早い枠のJ以外の人に🌟、手動override対応
+                    let nAutoTopId=null;
                     for(const nt of NIGHT_TIMES){
                       if(!(nightSlotConfig[d]||[]).includes(nt)) continue;
                       const pid=(day.night||{})[nt];
                       if(!pid) continue;
-                      if(staffMap[pid]?.grade!=='J'){nTopId=pid;break;}
+                      if(staffMap[pid]?.grade!=='J'){nAutoTopId=pid;break;}
                     }
-                    const nTopIds=nTopId?new Set([nTopId]):null;
+                    const nOverride=(starOverrides[d]||{}).night;
+                    const nStarId=nOverride==="none"?null:nOverride??nAutoTopId;
+                    const nTopIds=nStarId?new Set([nStarId]):null;
                     // 個別フィルター: 選択スタッフが入っている日のみ表示
                     if(resultStaffFilter){
                       const sid=resultStaffFilter;
@@ -1933,7 +1949,7 @@ export default function App(){
                             onSwap={newId=>swapShiftAssignment(d,'morning',null,newId)}
                             onRemove={id=>swapShiftAssignment(d,'morning',null,null,id)}
                             onDismissShortage={(sh.morning||0)>0?()=>dismissShortage(d,'morning'):null}
-                            topIds={mTopIds}/>}
+                            topIds={mTopIds} onStarToggle={sid=>toggleStar(d,'morning',sid)}/>}
                           {!allClosed&&<SRow label={morningClosed?"仕込み":"朝仕込"} time={morningClosed?"":"8:30〜16:00"} color="#276749"
                             people={(day.prep||[]).map(id=>staffMap[id]).filter(Boolean)} shortage={sh.prep||0}
                             candidates={staff.filter(s=>(avail[s.id]?.[`${d}_prep`]||avail[s.id]?.[`${d}_shimikomi`])&&!(day.prep||[]).includes(s.id))}
@@ -1944,7 +1960,7 @@ export default function App(){
                             const p=(day.night||{})[t];
                             const nightCands=staff.filter(s=>s.id!==p&&NIGHT_TIMES.some(nt=>avail[s.id]?.[`${d}_night_${nt}`]&&nightCompat(nt,t)));
                             return <SRow key={t} label={`夜 ${t}〜`} time="" color={NIGHT_TC[t]} people={p?[staffMap[p]].filter(Boolean):[]} shortage={sh.night?.[t]||0} candidates={nightCands}
-                              topIds={nTopIds}
+                              topIds={nTopIds} onStarToggle={p?sid=>toggleStar(d,'night',sid):null}
                               onSwap={newId=>swapShiftAssignment(d,'night',t,newId)}
                               onRemove={()=>swapShiftAssignment(d,'night',t,null)}
                               onDismissShortage={(sh.night?.[t]||0)>0?()=>dismissShortage(d,'night',t):null}/>;
@@ -1980,22 +1996,31 @@ export default function App(){
   );
 }
 
-function SRow({label,time,color,people,shortage=0,candidates=[],onSwap=null,onRemove=null,onDismissShortage=null,topIds=null}){
+function SRow({label,time,color,people,shortage=0,candidates=[],onSwap=null,onRemove=null,onDismissShortage=null,topIds=null,onStarToggle=null}){
   return(
     <div style={{display:"flex",flexDirection:"column",gap:3}}>
       <div style={{display:"flex",alignItems:"center",gap:7,flexWrap:"wrap"}}>
         <div style={{minWidth:70,fontSize:10,fontWeight:700,color,background:color+"18",borderRadius:999,padding:"3px 10px",textAlign:"center",flexShrink:0,border:`1px solid ${color}30`}}>{label}</div>
         {time&&<div style={{fontSize:9,color:"#8c7b6b",minWidth:76,flexShrink:0}}>{time}</div>}
         <div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}>
-          {people.map(s=>(
-            onRemove
+          {people.map(s=>{
+            const isTop=topIds?.has(s.id);
+            const nameEl=onRemove
               ? <button key={s.id} onClick={()=>onRemove(s.id)} title="タップで削除" style={{fontSize:12,padding:"4px 12px",borderRadius:999,background:"rgba(139,26,26,0.05)",color:"#1a0a00",fontWeight:700,border:"1px solid rgba(139,26,26,0.12)",cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:4}}>
-                  {topIds?.has(s.id)?'🌟':''}{s.grade==='J'?'🍀':''}{s.name}<span style={{fontSize:9,color:"#c0392b",fontWeight:900}}>×</span>
+                  {!onStarToggle&&isTop?'🌟':''}{s.grade==='J'?'🍀':''}{s.name}<span style={{fontSize:9,color:"#c0392b",fontWeight:900}}>×</span>
                 </button>
               : <span key={s.id} style={{fontSize:12,padding:"4px 14px",borderRadius:999,background:"rgba(139,26,26,0.05)",color:"#1a0a00",fontWeight:700,border:"1px solid rgba(139,26,26,0.12)"}}>
-                  {topIds?.has(s.id)?'🌟':''}{s.grade==='J'?'🍀':''}{s.name}
-                </span>
-          ))}
+                  {!onStarToggle&&isTop?'🌟':''}{s.grade==='J'?'🍀':''}{s.name}
+                </span>;
+            return onStarToggle?(
+              <div key={s.id} style={{display:"flex",alignItems:"center",gap:2}}>
+                <button onClick={()=>onStarToggle(s.id)} title={isTop?"🌟を外す":"🌟をつける"} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,padding:"0 1px",lineHeight:1,opacity:isTop?1:0.25,transition:"opacity .15s"}}>
+                  🌟
+                </button>
+                {nameEl}
+              </div>
+            ):nameEl;
+          })}
           {shortage>0&&(
             <span style={{display:"flex",alignItems:"center",gap:4,fontSize:10,padding:"3px 10px",borderRadius:999,background:"rgba(192,57,43,0.08)",color:"#c0392b",fontWeight:700,border:"1px solid rgba(192,57,43,0.2)"}}>
               あと{shortage}名不足
