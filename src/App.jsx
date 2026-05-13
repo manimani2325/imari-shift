@@ -468,17 +468,23 @@ function deserializeResult(r){
 
 // ── localStorage へ result を保存/復元
 // ── 確定シフト serialize/deserialize（Firebase 空配列対策）
-function serializeConfirmedShift(result, year, month, aisaniConfig={}, kitchenConfig={}) {
+function serializeConfirmedShift(result, year, month, aisaniConfig={}, kitchenConfig={}, nightSlotConfig={}, dayTypeConfig={}) {
   if (!result) return null;
   const shifts = {};
   Object.entries(result.shifts || {}).forEach(([d, day]) => {
     if (!day) { shifts[d] = null; return; }
     const dn = parseInt(d);
+    const morningClosed = dayTypeConfig[dn] === "morning_closed";
+    const configuredSlots = nightSlotConfig[dn] || [];
+    const filteredNight = {};
+    Object.entries(day.night || {}).forEach(([t, id]) => {
+      if (configuredSlots.includes(t)) filteredNight[t] = id;
+    });
     shifts[d] = {
-      morning: (day.morning && day.morning.length) ? day.morning : ['_EMPTY_'],
+      morning: morningClosed ? ['_EMPTY_'] : ((day.morning && day.morning.length) ? day.morning : ['_EMPTY_']),
       prep:    (day.prep    && day.prep.length)    ? day.prep    : ['_EMPTY_'],
-      night:   day.night || {},
-      aisani:  aisaniConfig[dn]?.enabled ? (day.aisani  ?? null) : null,
+      night:   filteredNight,
+      aisani:  aisaniConfig[dn]?.enabled  ? (day.aisani  ?? null) : null,
       kitchen: kitchenConfig[dn]?.enabled ? (day.kitchen ?? null) : null,
     };
   });
@@ -1824,7 +1830,7 @@ export default function App(){
                 </div>
                 <div style={{display:"flex",gap:8,marginBottom:16}}>
                   <button onClick={()=>{
-                    const cs=serializeConfirmedShift(result,year,month,aisaniConfig,kitchenConfig);
+                    const cs=serializeConfirmedShift(result,year,month,aisaniConfig,kitchenConfig,nightSlotConfig,dayTypeConfig);
                     if(cs){saveKey(`confirmedShift_${ymRef.current}`,cs);setConfirmedShift(deserializeConfirmedShift(cs));alert(`${year}年${month+1}月のシフトを公開しました`);}
                   }} style={{flex:1,padding:"13px",borderRadius:12,border:"none",cursor:"pointer",fontSize:13,fontWeight:900,background:"linear-gradient(135deg,#276749,#1a4731)",color:"#fff",boxShadow:"0 4px 14px rgba(39,103,73,0.3)"}}>
                     ✅ シフトを公開
