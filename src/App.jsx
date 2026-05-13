@@ -354,7 +354,11 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
       const inNight=Object.values(dayR.night||{}).some(id=>id===s.id);
       const inAisani=dayR.aisani===s.id;
       const inKitchen=dayR.kitchen===s.id;
-      if(inPrep) workedCounts[s.id]+=isAvail(s.id,`${d}_prep`)?2:1; // 朝仕込み=2, 仕込みのみ=1
+      if(inPrep){
+        // 朝仕込み判定: _prep avail または (朝+仕込み両チェック=shimikomiMorning)
+        const is2Count=isAvail(s.id,`${d}_prep`)||(isAvail(s.id,`${d}_morning`)&&isAvail(s.id,`${d}_shimikomi`));
+        workedCounts[s.id]+=is2Count?2:1;
+      }
       if(inMorning) workedCounts[s.id]+=1;
       if(inNight) workedCounts[s.id]+=1;
       if(inAisani||inKitchen) workedCounts[s.id]+=1;
@@ -381,7 +385,11 @@ function calcWorkedCount(sid, shifts, avail){
     const inNight=Object.values(dayR.night||{}).some(id=>id===sid);
     const inAisani=dayR.aisani===sid;
     const inKitchen=dayR.kitchen===sid;
-    if(inPrep) count+=avail[sid]?.[`${d}_prep`]?2:1; // 朝仕込み=2, 仕込みのみ=1
+    if(inPrep){
+      // 朝仕込み判定: _prep avail または (朝+仕込み両チェック=shimikomiMorning)
+      const is2Count=avail[sid]?.[`${d}_prep`]||(avail[sid]?.[`${d}_morning`]&&avail[sid]?.[`${d}_shimikomi`]);
+      count+=is2Count?2:1;
+    }
     if(inMorning) count+=1;
     if(inNight) count+=1;
     if(inAisani||inKitchen) count+=1;
