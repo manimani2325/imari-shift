@@ -1883,6 +1883,19 @@ export default function App(){
                     }
                     const day=result.shifts[d];
                     if(!day) return null;
+                    // 朝: day.morningのみ最高等級者に🌟（朝仕込みは除外）
+                    const mPeople=(day.morning||[]).map(id=>staffMap[id]).filter(Boolean);
+                    const mTop=mPeople.length?mPeople.reduce((b,s)=>GRADE_SORT[s.grade]<GRADE_SORT[b.grade]?s:b):null;
+                    const mTopIds=mTop?new Set(mPeople.filter(s=>s.grade===mTop.grade).map(s=>s.id)):null;
+                    // 夜: NIGHT_TIMES順で最も早い枠のJ以外の人に🌟
+                    let nTopId=null;
+                    for(const nt of NIGHT_TIMES){
+                      if(!(nightSlotConfig[d]||[]).includes(nt)) continue;
+                      const pid=(day.night||{})[nt];
+                      if(!pid) continue;
+                      if(staffMap[pid]?.grade!=='J'){nTopId=pid;break;}
+                    }
+                    const nTopIds=nTopId?new Set([nTopId]):null;
                     // 個別フィルター: 選択スタッフが入っている日のみ表示
                     if(resultStaffFilter){
                       const sid=resultStaffFilter;
@@ -1919,7 +1932,8 @@ export default function App(){
                             candidates={staff.filter(s=>avail[s.id]?.[`${d}_morning`]&&!(day.morning||[]).includes(s.id))}
                             onSwap={newId=>swapShiftAssignment(d,'morning',null,newId)}
                             onRemove={id=>swapShiftAssignment(d,'morning',null,null,id)}
-                            onDismissShortage={(sh.morning||0)>0?()=>dismissShortage(d,'morning'):null}/>}
+                            onDismissShortage={(sh.morning||0)>0?()=>dismissShortage(d,'morning'):null}
+                            topIds={mTopIds}/>}
                           {!allClosed&&<SRow label={morningClosed?"仕込み":"朝仕込"} time={morningClosed?"":"8:30〜16:00"} color="#276749"
                             people={(day.prep||[]).map(id=>staffMap[id]).filter(Boolean)} shortage={sh.prep||0}
                             candidates={staff.filter(s=>(avail[s.id]?.[`${d}_prep`]||avail[s.id]?.[`${d}_shimikomi`])&&!(day.prep||[]).includes(s.id))}
@@ -1930,6 +1944,7 @@ export default function App(){
                             const p=(day.night||{})[t];
                             const nightCands=staff.filter(s=>s.id!==p&&NIGHT_TIMES.some(nt=>avail[s.id]?.[`${d}_night_${nt}`]&&nightCompat(nt,t)));
                             return <SRow key={t} label={`夜 ${t}〜`} time="" color={NIGHT_TC[t]} people={p?[staffMap[p]].filter(Boolean):[]} shortage={sh.night?.[t]||0} candidates={nightCands}
+                              topIds={nTopIds}
                               onSwap={newId=>swapShiftAssignment(d,'night',t,newId)}
                               onRemove={()=>swapShiftAssignment(d,'night',t,null)}
                               onDismissShortage={(sh.night?.[t]||0)>0?()=>dismissShortage(d,'night',t):null}/>;
@@ -1965,7 +1980,7 @@ export default function App(){
   );
 }
 
-function SRow({label,time,color,people,shortage=0,candidates=[],onSwap=null,onRemove=null,onDismissShortage=null}){
+function SRow({label,time,color,people,shortage=0,candidates=[],onSwap=null,onRemove=null,onDismissShortage=null,topIds=null}){
   return(
     <div style={{display:"flex",flexDirection:"column",gap:3}}>
       <div style={{display:"flex",alignItems:"center",gap:7,flexWrap:"wrap"}}>
@@ -1975,10 +1990,10 @@ function SRow({label,time,color,people,shortage=0,candidates=[],onSwap=null,onRe
           {people.map(s=>(
             onRemove
               ? <button key={s.id} onClick={()=>onRemove(s.id)} title="タップで削除" style={{fontSize:12,padding:"4px 12px",borderRadius:999,background:"rgba(139,26,26,0.05)",color:"#1a0a00",fontWeight:700,border:"1px solid rgba(139,26,26,0.12)",cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:4}}>
-                  {s.grade==='J'?'🍀':''}{s.name}<span style={{fontSize:9,color:"#c0392b",fontWeight:900}}>×</span>
+                  {topIds?.has(s.id)?'🌟':''}{s.grade==='J'?'🍀':''}{s.name}<span style={{fontSize:9,color:"#c0392b",fontWeight:900}}>×</span>
                 </button>
               : <span key={s.id} style={{fontSize:12,padding:"4px 14px",borderRadius:999,background:"rgba(139,26,26,0.05)",color:"#1a0a00",fontWeight:700,border:"1px solid rgba(139,26,26,0.12)"}}>
-                  {s.grade==='J'?'🍀':''}{s.name}
+                  {topIds?.has(s.id)?'🌟':''}{s.grade==='J'?'🍀':''}{s.name}
                 </span>
           ))}
           {shortage>0&&(
