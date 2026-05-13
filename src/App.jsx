@@ -1776,6 +1776,15 @@ export default function App(){
                             </div>
                           </div>
                         )}
+                        {hasKitchen&&(()=>{const s=staffMap[day.kitchen]||staffMap[Number(day.kitchen)];return s?(
+                          <div style={{display:"flex",alignItems:"center",gap:6}}>
+                            <span style={{fontSize:10,fontWeight:700,color:"#276749",background:"#27674918",borderRadius:999,padding:"3px 10px",border:"1px solid #27674930",minWidth:60,textAlign:"center",flexShrink:0}}>キッチン</span>
+                            <span style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,
+                              background:(day.kitchen===sid||Number(day.kitchen)===sid)?"#276749":"rgba(39,103,73,0.06)",
+                              color:(day.kitchen===sid||Number(day.kitchen)===sid)?"#fff":C.text,
+                              border:`1px solid ${(day.kitchen===sid||Number(day.kitchen)===sid)?"#276749":"#27674930"}`}}>{s.grade==='J'?'🍀':''}{s.name}</span>
+                          </div>
+                        ):null;})()}
                         {!closed&&nightEntries.map(([t,id])=>{const s=staffMap[id]||staffMap[Number(id)];return s?(
                           <div key={t} style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
                             <span style={{fontSize:10,fontWeight:700,color:NIGHT_TC[t],background:NIGHT_TC[t]+"18",borderRadius:999,padding:"3px 10px",border:`1px solid ${NIGHT_TC[t]}30`,minWidth:60,textAlign:"center",flexShrink:0}}>夜 {t}</span>
@@ -1792,15 +1801,6 @@ export default function App(){
                               background:(day.aisani===sid||Number(day.aisani)===sid)?C.accent:"rgba(139,26,26,0.06)",
                               color:(day.aisani===sid||Number(day.aisani)===sid)?"#fff":C.text,
                               border:`1px solid ${(day.aisani===sid||Number(day.aisani)===sid)?C.accent:"rgba(139,26,26,0.15)"}`}}>{s.grade==='J'?'🍀':''}{s.name}</span>
-                          </div>
-                        ):null;})()}
-                        {hasKitchen&&(()=>{const s=staffMap[day.kitchen]||staffMap[Number(day.kitchen)];return s?(
-                          <div style={{display:"flex",alignItems:"center",gap:6}}>
-                            <span style={{fontSize:10,fontWeight:700,color:"#276749",background:"#27674918",borderRadius:999,padding:"3px 10px",border:"1px solid #27674930",minWidth:60,textAlign:"center",flexShrink:0}}>キッチン</span>
-                            <span style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,
-                              background:(day.kitchen===sid||Number(day.kitchen)===sid)?"#276749":"rgba(39,103,73,0.06)",
-                              color:(day.kitchen===sid||Number(day.kitchen)===sid)?"#fff":C.text,
-                              border:`1px solid ${(day.kitchen===sid||Number(day.kitchen)===sid)?"#276749":"#27674930"}`}}>{s.grade==='J'?'🍀':''}{s.name}</span>
                           </div>
                         ):null;})()}
                       </div>
@@ -1994,6 +1994,12 @@ export default function App(){
                             onSwap={newId=>swapShiftAssignment(d,'prep',null,newId)}
                             onRemove={id=>swapShiftAssignment(d,'prep',null,null,id)}
                             onDismissShortage={(sh.prep||0)>0?()=>dismissShortage(d,'prep'):null}/>}
+                          {!closed&&kitOn&&<SRow label="厨房" time="キッチン" color="#276749"
+                            people={day.kitchen?[staffMap[day.kitchen]].filter(Boolean):[]} shortage={sh.kitchen||0}
+                            candidates={staff.filter(s=>s.kitchenOK&&avail[s.id]?.[`${d}_kitchen`]&&s.id!==day.kitchen)}
+                            onSwap={newId=>swapShiftAssignment(d,'kitchen',null,newId)}
+                            onRemove={()=>swapShiftAssignment(d,'kitchen',null,null)}
+                            onDismissShortage={(sh.kitchen||0)>0?()=>dismissShortage(d,'kitchen'):null}/>}
                           {!allClosed&&slots.map(t=>{
                             const p=(day.night||{})[t];
                             const nightCands=staff.filter(s=>s.id!==p&&NIGHT_TIMES.some(nt=>avail[s.id]?.[`${d}_night_${nt}`]&&nightCompat(nt,t)));
@@ -2009,12 +2015,6 @@ export default function App(){
                             onSwap={newId=>swapShiftAssignment(d,'aisani',null,newId)}
                             onRemove={()=>swapShiftAssignment(d,'aisani',null,null)}
                             onDismissShortage={(sh.aisani||0)>0?()=>dismissShortage(d,'aisani'):null}/>}
-                          {!closed&&kitOn&&<SRow label="厨房" time="キッチン" color="#276749"
-                            people={day.kitchen?[staffMap[day.kitchen]].filter(Boolean):[]} shortage={sh.kitchen||0}
-                            candidates={staff.filter(s=>s.kitchenOK&&avail[s.id]?.[`${d}_kitchen`]&&s.id!==day.kitchen)}
-                            onSwap={newId=>swapShiftAssignment(d,'kitchen',null,newId)}
-                            onRemove={()=>swapShiftAssignment(d,'kitchen',null,null)}
-                            onDismissShortage={(sh.kitchen||0)>0?()=>dismissShortage(d,'kitchen'):null}/>}
                         </div>
                         <input type="text" placeholder="📝 この日のコメントを追加（任意）"
                           value={dayComments[d]||""}
