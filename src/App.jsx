@@ -401,7 +401,7 @@ function calcWorkedCount(sid, shifts, avail){
 // 朝仕込み(_prep)=2, 朝=1, 夜=1, アイサニ=+1, キッチン=+1
 // 仕込みのみ(_shimikomi)=0, 朝夜/仕込み夜/夜朝=1, 前日夜→翌朝は夜側でカウント済み
 function calcCandCount(s, avail, year, month){
-  const days=new Date(year,month,0).getDate();
+  const days=daysIn(year,month);
   let count=0;
   for(let d=1;d<=days;d++){
     const hasPrep=!!avail[s.id]?.[`${d}_prep`];
