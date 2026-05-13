@@ -66,7 +66,9 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
 
   const isAvail = (sid,key) => !!avail[sid]?.[key];
 
-  // 事前に候補数を集計（朝仕込み=2, 前日夜→翌朝=合計1, それ以外=1）
+  // 事前に候補数を集計
+  // 朝仕込み(_prep)=2, 朝=1, 夜=1, アイサニ=+1, キッチン=+1
+  // 仕込みのみ(_shimikomi)=0, 朝夜/仕込み夜/夜朝=1, 前日夜→翌朝は夜側でカウント済み
   staff.forEach(s=>{
     for(let d=1;d<=days;d++){
       const hasPrep=isAvail(s.id,`${d}_prep`);
@@ -76,18 +78,28 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
       const hasAisani=s.aisaniOK&&isAvail(s.id,`${d}_aisani`);
       const hasKitchen=s.kitchenOK&&isAvail(s.id,`${d}_kitchen`);
       if(!hasMorning&&!hasPrep&&!hasShimikomi&&!hasNight&&!hasAisani&&!hasKitchen) continue;
-      if(hasPrep||(hasMorning&&hasShimikomi)){
-        candDays[s.id]+=2;
+      let dayCount=0;
+      if(hasPrep){
+        dayCount=2; // 朝仕込み=2
       } else {
         const hadPrevNight=d>1&&NIGHT_TIMES.some(t=>isAvail(s.id,`${d-1}_night_${t}`));
-        const hasMorningShift=hasMorning||hasShimikomi;
-        if(hasMorningShift&&hadPrevNight){
-          // 前日夜→今日朝 は合計1カウント（前日夜側で計上済み）。今日の夜があれば+1
-          if(hasNight) candDays[s.id]+=1;
-        } else {
-          candDays[s.id]+=1;
+        if(hadPrevNight&&hasMorning){
+          // 夜朝: morning側は0（前日夜で計上済み）、今夜があれば+1
+          if(hasNight) dayCount=1;
+        } else if(hasMorning&&hasNight){
+          dayCount=1; // 朝夜=1
+        } else if(hasMorning){
+          dayCount=1; // 朝=1
+        } else if(hasShimikomi&&hasNight){
+          dayCount=1; // 仕込み夜=1
+        } else if(hasNight){
+          dayCount=1; // 夜=1
         }
+        // hasShimikomiのみ: dayCount=0 (仕込みのみ=0)
       }
+      if(hasAisani) dayCount+=1; // アイサニは独立して+1
+      if(hasKitchen) dayCount+=1; // キッチンは独立して+1
+      candDays[s.id]+=dayCount;
     }
   });
 
@@ -342,8 +354,8 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
     warnings[d]=dayW;
   }
 
-  // 新カウント方式で勤務実績数を計算
-  // 朝仕込み=2, 朝夜=2, 仕込み夜=2, 夜朝=夜1+翌朝1=合計2, 朝のみ=1, 夜のみ=1, 仕込みのみ=1
+  // 勤務実績カウント: 朝仕込み(_prep avail)=2, 朝=1, 仕込みのみ=1, 夜=1, アイサニ/キッチン=1
+  // 組み合わせは各1を加算（朝夜=1+1=2, 仕込み夜=1+1=2）
   const workedCounts={};
   staff.forEach(s=>{ workedCounts[s.id]=0; });
   for(let d=1;d<=days;d++){
@@ -355,16 +367,10 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
       const inNight=Object.values(dayR.night||{}).some(id=>id===s.id);
       const inAisani=dayR.aisani===s.id;
       const inKitchen=dayR.kitchen===s.id;
-      if(inPrep){
-        // 朝仕込み(prep持ち)または仕込み夜 → 2、仕込みのみ → 1
-        workedCounts[s.id]+=(isAvail(s.id,`${d}_prep`)||inNight)?2:1;
-      } else if(inMorning){
-        workedCounts[s.id]+=inNight?2:1; // 朝夜=2, 朝のみ=1
-      } else if(inNight){
-        workedCounts[s.id]+=1; // 夜のみ=1（翌日朝は翌日側で+1され合計2になる）
-      } else if(inAisani||inKitchen){
-        workedCounts[s.id]+=1;
-      }
+      if(inPrep) workedCounts[s.id]+=isAvail(s.id,`${d}_prep`)?2:1; // 朝仕込み=2, 仕込みのみ=1
+      if(inMorning) workedCounts[s.id]+=1;
+      if(inNight) workedCounts[s.id]+=1;
+      if(inAisani||inKitchen) workedCounts[s.id]+=1;
     });
   }
   const totalW=staff.reduce((a,s)=>a+workedCounts[s.id],0);
@@ -376,7 +382,8 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
 
 function staffById_local(staffArr,id){ return staffArr.find(s=>s.id===id); }
 
-// 新カウント方式で勤務実績数をシフト結果から動的計算
+// 勤務実績数をシフト結果から動的計算
+// 朝仕込み(_prep avail)=2, 朝=1, 仕込みのみ=1, 夜=1, アイサニ/キッチン=1（各加算）
 function calcWorkedCount(sid, shifts, avail){
   let count=0;
   Object.entries(shifts||{}).forEach(([dStr,dayR])=>{
@@ -387,20 +394,17 @@ function calcWorkedCount(sid, shifts, avail){
     const inNight=Object.values(dayR.night||{}).some(id=>id===sid);
     const inAisani=dayR.aisani===sid;
     const inKitchen=dayR.kitchen===sid;
-    if(inPrep){
-      count+=(avail[sid]?.[`${d}_prep`]||inNight)?2:1;
-    } else if(inMorning){
-      count+=inNight?2:1;
-    } else if(inNight){
-      count+=1;
-    } else if(inAisani||inKitchen){
-      count+=1;
-    }
+    if(inPrep) count+=avail[sid]?.[`${d}_prep`]?2:1; // 朝仕込み=2, 仕込みのみ=1
+    if(inMorning) count+=1;
+    if(inNight) count+=1;
+    if(inAisani||inKitchen) count+=1;
   });
   return count;
 }
 
-// 候補数をavailから動的計算（朝仕込み=2, 前日夜→翌朝=合計1, それ以外=1）
+// 候補数をavailから動的計算
+// 朝仕込み(_prep)=2, 朝=1, 夜=1, アイサニ=+1, キッチン=+1
+// 仕込みのみ(_shimikomi)=0, 朝夜/仕込み夜/夜朝=1, 前日夜→翌朝は夜側でカウント済み
 function calcCandCount(s, avail, year, month){
   const days=new Date(year,month,0).getDate();
   let count=0;
@@ -412,16 +416,27 @@ function calcCandCount(s, avail, year, month){
     const hasAisani=s.aisaniOK&&!!avail[s.id]?.[`${d}_aisani`];
     const hasKitchen=s.kitchenOK&&!!avail[s.id]?.[`${d}_kitchen`];
     if(!hasMorning&&!hasPrep&&!hasShimikomi&&!hasNight&&!hasAisani&&!hasKitchen) continue;
-    if(hasPrep||(hasMorning&&hasShimikomi)){
-      count+=2;
+    let dayCount=0;
+    if(hasPrep){
+      dayCount=2; // 朝仕込み=2
     } else {
       const hadPrevNight=d>1&&NIGHT_TIMES.some(t=>!!avail[s.id]?.[`${d-1}_night_${t}`]);
-      if((hasMorning||hasShimikomi)&&hadPrevNight){
-        if(hasNight) count+=1;
-      } else {
-        count+=1;
+      if(hadPrevNight&&hasMorning){
+        if(hasNight) dayCount=1; // 夜朝+今夜
+      } else if(hasMorning&&hasNight){
+        dayCount=1; // 朝夜=1
+      } else if(hasMorning){
+        dayCount=1; // 朝=1
+      } else if(hasShimikomi&&hasNight){
+        dayCount=1; // 仕込み夜=1
+      } else if(hasNight){
+        dayCount=1; // 夜=1
       }
+      // hasShimikomiのみ: dayCount=0 (仕込みのみ=0)
     }
+    if(hasAisani) dayCount+=1;
+    if(hasKitchen) dayCount+=1;
+    count+=dayCount;
   }
   return count;
 }
