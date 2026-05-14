@@ -811,21 +811,22 @@ export default function App(){
       // 初回ロード中かどうか（初回はモードに関わらず全データをFirebaseから復元する）
       const isFirst=!initialLoadDone.current;
       // availはデータがある場合のみ更新（空データで上書きしない）
-      if(!pendingKeys.current.has(avKey)&&data[avKey])  setAvail(data[avKey]);
+      // Firebaseから受け取ったデータはlocalStorageにも同時保存し、次回起動で即座に表示できるようにする
+      if(!pendingKeys.current.has(avKey)&&data[avKey]){setAvail(data[avKey]);saveCfgLS(avKey,data[avKey]);}
       // GM専用ステート: 初回ロード時 or GMモード時のみFirebaseから更新
       // スタッフが月切替しても、GMの設定が消えないようにする
       const loadGm=isFirst||gmModeRef.current;
       if(loadGm){
-        if(!pendingKeys.current.has(aiKey)&&data[aiKey])  setAisaniConfig(data[aiKey]);
-        if(!pendingKeys.current.has(kitKey)&&data[kitKey]) setKitchenConfig(data[kitKey]);
-        if(!pendingKeys.current.has(nsKey)&&data[nsKey])  setNightSlotConfig(data[nsKey]);
-        if(!pendingKeys.current.has(dtKey)&&data[dtKey])  setDayTypeConfig(data[dtKey]);
+        if(!pendingKeys.current.has(aiKey)&&data[aiKey]){setAisaniConfig(data[aiKey]);saveCfgLS(aiKey,data[aiKey]);}
+        if(!pendingKeys.current.has(kitKey)&&data[kitKey]){setKitchenConfig(data[kitKey]);saveCfgLS(kitKey,data[kitKey]);}
+        if(!pendingKeys.current.has(nsKey)&&data[nsKey]){setNightSlotConfig(data[nsKey]);saveCfgLS(nsKey,data[nsKey]);}
+        if(!pendingKeys.current.has(dtKey)&&data[dtKey]){setDayTypeConfig(data[dtKey]);saveCfgLS(dtKey,data[dtKey]);}
       }
-      if(!pendingKeys.current.has(dcKey)&&data[dcKey])  setDayComments(data[dcKey]);
-      if(!pendingKeys.current.has(soKey)&&data[soKey])  setStarOverrides(data[soKey]);
+      if(!pendingKeys.current.has(dcKey)&&data[dcKey]){setDayComments(data[dcKey]);saveCfgLS(dcKey,data[dcKey]);}
+      if(!pendingKeys.current.has(soKey)&&data[soKey]){setStarOverrides(data[soKey]);saveCfgLS(soKey,data[soKey]);}
       if(!pendingKeys.current.has(csKey)){
         const cs=deserializeConfirmedShift(data[csKey]);
-        if(cs) setConfirmedShift(cs);
+        if(cs){setConfirmedShift(cs);saveCfgLS(csKey,data[csKey]);}
       }
       if(loadGm){
         const rbKey=`resultBackup_${fbYm}`;
