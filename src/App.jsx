@@ -1621,7 +1621,7 @@ export default function App(){
                               <td style={{background:rowBg,textAlign:"center",fontSize:10,color:allClosed?"#b0a090":C.muted}}>{DOW_JP[dow]}</td>
                               {allClosed?(
                                 <>
-                                  <td colSpan={3+NIGHT_TIMES.length+(availViewStaff.kitchenOK?1:0)} style={{background:rowBg,textAlign:"center",fontSize:10,color:"#b0a090",padding:"6px"}}>{manualClosed?"休業日":"定休日"}</td>
+                                  <td colSpan={3+NIGHT_TIMES.length} style={{background:rowBg,textAlign:"center",fontSize:10,color:"#b0a090",padding:"6px"}}>{manualClosed?"休業日":"定休日"}</td>
                                   {availViewStaff.aisaniOK&&(
                                     <td style={{background:rowBg,textAlign:"center",padding:"3px 3px"}}>
                                       {aisaniConfig[d]?.enabled?(
@@ -1637,6 +1637,13 @@ export default function App(){
                                           <span style={{fontSize:9,color:"rgba(139,26,26,0.15)"}}>—</span>
                                         </div>
                                       )}
+                                    </td>
+                                  )}
+                                  {availViewStaff.kitchenOK&&(
+                                    <td style={{background:rowBg,textAlign:"center",padding:"3px 3px"}}>
+                                      <div style={{width:34,height:28,borderRadius:8,background:"rgba(139,26,26,0.02)",margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                                        <span style={{fontSize:9,color:"rgba(139,26,26,0.15)"}}>—</span>
+                                      </div>
                                     </td>
                                   )}
                                 </>
