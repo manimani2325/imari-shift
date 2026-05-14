@@ -756,18 +756,24 @@ export default function App(){
   // pendingYmRef: updateYearMonth呼び出し時に即座に更新（レンダー前でも正しい月を反映）
   const pendingYmRef=useRef(`${year}_${month}`);
   pendingYmRef.current=`${year}_${month}`;
+  // localMonthSet: ユーザーが手動で月を変えたか。trueの後はFirebaseのyearMonthでローカル月を上書きしない
+  const localMonthSet=useRef(false);
 
   // ── Firebase 起動時クリーンアップ + リアルタイム購読
   useEffect(()=>{
     cleanupStaleKeys();
     const unsub=subscribeAll((data)=>{
       if(data.staff&&Array.isArray(data.staff)&&!pendingKeys.current.has('staff')) setStaff(sortByGrade(data.staff));
-      if(data.yearMonth&&!pendingKeys.current.has('yearMonth')){setYear(data.yearMonth.y);setMonth(data.yearMonth.m);}
-      // yearMonthが保存中（月切替直後）はpendingYmRef.currentを使う。
-      // ymRef.currentはレンダー後に更新されるため、レンダー前に発火したFirebase購読では
-      // 古い月の値になってしまう。pendingYmRefはupdateYearMonth呼び出し時に即座に更新される。
-      const fbYm=(data.yearMonth&&!pendingKeys.current.has('yearMonth'))
-        ?`${data.yearMonth.y}_${data.yearMonth.m}`:pendingYmRef.current;
+      // yearMonth同期: ユーザーが手動で月を変えていない場合のみFirebaseの値でローカル月を更新（初回ロード用）
+      // localMonthSet=trueの後はFirebaseのyearMonth変更（別デバイスのスタッフ操作など）でGMの月が変わらないようにする
+      if(data.yearMonth&&!pendingKeys.current.has('yearMonth')&&!localMonthSet.current){
+        setYear(data.yearMonth.y);setMonth(data.yearMonth.m);
+        pendingYmRef.current=`${data.yearMonth.y}_${data.yearMonth.m}`;
+      }
+      // fbYm: 手動操作後はpendingYmRef（ローカルの意図した月）、初回ロード時のみFirebaseのyearMonthを使う
+      const fbYm=localMonthSet.current
+        ?pendingYmRef.current
+        :(data.yearMonth?`${data.yearMonth.y}_${data.yearMonth.m}`:pendingYmRef.current);
       const avKey=`avail_${fbYm}`;
       const aiKey=`aisaniConfig_${fbYm}`;
       const kitKey=`kitchenConfig_${fbYm}`;
@@ -955,6 +961,8 @@ export default function App(){
   const updateYearMonth=(y,m)=>{
     // pendingYmRefを即座に新しい月に更新（レンダー前にFirebase購読が発火しても正しい月を参照できる）
     pendingYmRef.current=`${y}_${m}`;
+    // 手動で月を変えた印をつける（以後FirebaseのyearMonth変更でローカル月を上書きしない）
+    localMonthSet.current=true;
     // 月切替前に現在月のresultをFirebaseへ即時フラッシュ（600msデバウンスをキャンセルして即保存）
     const curYm=ymRef.current;
     const rbKey=`resultBackup_${curYm}`;
@@ -964,7 +972,9 @@ export default function App(){
     if(resultRef.current){
       saveKey(rbKey,serializeResult(resultRef.current)).catch(e=>console.warn('flush save error',e));
     }
-    setYear(y);setMonth(m);debounceSave('yearMonth',{y,m});
+    setYear(y);setMonth(m);
+    // GMモード時のみyearMonthをFirebaseに保存（スタッフが月を変えてもGM側に伝播しないようにする）
+    if(gmMode) debounceSave('yearMonth',{y,m});
     setNightSlotConfig({});setAisaniConfig({});setKitchenConfig({});
     setDayComments({});setDayTypeConfig({});setStarOverrides({});
     setAvail({});setConfirmedShift(null);
