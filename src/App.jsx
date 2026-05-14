@@ -529,7 +529,7 @@ function loadCfgLS(key) {
   try { const s = localStorage.getItem(LS_CFG(key)); return s ? JSON.parse(s) : null; } catch(_) { return null; } }
 
 // ══════════════════════════════════════════════════════
-const AUTO_SWITCH_DAY=25;
+const AUTO_SWITCH_DAY=18;
 const getJSTDate=()=>new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Tokyo'}));
 const getAutoMonth=()=>{
   const jst=getJSTDate();
@@ -1033,6 +1033,9 @@ export default function App(){
     gmMonthRef.current={y,m};
     saveGMMonth(y,m);
     setYear(y);setMonth(m);
+    // yearMonthをFirebaseに書き込む: 月同期には使わないが、これによりFirebase購読が再発火し
+    // localStorageにない新しい月のデータ（configs/result）がFirebaseから読み込まれる
+    debounceSave('yearMonth',{y,m});
     // 新しい月のデータをlocalStorageから即座にロード（Firebaseのネットワーク待ちなしで表示）
     const newYm=`${y}_${m}`;
     setNightSlotConfig(loadCfgLS(`nightSlotConfig_${newYm}`)||{});
