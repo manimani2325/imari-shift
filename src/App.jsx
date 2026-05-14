@@ -576,8 +576,8 @@ export default function App(){
   const [loginStaff,setLoginStaff]=useState(null);
   const [staffTab,setStaffTab]=useState("avail"); // avail|shift
   // スタッフのシフト閲覧専用の月（候補入力やGMのstateとは独立）
-  const [staffShiftViewY,setStaffShiftViewY]=useState(()=>(loadStaffShiftMonth()||getAutoMonth()).y);
-  const [staffShiftViewM,setStaffShiftViewM]=useState(()=>(loadStaffShiftMonth()||getAutoMonth()).m);
+  const [staffShiftViewY,setStaffShiftViewY]=useState(()=>{const s=loadStaffShiftMonth()||getAutoMonth();return s.y;});
+  const [staffShiftViewM,setStaffShiftViewM]=useState(()=>{const s=loadStaffShiftMonth()||getAutoMonth();return s.m;});
   const [newStaff,setNewStaff]=useState({name:"",grade:"L",aisaniOK:false,kitchenOK:false,password:""});
   const [staffPwModal,setStaffPwModal]=useState(null); // パスワード確認中のスタッフ
   const [staffPwInput,setStaffPwInput]=useState("");
@@ -1120,12 +1120,13 @@ export default function App(){
   const staffViewCS=deserializeConfirmedShift(allDataRef.current[`confirmedShift_${staffShiftViewYm}`])||null;
   const staffShiftViewPrev=()=>{
     const [y,m]=staffShiftViewM===0?[staffShiftViewY-1,11]:[staffShiftViewY,staffShiftViewM-1];
-    setStaffShiftViewY(y);setStaffShiftViewM(m);saveStaffShiftMonth(y,m);
+    setStaffShiftViewY(y);setStaffShiftViewM(m);
   };
   const staffShiftViewNext=()=>{
     const [y,m]=staffShiftViewM===11?[staffShiftViewY+1,0]:[staffShiftViewY,staffShiftViewM+1];
-    setStaffShiftViewY(y);setStaffShiftViewM(m);saveStaffShiftMonth(y,m);
+    setStaffShiftViewY(y);setStaffShiftViewM(m);
   };
+  useEffect(()=>{ saveStaffShiftMonth(staffShiftViewY,staffShiftViewM); },[staffShiftViewY,staffShiftViewM]);
 
 
   return(
