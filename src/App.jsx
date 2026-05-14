@@ -575,14 +575,8 @@ export default function App(){
   const firstDow=getDow(year,month,1);
   const staffMap=useMemo(()=>{const m={};staff.forEach(s=>m[s.id]=s);return m;},[staff]);
 
-  const prevMonth=()=>{
-    const [y,m]=month===0?[year-1,11]:[year,month-1];
-    if(gmMode) updateYearMonth(y,m); else updateStaffMonth(y,m);
-  };
-  const nextMonth=()=>{
-    const [y,m]=month===11?[year+1,0]:[year,month+1];
-    if(gmMode) updateYearMonth(y,m); else updateStaffMonth(y,m);
-  };
+  const prevMonth=()=>{const [y,m]=month===0?[year-1,11]:[year,month-1];updateYearMonth(y,m);};
+  const nextMonth=()=>{const [y,m]=month===11?[year+1,0]:[year,month+1];updateYearMonth(y,m);};
 
   const toggleNightSlot=(d,time)=>{
     const cur=nightSlotConfig[d]||[];
@@ -1024,20 +1018,6 @@ export default function App(){
     prevAvailRef.current={};
     setResult(loadResultLS(newYm)||null);
   };
-  // スタッフ専用の月切替: GMだけが必要なstate（nightSlotConfig/result等）は一切触らない
-  const updateStaffMonth=(y,m)=>{
-    pendingYmRef.current=`${y}_${m}`;
-    localMonthSet.current=true;
-    setYear(y);setMonth(m);
-    const newYm=`${y}_${m}`;
-    setAvail(loadCfgLS(`avail_${newYm}`)||{});
-    setDayComments(loadCfgLS(`dayComments_${newYm}`)||{});
-    setStarOverrides(loadCfgLS(`starOverrides_${newYm}`)||{});
-    // confirmedShiftはlocalStorageから即時ロード（なければnullでFirebase購読が補完）
-    const csRaw=loadCfgLS(`confirmedShift_${newYm}`);
-    setConfirmedShift(csRaw?deserializeConfirmedShift(csRaw):null);
-    prevAvailRef.current={};
-  };
   const updateDayComments=val=>{
     setDayComments(val);
     saveCfgLS(`dayComments_${ymRef.current}`,val);
@@ -1203,7 +1183,7 @@ export default function App(){
                 <div style={{fontSize:8,letterSpacing:5,fontWeight:800,textTransform:"uppercase",color:C.gold}}>旬菜 いまり</div>
                 <div style={{fontSize:18,fontWeight:900,lineHeight:1.15,color:C.text}}>{year}年{month+1}月</div>
               </div>
-              {(gmMode||loginStaff)&&<div style={{display:"flex",gap:3,marginLeft:2}}>
+              {gmMode&&<div style={{display:"flex",gap:3,marginLeft:2}}>
                 <button onClick={prevMonth} style={{...btn(false),padding:"5px 12px",fontSize:16,borderRadius:10}}>‹</button>
                 <button onClick={nextMonth} style={{...btn(false),padding:"5px 12px",fontSize:16,borderRadius:10}}>›</button>
               </div>}
