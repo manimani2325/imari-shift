@@ -1033,9 +1033,10 @@ export default function App(){
     gmMonthRef.current={y,m};
     saveGMMonth(y,m);
     setYear(y);setMonth(m);
-    // yearMonthをFirebaseに書き込む: 月同期には使わないが、これによりFirebase購読が再発火し
-    // localStorageにない新しい月のデータ（configs/result）がFirebaseから読み込まれる
-    debounceSave('yearMonth',{y,m});
+    // yearMonthをFirebaseへ即時書き込み（debounceSaveでなくsaveKey直呼び）
+    // これにより購読コールバックが即座に再発火し、新しい月のデータがFirebaseから読み込まれる
+    // 600msのデバウンス待ちをなくすことでページ再読み込み直後でも即時反映される
+    saveKey('yearMonth',{y,m}).catch(e=>console.warn('yearMonth save error',e));
     // 新しい月のデータをlocalStorageから即座にロード（Firebaseのネットワーク待ちなしで表示）
     const newYm=`${y}_${m}`;
     setNightSlotConfig(loadCfgLS(`nightSlotConfig_${newYm}`)||{});
