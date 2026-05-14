@@ -520,6 +520,14 @@ function loadResultLS(ym) {
   return null;
 }
 
+// 月別設定をlocalStorageに即時保存/ロード（月切替時にFirebase待ちなしで即座に復元するため）
+const LS_CFG = (key) => `imari_cfg_${key}`;
+function saveCfgLS(key, val) {
+  try { localStorage.setItem(LS_CFG(key), JSON.stringify(val)); } catch(_) {}
+}
+function loadCfgLS(key) {
+  try { const s = localStorage.getItem(LS_CFG(key)); return s ? JSON.parse(s) : null; } catch(_) { return null; } }
+
 // ══════════════════════════════════════════════════════
 export default function App(){
   const now=new Date();
@@ -948,16 +956,17 @@ export default function App(){
     },600);
   },[]);
 
-  // ── 状態変更 → Firebase保存
+  // ── 状態変更 → localStorage即時保存 + Firebase保存（debounce）
   const updateStaff=val=>{const s=sortByGrade(val);setStaff(s);debounceSave('staff',s);};
-  const updateAvail=val=>{setAvail(val);debounceSave(`avail_${ymRef.current}`,val);};
+  const updateAvail=val=>{setAvail(val);saveCfgLS(`avail_${ymRef.current}`,val);debounceSave(`avail_${ymRef.current}`,val);};
   const updateNightSlot=val=>{
     setNightSlotConfig(val);
+    saveCfgLS(`nightSlotConfig_${ymRef.current}`,val);
     debounceSave(`nightSlotConfig_${ymRef.current}`,val);
   };
-  const updateAisaniCfg=val=>{setAisaniConfig(val);debounceSave(`aisaniConfig_${ymRef.current}`,val);};
-  const updateKitchenCfg=val=>{setKitchenConfig(val);debounceSave(`kitchenConfig_${ymRef.current}`,val);};
-  const updateDayTypeCfg=val=>{setDayTypeConfig(val);debounceSave(`dayTypeConfig_${ymRef.current}`,val);};
+  const updateAisaniCfg=val=>{setAisaniConfig(val);saveCfgLS(`aisaniConfig_${ymRef.current}`,val);debounceSave(`aisaniConfig_${ymRef.current}`,val);};
+  const updateKitchenCfg=val=>{setKitchenConfig(val);saveCfgLS(`kitchenConfig_${ymRef.current}`,val);debounceSave(`kitchenConfig_${ymRef.current}`,val);};
+  const updateDayTypeCfg=val=>{setDayTypeConfig(val);saveCfgLS(`dayTypeConfig_${ymRef.current}`,val);debounceSave(`dayTypeConfig_${ymRef.current}`,val);};
   const updateYearMonth=(y,m)=>{
     // pendingYmRefを即座に新しい月に更新（レンダー前にFirebase購読が発火しても正しい月を参照できる）
     pendingYmRef.current=`${y}_${m}`;
@@ -975,21 +984,27 @@ export default function App(){
     setYear(y);setMonth(m);
     // GMモード時のみyearMonthをFirebaseに保存（スタッフが月を変えてもGM側に伝播しないようにする）
     if(gmMode) debounceSave('yearMonth',{y,m});
-    setNightSlotConfig({});setAisaniConfig({});setKitchenConfig({});
-    setDayComments({});setDayTypeConfig({});setStarOverrides({});
-    setAvail({});setConfirmedShift(null);
-    prevAvailRef.current={};
-    // 新しい月の result を即座に復元（なければリセット）
+    // 新しい月のデータをlocalStorageから即座にロード（Firebaseのネットワーク待ちなしで表示）
     const newYm=`${y}_${m}`;
-    const saved=loadResultLS(newYm);
-    setResult(saved||null);
+    setNightSlotConfig(loadCfgLS(`nightSlotConfig_${newYm}`)||{});
+    setAisaniConfig(loadCfgLS(`aisaniConfig_${newYm}`)||{});
+    setKitchenConfig(loadCfgLS(`kitchenConfig_${newYm}`)||{});
+    setDayComments(loadCfgLS(`dayComments_${newYm}`)||{});
+    setDayTypeConfig(loadCfgLS(`dayTypeConfig_${newYm}`)||{});
+    setStarOverrides(loadCfgLS(`starOverrides_${newYm}`)||{});
+    setAvail(loadCfgLS(`avail_${newYm}`)||{});
+    setConfirmedShift(null);
+    prevAvailRef.current={};
+    setResult(loadResultLS(newYm)||null);
   };
   const updateDayComments=val=>{
     setDayComments(val);
+    saveCfgLS(`dayComments_${ymRef.current}`,val);
     debounceSave(`dayComments_${ymRef.current}`,val);
   };
   const updateStarOverrides=val=>{
     setStarOverrides(val);
+    saveCfgLS(`starOverrides_${ymRef.current}`,val);
     debounceSave(`starOverrides_${ymRef.current}`,val);
   };
   const toggleStar=(d,type,sid)=>{
