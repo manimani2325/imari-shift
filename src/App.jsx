@@ -774,6 +774,9 @@ export default function App(){
   const localMonthSet=useRef(false);
   // gmMonthRef: GMが最後にいた月（スタッフモードから戻ったとき復元するため）
   const gmMonthRef=useRef({y:year,m:month});
+  // gmModeRef: Firebase購読コールバック内でgmModeを参照するため（クロージャの古い値問題を回避）
+  const gmModeRef=useRef(false);
+  gmModeRef.current=gmMode;
 
   // ── Firebase 起動時クリーンアップ + リアルタイム購読
   useEffect(()=>{
@@ -798,23 +801,29 @@ export default function App(){
       const soKey=`starOverrides_${fbYm}`;
       const dtKey=`dayTypeConfig_${fbYm}`;
       const csKey=`confirmedShift_${fbYm}`;
-      if(!pendingKeys.current.has(avKey))  setAvail(data[avKey]||{});
-      if(!pendingKeys.current.has(aiKey))  setAisaniConfig(data[aiKey]||{});
-      if(!pendingKeys.current.has(kitKey)) setKitchenConfig(data[kitKey]||{});
-      if(!pendingKeys.current.has(nsKey))  setNightSlotConfig(data[nsKey]||{});
-      if(!pendingKeys.current.has(dcKey))  setDayComments(data[dcKey]||{});
-      if(!pendingKeys.current.has(soKey))  setStarOverrides(data[soKey]||{});
-      if(!pendingKeys.current.has(dtKey))  setDayTypeConfig(data[dtKey]||{});
+      // availはデータがある場合のみ更新（空データで上書きしない）
+      if(!pendingKeys.current.has(avKey)&&data[avKey])  setAvail(data[avKey]);
+      // GM専用ステートはGMモード時のみFirebaseから更新（スタッフ月切替でGM設定が消えるのを防ぐ）
+      if(gmModeRef.current){
+        if(!pendingKeys.current.has(aiKey)&&data[aiKey])  setAisaniConfig(data[aiKey]);
+        if(!pendingKeys.current.has(kitKey)&&data[kitKey]) setKitchenConfig(data[kitKey]);
+        if(!pendingKeys.current.has(nsKey)&&data[nsKey])  setNightSlotConfig(data[nsKey]);
+        if(!pendingKeys.current.has(dtKey)&&data[dtKey])  setDayTypeConfig(data[dtKey]);
+      }
+      if(!pendingKeys.current.has(dcKey)&&data[dcKey])  setDayComments(data[dcKey]);
+      if(!pendingKeys.current.has(soKey)&&data[soKey])  setStarOverrides(data[soKey]);
       if(!pendingKeys.current.has(csKey)){
         const cs=deserializeConfirmedShift(data[csKey]);
-        setConfirmedShift(cs||null);
+        if(cs) setConfirmedShift(cs);
       }
-      const rbKey=`resultBackup_${fbYm}`;
-      if(!pendingKeys.current.has(rbKey)&&data[rbKey]){
-        const restored=deserializeResult(data[rbKey]);
-        // ローカル未取得またはFirebaseが新しい場合のみ上書き
-        if(restored&&(!resultRef.current||(restored.savedAt||0)>(resultRef.current?.savedAt||0))){
-          setResult(restored);saveResultLS(restored,fbYm);
+      if(gmModeRef.current){
+        const rbKey=`resultBackup_${fbYm}`;
+        if(!pendingKeys.current.has(rbKey)&&data[rbKey]){
+          const restored=deserializeResult(data[rbKey]);
+          // ローカル未取得またはFirebaseが新しい場合のみ上書き
+          if(restored&&(!resultRef.current||(restored.savedAt||0)>(resultRef.current?.savedAt||0))){
+            setResult(restored);saveResultLS(restored,fbYm);
+          }
         }
       }
       setTimeout(()=>startLoadingFadeOut(),500);
@@ -1000,6 +1009,12 @@ export default function App(){
     debounceSave('yearMonth',{y,m});
     // 新しい月のデータをlocalStorageから即座にロード（Firebaseのネットワーク待ちなしで表示）
     const newYm=`${y}_${m}`;
+    // 月切替直後にFirebase購読が発火してlocalStorageロード値を上書きするのを一時防止（2秒間）
+    const blockKeys=[`nightSlotConfig_${newYm}`,`aisaniConfig_${newYm}`,`kitchenConfig_${newYm}`,
+      `dayComments_${newYm}`,`dayTypeConfig_${newYm}`,`starOverrides_${newYm}`,
+      `avail_${newYm}`,`confirmedShift_${newYm}`,`resultBackup_${newYm}`];
+    blockKeys.forEach(k=>pendingKeys.current.add(k));
+    setTimeout(()=>blockKeys.forEach(k=>pendingKeys.current.delete(k)),2000);
     setNightSlotConfig(loadCfgLS(`nightSlotConfig_${newYm}`)||{});
     setAisaniConfig(loadCfgLS(`aisaniConfig_${newYm}`)||{});
     setKitchenConfig(loadCfgLS(`kitchenConfig_${newYm}`)||{});
@@ -1017,6 +1032,12 @@ export default function App(){
     localMonthSet.current=true;
     setYear(y);setMonth(m);
     const newYm=`${y}_${m}`;
+    // 月切替直後にFirebase購読がlocalStorageロード値を上書きするのを一時防止（2秒間）
+    const blockKeys=[`avail_${newYm}`,`dayComments_${newYm}`,`starOverrides_${newYm}`,
+      `confirmedShift_${newYm}`,`nightSlotConfig_${newYm}`,`aisaniConfig_${newYm}`,
+      `kitchenConfig_${newYm}`,`dayTypeConfig_${newYm}`,`resultBackup_${newYm}`];
+    blockKeys.forEach(k=>pendingKeys.current.add(k));
+    setTimeout(()=>blockKeys.forEach(k=>pendingKeys.current.delete(k)),2000);
     setAvail(loadCfgLS(`avail_${newYm}`)||{});
     setDayComments(loadCfgLS(`dayComments_${newYm}`)||{});
     setStarOverrides(loadCfgLS(`starOverrides_${newYm}`)||{});
@@ -1190,10 +1211,10 @@ export default function App(){
                 <div style={{fontSize:8,letterSpacing:5,fontWeight:800,textTransform:"uppercase",color:C.gold}}>旬菜 いまり</div>
                 <div style={{fontSize:18,fontWeight:900,lineHeight:1.15,color:C.text}}>{year}年{month+1}月</div>
               </div>
-              <div style={{display:"flex",gap:3,marginLeft:2}}>
+              {(gmMode||loginStaff)&&<div style={{display:"flex",gap:3,marginLeft:2}}>
                 <button onClick={prevMonth} style={{...btn(false),padding:"5px 12px",fontSize:16,borderRadius:10}}>‹</button>
                 <button onClick={nextMonth} style={{...btn(false),padding:"5px 12px",fontSize:16,borderRadius:10}}>›</button>
-              </div>
+              </div>}
             </div>
             <div style={{display:"flex",gap:6,alignItems:"center"}}>
               <div style={{display:"flex",background:"rgba(139,26,26,0.05)",borderRadius:999,padding:3,gap:2,border:"1px solid rgba(139,26,26,0.1)"}}>
