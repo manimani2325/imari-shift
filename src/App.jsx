@@ -1052,7 +1052,8 @@ export default function App(){
     setDayTypeConfig(loadCfgLS(`dayTypeConfig_${newYm}`)||{});
     setStarOverrides(loadCfgLS(`starOverrides_${newYm}`)||{});
     setAvail(loadCfgLS(`avail_${newYm}`)||{});
-    setConfirmedShift(null);
+    const rawCS=loadCfgLS(`confirmedShift_${newYm}`);
+    setConfirmedShift(rawCS?deserializeConfirmedShift(rawCS):null);
     prevAvailRef.current={};
     setResult(loadResultLS(newYm)||null);
   };
@@ -1279,20 +1280,32 @@ export default function App(){
 
           {!gmMode&&!loginStaff&&(
             <div style={{paddingBottom:6}}>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-                <div style={{fontSize:11,color:C.muted}}>名前を選んでください</div>
-                <button onClick={()=>{setShiftPreviewModal(true);setShiftPreviewPwInput("");setShiftPreviewPwError(false);}}
-                  style={{...btn(false),fontSize:10,padding:"4px 12px",borderRadius:999,border:"1px solid rgba(139,26,26,0.2)"}}>
-                  📆 シフト確認
-                </button>
-              </div>
-              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                {staffModeStaff.map(s=>(
-                  <button key={s.id} onClick={()=>handleStaffSelect(s)} style={{...btn(false),fontSize:12,padding:"8px 18px",borderRadius:999}}>
-                    {s.name}{s.password?<span style={{fontSize:9,marginLeft:4,opacity:.5}}>🔒</span>:""}
+              {shiftPreviewOpen?(
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                  <div style={{fontSize:11,color:C.muted,fontWeight:700}}>📆 全体シフト確認中</div>
+                  <button onClick={()=>setShiftPreviewOpen(false)}
+                    style={{...btn(false),fontSize:10,padding:"4px 12px",borderRadius:999,border:"1px solid rgba(139,26,26,0.2)"}}>
+                    ✕ 閉じる
                   </button>
-                ))}
-              </div>
+                </div>
+              ):(
+                <>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                    <div style={{fontSize:11,color:C.muted}}>名前を選んでください</div>
+                    <button onClick={()=>{setShiftPreviewModal(true);setShiftPreviewPwInput("");setShiftPreviewPwError(false);}}
+                      style={{...btn(false),fontSize:10,padding:"4px 12px",borderRadius:999,border:"1px solid rgba(139,26,26,0.2)"}}>
+                      📆 シフト確認
+                    </button>
+                  </div>
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                    {staffModeStaff.map(s=>(
+                      <button key={s.id} onClick={()=>handleStaffSelect(s)} style={{...btn(false),fontSize:12,padding:"8px 18px",borderRadius:999}}>
+                        {s.name}{s.password?<span style={{fontSize:9,marginLeft:4,opacity:.5}}>🔒</span>:""}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           )}
           {!gmMode&&loginStaff&&(
@@ -1975,13 +1988,10 @@ export default function App(){
         {/* ── 名前選択前シフトプレビュー */}
         {!gmMode&&!loginStaff&&shiftPreviewOpen&&(()=>{
           const shiftNavHeader=(
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:16,marginBottom:4}}>
-              <div style={{display:"flex",alignItems:"center",gap:10}}>
-                <button onClick={staffShiftViewPrev} style={{...btn(false),padding:"4px 14px",fontSize:16,borderRadius:10}}>‹</button>
-                <span style={{fontWeight:900,fontSize:16}}>{staffShiftViewY}年{staffShiftViewM+1}月</span>
-                <button onClick={staffShiftViewNext} style={{...btn(false),padding:"4px 14px",fontSize:16,borderRadius:10}}>›</button>
-              </div>
-              <button onClick={()=>setShiftPreviewOpen(false)} style={{...btn(false),fontSize:10,padding:"4px 12px",borderRadius:999,border:"1px solid rgba(139,26,26,0.2)"}}>✕ 閉じる</button>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,marginTop:16,marginBottom:4}}>
+              <button onClick={staffShiftViewPrev} style={{...btn(false),padding:"4px 14px",fontSize:16,borderRadius:10}}>‹</button>
+              <span style={{fontWeight:900,fontSize:16}}>{staffShiftViewY}年{staffShiftViewM+1}月</span>
+              <button onClick={staffShiftViewNext} style={{...btn(false),padding:"4px 14px",fontSize:16,borderRadius:10}}>›</button>
             </div>
           );
           if(!staffViewCS) return(
