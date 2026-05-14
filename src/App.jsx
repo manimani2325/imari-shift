@@ -772,6 +772,8 @@ export default function App(){
   pendingYmRef.current=`${year}_${month}`;
   // localMonthSet: ユーザーが手動で月を変えたか。trueの後はFirebaseのyearMonthでローカル月を上書きしない
   const localMonthSet=useRef(false);
+  // gmMonthRef: GMが最後にいた月（スタッフモードから戻ったとき復元するため）
+  const gmMonthRef=useRef({y:year,m:month});
 
   // ── Firebase 起動時クリーンアップ + リアルタイム購読
   useEffect(()=>{
@@ -852,6 +854,8 @@ export default function App(){
 
     const prev=resultRef.current;
     if(!prev) return;
+    // resultが現在月のものでなければスキップ（月切替直後の誤発火防止）
+    if(prev.year!==undefined&&`${prev.year}_${prev.month}`!==pendingYmRef.current) return;
 
     // 新たにONになったavailキーを記録
     const newlyAdded=(sid,key)=>!!avail[sid]?.[key]&&!prevAvail[sid]?.[key];
@@ -985,11 +989,15 @@ export default function App(){
     delete saveTimers.current[rbKey];
     pendingKeys.current.delete(rbKey);
     if(resultRef.current){
-      saveKey(rbKey,serializeResult(resultRef.current)).catch(e=>console.warn('flush save error',e));
+      const r=resultRef.current;
+      // resultが現在月のものであることを確認（月切替前の誤フラッシュ防止）
+      if(r.year===undefined||`${r.year}_${r.month}`===curYm){
+        saveKey(rbKey,serializeResult(r)).catch(e=>console.warn('flush save error',e));
+      }
     }
+    gmMonthRef.current={y,m};
     setYear(y);setMonth(m);
-    // GMモード時のみyearMonthをFirebaseに保存（スタッフが月を変えてもGM側に伝播しないようにする）
-    if(gmMode) debounceSave('yearMonth',{y,m});
+    debounceSave('yearMonth',{y,m});
     // 新しい月のデータをlocalStorageから即座にロード（Firebaseのネットワーク待ちなしで表示）
     const newYm=`${y}_${m}`;
     setNightSlotConfig(loadCfgLS(`nightSlotConfig_${newYm}`)||{});
@@ -1047,6 +1055,8 @@ export default function App(){
     if(pwInput===GM_PASSWORD){
       setGmMode(true);setView("slots");
       setPwModal(false);setPwInput("");setPwError(false);
+      // スタッフモードで月が変わっていた場合、GMが最後にいた月に戻す
+      updateYearMonth(gmMonthRef.current.y,gmMonthRef.current.m);
     } else {
       setPwError(true);setPwInput("");
     }
@@ -1188,7 +1198,7 @@ export default function App(){
             <div style={{display:"flex",gap:6,alignItems:"center"}}>
               <div style={{display:"flex",background:"rgba(139,26,26,0.05)",borderRadius:999,padding:3,gap:2,border:"1px solid rgba(139,26,26,0.1)"}}>
                 <button onClick={()=>{if(gmMode)return;setPwModal(true);}} style={{...btn(gmMode,"linear-gradient(135deg,#8b1a1a,#b8860b)"),fontSize:11,padding:"5px 14px",borderRadius:999}}>管理者</button>
-                <button onClick={()=>{setGmMode(false);setView("avail");setLoginStaff(null);}} style={{...btn(!gmMode,"linear-gradient(135deg,#1b2a5e,#2d4a9e)"),fontSize:11,padding:"5px 14px",borderRadius:999}}>スタッフ</button>
+                <button onClick={()=>{gmMonthRef.current={y:year,m:month};setGmMode(false);setView("avail");setLoginStaff(null);}} style={{...btn(!gmMode,"linear-gradient(135deg,#1b2a5e,#2d4a9e)"),fontSize:11,padding:"5px 14px",borderRadius:999}}>スタッフ</button>
               </div>
               {gmMode&&<button onClick={()=>setStaffPanelOpen(v=>!v)} style={{...btn(staffPanelOpen,"rgba(139,26,26,0.15)"),fontSize:11,padding:"7px 14px",border:staffPanelOpen?"none":`1px solid rgba(139,26,26,0.15)`}}>👥 スタッフ</button>}
             </div>
