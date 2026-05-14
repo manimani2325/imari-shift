@@ -2289,7 +2289,7 @@ export default function App(){
                             topIds={mTopIds} onStarToggle={sid=>toggleStar(d,'morning',sid)}/>}
                           {!allClosed&&<SRow label={morningClosed?"仕込み":"朝仕込"} time={morningClosed?"":"8:30〜16:00"} color="#276749"
                             people={(day.prep||[]).map(id=>staffMap[id]).filter(Boolean)} shortage={sh.prep||0}
-                            candidates={staff.filter(s=>(avail[s.id]?.[`${d}_prep`]||avail[s.id]?.[`${d}_shimikomi`])&&!(day.prep||[]).includes(s.id))}
+                            candidates={staff.filter(s=>(morningClosed?avail[s.id]?.[`${d}_shimikomi`]||avail[s.id]?.[`${d}_prep`]:avail[s.id]?.[`${d}_prep`])&&!(day.prep||[]).includes(s.id))}
                             onSwap={newId=>swapShiftAssignment(d,'prep',null,newId)}
                             onRemove={id=>swapShiftAssignment(d,'prep',null,null,id)}
                             onDismissShortage={(sh.prep||0)>0?()=>dismissShortage(d,'prep'):null}/>}
