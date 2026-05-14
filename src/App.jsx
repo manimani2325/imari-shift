@@ -561,6 +561,9 @@ export default function App(){
   const [gmMode,setGmMode]=useState(false);
   const [loginStaff,setLoginStaff]=useState(null);
   const [staffTab,setStaffTab]=useState("avail"); // avail|shift
+  // スタッフのシフト閲覧専用の月（候補入力やGMのstateとは独立）
+  const [staffShiftViewY,setStaffShiftViewY]=useState(()=>new Date().getFullYear());
+  const [staffShiftViewM,setStaffShiftViewM]=useState(()=>new Date().getMonth());
   const [newStaff,setNewStaff]=useState({name:"",grade:"L",aisaniOK:false,kitchenOK:false,password:""});
   const [staffPwModal,setStaffPwModal]=useState(null); // パスワード確認中のスタッフ
   const [staffPwInput,setStaffPwInput]=useState("");
@@ -733,7 +736,9 @@ export default function App(){
 
   // スタッフモード: 自分の名前でログイン
   const staffModeStaff=staff;
+  const resetStaffShiftView=()=>{setStaffShiftViewY(year);setStaffShiftViewM(month);};
   const handleStaffSelect=(s)=>{
+    resetStaffShiftView();
     if(s.password){setStaffPwModal(s);setStaffPwInput("");setStaffPwError(false);}
     else setLoginStaff(s);
   };
@@ -771,11 +776,14 @@ export default function App(){
   // gmModeRef: Firebase購読コールバック内でgmModeを参照するため（クロージャの古い値問題を回避）
   const gmModeRef=useRef(false);
   gmModeRef.current=gmMode;
+  // allDataRef: Firebaseの最新スナップショット全体を保持（スタッフの過去シフト参照用）
+  const allDataRef=useRef({});
 
   // ── Firebase 起動時クリーンアップ + リアルタイム購読
   useEffect(()=>{
     cleanupStaleKeys();
     const unsub=subscribeAll((data)=>{
+      allDataRef.current=data;
       if(data.staff&&Array.isArray(data.staff)&&!pendingKeys.current.has('staff')) setStaff(sortByGrade(data.staff));
       // yearMonth同期: ユーザーが手動で月を変えていない場合のみFirebaseの値でローカル月を更新（初回ロード用）
       // localMonthSet=trueの後はFirebaseのyearMonth変更（別デバイスのスタッフ操作など）でGMの月が変わらないようにする
@@ -1072,6 +1080,18 @@ export default function App(){
   const availViewStaff=gmMode
     ?(selectedStaffTab?staff.find(s=>s.id===selectedStaffTab):staff[0])
     :loginStaff;
+
+  // スタッフのシフト閲覧専用: allDataRefから対象月のconfirmedShiftを取得
+  const staffShiftViewYm=`${staffShiftViewY}_${staffShiftViewM}`;
+  const staffViewCS=deserializeConfirmedShift(allDataRef.current[`confirmedShift_${staffShiftViewYm}`])||null;
+  const staffShiftViewPrev=()=>{
+    const [y,m]=staffShiftViewM===0?[staffShiftViewY-1,11]:[staffShiftViewY,staffShiftViewM-1];
+    setStaffShiftViewY(y);setStaffShiftViewM(m);
+  };
+  const staffShiftViewNext=()=>{
+    const [y,m]=staffShiftViewM===11?[staffShiftViewY+1,0]:[staffShiftViewY,staffShiftViewM+1];
+    setStaffShiftViewY(y);setStaffShiftViewM(m);
+  };
 
 
   return(
@@ -1651,20 +1671,28 @@ export default function App(){
 
         {/* ── スタッフ 自分のシフト表示 */}
         {!gmMode&&loginStaff&&staffTab==="shift"&&(()=>{
-          if(!confirmedShift) return(
-            <div style={{...card,marginTop:16,textAlign:"center",padding:"48px 20px"}}>
-              <div style={{fontSize:36,marginBottom:14}}>📋</div>
-              <div style={{fontSize:14,color:C.muted}}>まだシフトが公開されていません</div>
-              <div style={{fontSize:11,color:C.muted,marginTop:6,opacity:.7}}>管理者がシフトを公開すると表示されます</div>
+          const shiftNavHeader=(
+            <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,marginTop:16,marginBottom:4}}>
+              <button onClick={staffShiftViewPrev} style={{...btn(false),padding:"4px 14px",fontSize:16,borderRadius:10}}>‹</button>
+              <span style={{fontWeight:900,fontSize:16}}>{staffShiftViewY}年{staffShiftViewM+1}月</span>
+              <button onClick={staffShiftViewNext} style={{...btn(false),padding:"4px 14px",fontSize:16,borderRadius:10}}>›</button>
             </div>
           );
+          if(!staffViewCS) return(
+            <>{shiftNavHeader}
+            <div style={{...card,marginTop:8,textAlign:"center",padding:"48px 20px"}}>
+              <div style={{fontSize:36,marginBottom:14}}>📋</div>
+              <div style={{fontSize:14,color:C.muted}}>シフトが公開されていません</div>
+              <div style={{fontSize:11,color:C.muted,marginTop:6,opacity:.7}}>管理者がシフトを公開すると表示されます</div>
+            </div></>
+          );
           const sid=loginStaff.id;
-          const csYear=confirmedShift.year;
-          const csMonth=confirmedShift.month;
+          const csYear=staffViewCS.year;
+          const csMonth=staffViewCS.month;
           const myDays=[];
           const csdays=daysIn(csYear,csMonth);
           for(let d=1;d<=csdays;d++){
-            const day=confirmedShift.shifts[d];
+            const day=staffViewCS.shifts[d];
             if(!day) continue;
             const inMorning=day.morning?.includes(sid)||day.morning?.includes(Number(sid));
             const inPrep=day.prep?.includes(sid)||day.prep?.includes(Number(sid));
@@ -1698,7 +1726,8 @@ export default function App(){
             myDays.push({d,dow:getDow(csYear,csMonth,d),groups});
           }
           return(
-            <div style={{...card,marginTop:16}}>
+            <>{shiftNavHeader}
+            <div style={{...card,marginTop:8}}>
               <div style={{fontWeight:900,fontSize:14,color:"#276749",marginBottom:12}}>
                 📋 {csYear}年{csMonth+1}月 自分のシフト
               </div>
@@ -1743,24 +1772,34 @@ export default function App(){
                 </div>
               )}
             </div>
+            </>
           );
         })()}
 
         {/* ── スタッフ 全体シフト表示 */}
         {!gmMode&&loginStaff&&staffTab==="full"&&(()=>{
-          if(!confirmedShift) return(
-            <div style={{...card,marginTop:16,textAlign:"center",padding:"48px 20px"}}>
-              <div style={{fontSize:36,marginBottom:14}}>📆</div>
-              <div style={{fontSize:14,color:C.muted}}>まだシフトが公開されていません</div>
-              <div style={{fontSize:11,color:C.muted,marginTop:6,opacity:.7}}>管理者がシフトを公開すると表示されます</div>
+          const shiftNavHeader=(
+            <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,marginTop:16,marginBottom:4}}>
+              <button onClick={staffShiftViewPrev} style={{...btn(false),padding:"4px 14px",fontSize:16,borderRadius:10}}>‹</button>
+              <span style={{fontWeight:900,fontSize:16}}>{staffShiftViewY}年{staffShiftViewM+1}月</span>
+              <button onClick={staffShiftViewNext} style={{...btn(false),padding:"4px 14px",fontSize:16,borderRadius:10}}>›</button>
             </div>
           );
-          const csYear=confirmedShift.year;
-          const csMonth=confirmedShift.month;
+          if(!staffViewCS) return(
+            <>{shiftNavHeader}
+            <div style={{...card,marginTop:8,textAlign:"center",padding:"48px 20px"}}>
+              <div style={{fontSize:36,marginBottom:14}}>📆</div>
+              <div style={{fontSize:14,color:C.muted}}>シフトが公開されていません</div>
+              <div style={{fontSize:11,color:C.muted,marginTop:6,opacity:.7}}>管理者がシフトを公開すると表示されます</div>
+            </div></>
+          );
+          const csYear=staffViewCS.year;
+          const csMonth=staffViewCS.month;
           const csdays=daysIn(csYear,csMonth);
           const sid=loginStaff.id;
           return(
-            <div style={{marginTop:16}}>
+            <>{shiftNavHeader}
+            <div style={{marginTop:8}}>
               <div style={{textAlign:"center",marginBottom:14}}>
                 <div style={{fontSize:10,letterSpacing:6,fontWeight:700,color:C.gold,marginBottom:4}}>🍶 旬菜いまり</div>
                 <div style={{fontSize:20,fontWeight:900,color:C.text}}>{csYear}年{csMonth+1}月 シフト表</div>
@@ -1768,7 +1807,7 @@ export default function App(){
               {Array.from({length:csdays},(_,i)=>i+1).map(d=>{
                 const dow=getDow(csYear,csMonth,d),hol=isHol(csYear,csMonth,d);
                 const closed=isClosed(csYear,csMonth,d);
-                const day=confirmedShift.shifts[d];
+                const day=staffViewCS.shifts[d];
                 if(!day&&closed) return null;
                 const nightEntries=day?Object.entries(day.night||{}).filter(([,id])=>id!=null).sort(([a],[b])=>NIGHT_ORDER.indexOf(a)-NIGHT_ORDER.indexOf(b)):[];
                 const hasAisani=day&&day.aisani!=null;
@@ -1863,6 +1902,7 @@ export default function App(){
                 );
               })}
             </div>
+            </>
           );
         })()}
 
