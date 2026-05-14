@@ -575,8 +575,14 @@ export default function App(){
   const firstDow=getDow(year,month,1);
   const staffMap=useMemo(()=>{const m={};staff.forEach(s=>m[s.id]=s);return m;},[staff]);
 
-  const prevMonth=()=>{if(month===0)updateYearMonth(year-1,11);else updateYearMonth(year,month-1);};
-  const nextMonth=()=>{if(month===11)updateYearMonth(year+1,0);else updateYearMonth(year,month+1);};
+  const prevMonth=()=>{
+    const [y,m]=month===0?[year-1,11]:[year,month-1];
+    if(gmMode) updateYearMonth(y,m); else updateStaffMonth(y,m);
+  };
+  const nextMonth=()=>{
+    const [y,m]=month===11?[year+1,0]:[year,month+1];
+    if(gmMode) updateYearMonth(y,m); else updateStaffMonth(y,m);
+  };
 
   const toggleNightSlot=(d,time)=>{
     const cur=nightSlotConfig[d]||[];
@@ -996,6 +1002,20 @@ export default function App(){
     setConfirmedShift(null);
     prevAvailRef.current={};
     setResult(loadResultLS(newYm)||null);
+  };
+  // スタッフ専用の月切替: GMだけが必要なstate（nightSlotConfig/result等）は一切触らない
+  const updateStaffMonth=(y,m)=>{
+    pendingYmRef.current=`${y}_${m}`;
+    localMonthSet.current=true;
+    setYear(y);setMonth(m);
+    const newYm=`${y}_${m}`;
+    setAvail(loadCfgLS(`avail_${newYm}`)||{});
+    setDayComments(loadCfgLS(`dayComments_${newYm}`)||{});
+    setStarOverrides(loadCfgLS(`starOverrides_${newYm}`)||{});
+    // confirmedShiftはlocalStorageから即時ロード（なければnullでFirebase購読が補完）
+    const csRaw=loadCfgLS(`confirmedShift_${newYm}`);
+    setConfirmedShift(csRaw?deserializeConfirmedShift(csRaw):null);
+    prevAvailRef.current={};
   };
   const updateDayComments=val=>{
     setDayComments(val);
@@ -1875,14 +1895,14 @@ export default function App(){
                 <div style={{display:"flex",gap:8,marginBottom:16}}>
                   <button onClick={()=>{
                     const cs=serializeConfirmedShift(result,year,month,aisaniConfig,kitchenConfig,nightSlotConfig,dayTypeConfig);
-                    if(cs){saveKey(`confirmedShift_${ymRef.current}`,cs);setConfirmedShift(deserializeConfirmedShift(cs));alert(`${year}年${month+1}月のシフトを公開しました`);}
+                    if(cs){const csKey=`confirmedShift_${ymRef.current}`;saveKey(csKey,cs);saveCfgLS(csKey,cs);setConfirmedShift(deserializeConfirmedShift(cs));alert(`${year}年${month+1}月のシフトを公開しました`);}
                   }} style={{flex:1,padding:"13px",borderRadius:12,border:"none",cursor:"pointer",fontSize:13,fontWeight:900,background:"linear-gradient(135deg,#276749,#1a4731)",color:"#fff",boxShadow:"0 4px 14px rgba(39,103,73,0.3)"}}>
                     ✅ シフトを公開
                   </button>
                   {confirmedShift&&(
                     <button onClick={()=>{
                       if(window.confirm("公開中のシフトを取り消しますか？スタッフ側から非表示になります。")){
-                        saveKey(`confirmedShift_${ymRef.current}`,null);setConfirmedShift(null);
+                        const csKey=`confirmedShift_${ymRef.current}`;saveKey(csKey,null);saveCfgLS(csKey,null);setConfirmedShift(null);
                       }
                     }} style={{flex:1,padding:"13px",borderRadius:12,border:"1px solid rgba(192,57,43,0.3)",cursor:"pointer",fontSize:13,fontWeight:900,background:"rgba(192,57,43,0.06)",color:"#c0392b"}}>
                       ✕ 公開を取り消す
