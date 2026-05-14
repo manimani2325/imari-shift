@@ -537,11 +537,10 @@ const getAutoMonth=()=>{
   if(d>=AUTO_SWITCH_DAY) return{y:m===11?y+1:y,m:m===11?0:m+1};
   return{y,m};
 };
+const getJSTCalendarMonth=()=>{const jst=getJSTDate();return{y:jst.getFullYear(),m:jst.getMonth()};};
 // GMの月をlocalStorageに永続保存（セッションをまたいで前回月を復元）
 const saveGMMonth=(y,m)=>{try{localStorage.setItem('imari_gm_ym',JSON.stringify({y,m}));}catch(_){}};
 const loadGMMonth=()=>{try{const s=localStorage.getItem('imari_gm_ym');return s?JSON.parse(s):null;}catch(_){return null;}};
-const saveStaffShiftMonth=(y,m)=>{try{localStorage.setItem('imari_staff_shift_ym',JSON.stringify({y,m}));}catch(_){}};
-const loadStaffShiftMonth=()=>{try{const s=localStorage.getItem('imari_staff_shift_ym');return s?JSON.parse(s):null;}catch(_){return null;}};
 export default function App(){
   // アプリはスタッフモードで起動するため、初期月はスタッフ用のauto-month
   const {y:initY,m:initM}=getAutoMonth();
@@ -576,8 +575,8 @@ export default function App(){
   const [loginStaff,setLoginStaff]=useState(null);
   const [staffTab,setStaffTab]=useState("avail"); // avail|shift
   // スタッフのシフト閲覧専用の月（候補入力やGMのstateとは独立）
-  const [staffShiftViewY,setStaffShiftViewY]=useState(()=>{const s=loadStaffShiftMonth()||getAutoMonth();return s.y;});
-  const [staffShiftViewM,setStaffShiftViewM]=useState(()=>{const s=loadStaffShiftMonth()||getAutoMonth();return s.m;});
+  const [staffShiftViewY,setStaffShiftViewY]=useState(()=>getJSTCalendarMonth().y);
+  const [staffShiftViewM,setStaffShiftViewM]=useState(()=>getJSTCalendarMonth().m);
   const [newStaff,setNewStaff]=useState({name:"",grade:"L",aisaniOK:false,kitchenOK:false,password:""});
   const [staffPwModal,setStaffPwModal]=useState(null); // パスワード確認中のスタッフ
   const [staffPwInput,setStaffPwInput]=useState("");
@@ -1118,15 +1117,22 @@ export default function App(){
   // スタッフのシフト閲覧専用: allDataRefから対象月のconfirmedShiftを取得
   const staffShiftViewYm=`${staffShiftViewY}_${staffShiftViewM}`;
   const staffViewCS=deserializeConfirmedShift(allDataRef.current[`confirmedShift_${staffShiftViewYm}`])||null;
-  const staffShiftViewPrev=()=>{
-    const [y,m]=staffShiftViewM===0?[staffShiftViewY-1,11]:[staffShiftViewY,staffShiftViewM-1];
-    setStaffShiftViewY(y);setStaffShiftViewM(m);
-  };
-  const staffShiftViewNext=()=>{
-    const [y,m]=staffShiftViewM===11?[staffShiftViewY+1,0]:[staffShiftViewY,staffShiftViewM+1];
-    setStaffShiftViewY(y);setStaffShiftViewM(m);
-  };
-  useEffect(()=>{ saveStaffShiftMonth(staffShiftViewY,staffShiftViewM); },[staffShiftViewY,staffShiftViewM]);
+  const staffShiftViewPrev=()=>{const [y,m]=staffShiftViewM===0?[staffShiftViewY-1,11]:[staffShiftViewY,staffShiftViewM-1];setStaffShiftViewY(y);setStaffShiftViewM(m);};
+  const staffShiftViewNext=()=>{const [y,m]=staffShiftViewM===11?[staffShiftViewY+1,0]:[staffShiftViewY,staffShiftViewM+1];setStaffShiftViewY(y);setStaffShiftViewM(m);};
+  // JSTカレンダー月が変わった瞬間にシフト表示も切り替え（候補日入力の20日ルールとは独立）
+  const staffShiftAutoRef=useRef(getJSTCalendarMonth());
+  useEffect(()=>{
+    const id=setInterval(()=>{
+      const cur=getJSTCalendarMonth();
+      const prev=staffShiftAutoRef.current;
+      if(cur.y!==prev.y||cur.m!==prev.m){
+        staffShiftAutoRef.current=cur;
+        setStaffShiftViewY(cur.y);
+        setStaffShiftViewM(cur.m);
+      }
+    },60000);
+    return()=>clearInterval(id);
+  },[]);
 
 
   return(
