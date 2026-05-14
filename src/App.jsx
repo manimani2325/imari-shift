@@ -801,10 +801,14 @@ export default function App(){
       const soKey=`starOverrides_${fbYm}`;
       const dtKey=`dayTypeConfig_${fbYm}`;
       const csKey=`confirmedShift_${fbYm}`;
+      // 初回ロード中かどうか（初回はモードに関わらず全データをFirebaseから復元する）
+      const isFirst=!initialLoadDone.current;
       // availはデータがある場合のみ更新（空データで上書きしない）
       if(!pendingKeys.current.has(avKey)&&data[avKey])  setAvail(data[avKey]);
-      // GM専用ステートはGMモード時のみFirebaseから更新（スタッフ月切替でGM設定が消えるのを防ぐ）
-      if(gmModeRef.current){
+      // GM専用ステート: 初回ロード時 or GMモード時のみFirebaseから更新
+      // スタッフが月切替しても、GMの設定が消えないようにする
+      const loadGm=isFirst||gmModeRef.current;
+      if(loadGm){
         if(!pendingKeys.current.has(aiKey)&&data[aiKey])  setAisaniConfig(data[aiKey]);
         if(!pendingKeys.current.has(kitKey)&&data[kitKey]) setKitchenConfig(data[kitKey]);
         if(!pendingKeys.current.has(nsKey)&&data[nsKey])  setNightSlotConfig(data[nsKey]);
@@ -816,7 +820,7 @@ export default function App(){
         const cs=deserializeConfirmedShift(data[csKey]);
         if(cs) setConfirmedShift(cs);
       }
-      if(gmModeRef.current){
+      if(loadGm){
         const rbKey=`resultBackup_${fbYm}`;
         if(!pendingKeys.current.has(rbKey)&&data[rbKey]){
           const restored=deserializeResult(data[rbKey]);
@@ -1009,12 +1013,6 @@ export default function App(){
     debounceSave('yearMonth',{y,m});
     // 新しい月のデータをlocalStorageから即座にロード（Firebaseのネットワーク待ちなしで表示）
     const newYm=`${y}_${m}`;
-    // 月切替直後にFirebase購読が発火してlocalStorageロード値を上書きするのを一時防止（2秒間）
-    const blockKeys=[`nightSlotConfig_${newYm}`,`aisaniConfig_${newYm}`,`kitchenConfig_${newYm}`,
-      `dayComments_${newYm}`,`dayTypeConfig_${newYm}`,`starOverrides_${newYm}`,
-      `avail_${newYm}`,`confirmedShift_${newYm}`,`resultBackup_${newYm}`];
-    blockKeys.forEach(k=>pendingKeys.current.add(k));
-    setTimeout(()=>blockKeys.forEach(k=>pendingKeys.current.delete(k)),2000);
     setNightSlotConfig(loadCfgLS(`nightSlotConfig_${newYm}`)||{});
     setAisaniConfig(loadCfgLS(`aisaniConfig_${newYm}`)||{});
     setKitchenConfig(loadCfgLS(`kitchenConfig_${newYm}`)||{});
@@ -1032,12 +1030,6 @@ export default function App(){
     localMonthSet.current=true;
     setYear(y);setMonth(m);
     const newYm=`${y}_${m}`;
-    // 月切替直後にFirebase購読がlocalStorageロード値を上書きするのを一時防止（2秒間）
-    const blockKeys=[`avail_${newYm}`,`dayComments_${newYm}`,`starOverrides_${newYm}`,
-      `confirmedShift_${newYm}`,`nightSlotConfig_${newYm}`,`aisaniConfig_${newYm}`,
-      `kitchenConfig_${newYm}`,`dayTypeConfig_${newYm}`,`resultBackup_${newYm}`];
-    blockKeys.forEach(k=>pendingKeys.current.add(k));
-    setTimeout(()=>blockKeys.forEach(k=>pendingKeys.current.delete(k)),2000);
     setAvail(loadCfgLS(`avail_${newYm}`)||{});
     setDayComments(loadCfgLS(`dayComments_${newYm}`)||{});
     setStarOverrides(loadCfgLS(`starOverrides_${newYm}`)||{});
