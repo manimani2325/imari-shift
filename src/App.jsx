@@ -529,10 +529,18 @@ function loadCfgLS(key) {
   try { const s = localStorage.getItem(LS_CFG(key)); return s ? JSON.parse(s) : null; } catch(_) { return null; } }
 
 // ══════════════════════════════════════════════════════
+const AUTO_SWITCH_DAY=25; // この日以降は翌月を表示
+const getJSTDate=()=>new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Tokyo'}));
+const getAutoMonth=()=>{
+  const jst=getJSTDate();
+  const d=jst.getDate(),m=jst.getMonth(),y=jst.getFullYear();
+  if(d>=AUTO_SWITCH_DAY) return{y:m===11?y+1:y,m:m===11?0:m+1};
+  return{y,m};
+};
 export default function App(){
-  const now=new Date();
-  const [year,setYear]=useState(now.getFullYear());
-  const [month,setMonth]=useState(now.getMonth());
+  const {y:initY,m:initM}=getAutoMonth();
+  const [year,setYear]=useState(initY);
+  const [month,setMonth]=useState(initM);
   const [staff,setStaff]=useState([
     {id:1,name:"田中 蓮",grade:"SM",aisaniOK:true,kitchenOK:false,password:""},
     {id:2,name:"佐藤 彩",grade:"SM",aisaniOK:true,kitchenOK:false,password:""},
@@ -837,6 +845,32 @@ export default function App(){
     const t=setTimeout(()=>startLoadingFadeOut(),5000);
     return()=>{unsub();clearTimeout(t);};
   },[startLoadingFadeOut]);
+
+  // ── JST 25日0:00 になったら自動で翌月に切替（アプリを開いたまま日付を跨ぐ場合）
+  useEffect(()=>{
+    const scheduleSwitch=()=>{
+      const jst=getJSTDate();
+      // 今日が25日以上なら翌月への切替は既に済んでいる→翌月1日0:00まで待つ
+      // そうでなければ当月25日0:00まで待つ
+      const targetDay=jst.getDate()<AUTO_SWITCH_DAY?AUTO_SWITCH_DAY:1;
+      const targetMonth=jst.getDate()<AUTO_SWITCH_DAY?jst.getMonth():(jst.getMonth()+1)%12;
+      const targetYear=jst.getDate()<AUTO_SWITCH_DAY?jst.getFullYear():(jst.getMonth()===11?jst.getFullYear()+1:jst.getFullYear());
+      const target=new Date(targetYear,targetMonth,targetDay,0,0,0);
+      // ローカル時間でtargetを作ったのでJSTオフセット補正
+      const jstOffsetMs=(9*60-new Date().getTimezoneOffset())*60000;
+      const msUntil=target.getTime()-jstOffsetMs-Date.now();
+      return setTimeout(()=>{
+        if(gmModeRef.current){
+          const {y,m}=getAutoMonth();
+          updateYearMonth(y,m);
+        }
+        // 次の切替をスケジュール
+        scheduleSwitch();
+      },Math.max(msUntil,1000));
+    };
+    const t=scheduleSwitch();
+    return()=>clearTimeout(t);
+  },[]);
 
   // ── localStorage から result を起動時に復元
   const prevAvailRef=useRef({});
