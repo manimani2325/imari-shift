@@ -716,11 +716,12 @@ export default function App(){
   },[staff]);
 
   const handleGenerate=()=>{
+    const genYm=`${year}_${month}`;
     setGenerating(true);
     setTimeout(()=>{
       const r={...generateShifts(staff,year,month,avail,nightSlotConfig,aisaniConfig,kitchenConfig,dayTypeConfig),savedAt:Date.now()};
-      setResult(r);saveResultLS(r,ymRef.current);setView("result");setGenerating(false);
-      const rbKey=`resultBackup_${ymRef.current}`;
+      setResult(r);saveResultLS(r,genYm);setView("result");setGenerating(false);
+      const rbKey=`resultBackup_${genYm}`;
       pendingKeys.current.add(rbKey);
       saveKey(rbKey,serializeResult(r)).catch(()=>{}).finally(()=>{pendingKeys.current.delete(rbKey);});
     },500);
@@ -1088,8 +1089,7 @@ export default function App(){
     if(pwInput===GM_PASSWORD){
       setGmMode(true);setView("slots");
       setPwModal(false);setPwInput("");setPwError(false);
-      // localStorageからGMの前回月を復元（なければauto-month）
-      const saved=loadGMMonth()||getAutoMonth();
+      const saved=loadGMMonth()||getJSTCalendarMonth();
       updateYearMonth(saved.y,saved.m);
     } else {
       setPwError(true);setPwInput("");
