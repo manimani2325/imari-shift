@@ -529,7 +529,7 @@ function loadCfgLS(key) {
   try { const s = localStorage.getItem(LS_CFG(key)); return s ? JSON.parse(s) : null; } catch(_) { return null; } }
 
 // ══════════════════════════════════════════════════════
-const AUTO_SWITCH_DAY=25; // この日以降は翌月を表示
+const AUTO_SWITCH_DAY=25;
 const getJSTDate=()=>new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Tokyo'}));
 const getAutoMonth=()=>{
   const jst=getJSTDate();
@@ -537,7 +537,11 @@ const getAutoMonth=()=>{
   if(d>=AUTO_SWITCH_DAY) return{y:m===11?y+1:y,m:m===11?0:m+1};
   return{y,m};
 };
+// GMの月をlocalStorageに永続保存（セッションをまたいで前回月を復元）
+const saveGMMonth=(y,m)=>{try{localStorage.setItem('imari_gm_ym',JSON.stringify({y,m}));}catch(_){}};
+const loadGMMonth=()=>{try{const s=localStorage.getItem('imari_gm_ym');return s?JSON.parse(s):null;}catch(_){return null;}};
 export default function App(){
+  // アプリはスタッフモードで起動するため、初期月はスタッフ用のauto-month
   const {y:initY,m:initM}=getAutoMonth();
   const [year,setYear]=useState(initY);
   const [month,setMonth]=useState(initM);
@@ -793,16 +797,9 @@ export default function App(){
     const unsub=subscribeAll((data)=>{
       allDataRef.current=data;
       if(data.staff&&Array.isArray(data.staff)&&!pendingKeys.current.has('staff')) setStaff(sortByGrade(data.staff));
-      // yearMonth同期: ユーザーが手動で月を変えていない場合のみFirebaseの値でローカル月を更新（初回ロード用）
-      // localMonthSet=trueの後はFirebaseのyearMonth変更（別デバイスのスタッフ操作など）でGMの月が変わらないようにする
-      if(data.yearMonth&&!pendingKeys.current.has('yearMonth')&&!localMonthSet.current){
-        setYear(data.yearMonth.y);setMonth(data.yearMonth.m);
-        pendingYmRef.current=`${data.yearMonth.y}_${data.yearMonth.m}`;
-      }
-      // fbYm: 手動操作後はpendingYmRef（ローカルの意図した月）、初回ロード時のみFirebaseのyearMonthを使う
-      const fbYm=localMonthSet.current
-        ?pendingYmRef.current
-        :(data.yearMonth?`${data.yearMonth.y}_${data.yearMonth.m}`:pendingYmRef.current);
+      // yearMonth: GMとスタッフの月は独立管理のためFirebase同期しない
+      // fbYmは常にローカルのpendingYmRef（現在表示中の月）を使う
+      const fbYm=pendingYmRef.current;
       const avKey=`avail_${fbYm}`;
       const aiKey=`aisaniConfig_${fbYm}`;
       const kitKey=`kitchenConfig_${fbYm}`;
@@ -846,31 +843,20 @@ export default function App(){
     return()=>{unsub();clearTimeout(t);};
   },[startLoadingFadeOut]);
 
-  // ── JST 25日0:00 になったら自動で翌月に切替（アプリを開いたまま日付を跨ぐ場合）
+  // ── スタッフモード専用: 開いたまま25日を迎えたら自動で翌月に切替（1分ごとにチェック）
   useEffect(()=>{
-    const scheduleSwitch=()=>{
-      const jst=getJSTDate();
-      // 今日が25日以上なら翌月への切替は既に済んでいる→翌月1日0:00まで待つ
-      // そうでなければ当月25日0:00まで待つ
-      const targetDay=jst.getDate()<AUTO_SWITCH_DAY?AUTO_SWITCH_DAY:1;
-      const targetMonth=jst.getDate()<AUTO_SWITCH_DAY?jst.getMonth():(jst.getMonth()+1)%12;
-      const targetYear=jst.getDate()<AUTO_SWITCH_DAY?jst.getFullYear():(jst.getMonth()===11?jst.getFullYear()+1:jst.getFullYear());
-      const target=new Date(targetYear,targetMonth,targetDay,0,0,0);
-      // ローカル時間でtargetを作ったのでJSTオフセット補正
-      const jstOffsetMs=(9*60-new Date().getTimezoneOffset())*60000;
-      const msUntil=target.getTime()-jstOffsetMs-Date.now();
-      return setTimeout(()=>{
-        if(gmModeRef.current){
-          const {y,m}=getAutoMonth();
-          updateYearMonth(y,m);
-        }
-        // 次の切替をスケジュール
-        scheduleSwitch();
-      },Math.max(msUntil,1000));
-    };
-    const t=scheduleSwitch();
-    return()=>clearTimeout(t);
-  },[]);
+    if(gmModeRef.current) return;
+    const id=setInterval(()=>{
+      if(gmModeRef.current) return;
+      const {y,m}=getAutoMonth();
+      setYear(v=>v!==y?y:v);
+      setMonth(v=>{
+        if(v!==m){pendingYmRef.current=`${y}_${m}`;return m;}
+        return v;
+      });
+    },60000);
+    return()=>clearInterval(id);
+  },[gmMode]);
 
   // ── localStorage から result を起動時に復元
   const prevAvailRef=useRef({});
@@ -1045,8 +1031,8 @@ export default function App(){
       }
     }
     gmMonthRef.current={y,m};
+    saveGMMonth(y,m);
     setYear(y);setMonth(m);
-    debounceSave('yearMonth',{y,m});
     // 新しい月のデータをlocalStorageから即座にロード（Firebaseのネットワーク待ちなしで表示）
     const newYm=`${y}_${m}`;
     setNightSlotConfig(loadCfgLS(`nightSlotConfig_${newYm}`)||{});
@@ -1090,8 +1076,9 @@ export default function App(){
     if(pwInput===GM_PASSWORD){
       setGmMode(true);setView("slots");
       setPwModal(false);setPwInput("");setPwError(false);
-      // スタッフモードで月が変わっていた場合、GMが最後にいた月に戻す
-      updateYearMonth(gmMonthRef.current.y,gmMonthRef.current.m);
+      // localStorageからGMの前回月を復元（なければauto-month）
+      const saved=loadGMMonth()||getAutoMonth();
+      updateYearMonth(saved.y,saved.m);
     } else {
       setPwError(true);setPwInput("");
     }
@@ -1245,7 +1232,7 @@ export default function App(){
             <div style={{display:"flex",gap:6,alignItems:"center"}}>
               <div style={{display:"flex",background:"rgba(139,26,26,0.05)",borderRadius:999,padding:3,gap:2,border:"1px solid rgba(139,26,26,0.1)"}}>
                 <button onClick={()=>{if(gmMode)return;setPwModal(true);}} style={{...btn(gmMode,"linear-gradient(135deg,#8b1a1a,#b8860b)"),fontSize:11,padding:"5px 14px",borderRadius:999}}>管理者</button>
-                <button onClick={()=>{gmMonthRef.current={y:year,m:month};setGmMode(false);setView("avail");setLoginStaff(null);}} style={{...btn(!gmMode,"linear-gradient(135deg,#1b2a5e,#2d4a9e)"),fontSize:11,padding:"5px 14px",borderRadius:999}}>スタッフ</button>
+                <button onClick={()=>{gmMonthRef.current={y:year,m:month};saveGMMonth(year,month);setGmMode(false);setView("avail");setLoginStaff(null);const a=getAutoMonth();setYear(a.y);setMonth(a.m);pendingYmRef.current=`${a.y}_${a.m}`;}} style={{...btn(!gmMode,"linear-gradient(135deg,#1b2a5e,#2d4a9e)"),fontSize:11,padding:"5px 14px",borderRadius:999}}>スタッフ</button>
               </div>
               {gmMode&&<button onClick={()=>setStaffPanelOpen(v=>!v)} style={{...btn(staffPanelOpen,"rgba(139,26,26,0.15)"),fontSize:11,padding:"7px 14px",border:staffPanelOpen?"none":`1px solid rgba(139,26,26,0.15)`}}>👥 スタッフ</button>}
             </div>
