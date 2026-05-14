@@ -540,6 +540,8 @@ const getAutoMonth=()=>{
 // GMの月をlocalStorageに永続保存（セッションをまたいで前回月を復元）
 const saveGMMonth=(y,m)=>{try{localStorage.setItem('imari_gm_ym',JSON.stringify({y,m}));}catch(_){}};
 const loadGMMonth=()=>{try{const s=localStorage.getItem('imari_gm_ym');return s?JSON.parse(s):null;}catch(_){return null;}};
+const saveStaffShiftMonth=(y,m)=>{try{localStorage.setItem('imari_staff_shift_ym',JSON.stringify({y,m}));}catch(_){}};
+const loadStaffShiftMonth=()=>{try{const s=localStorage.getItem('imari_staff_shift_ym');return s?JSON.parse(s):null;}catch(_){return null;}};
 export default function App(){
   // アプリはスタッフモードで起動するため、初期月はスタッフ用のauto-month
   const {y:initY,m:initM}=getAutoMonth();
@@ -574,8 +576,8 @@ export default function App(){
   const [loginStaff,setLoginStaff]=useState(null);
   const [staffTab,setStaffTab]=useState("avail"); // avail|shift
   // スタッフのシフト閲覧専用の月（候補入力やGMのstateとは独立）
-  const [staffShiftViewY,setStaffShiftViewY]=useState(()=>new Date().getFullYear());
-  const [staffShiftViewM,setStaffShiftViewM]=useState(()=>new Date().getMonth());
+  const [staffShiftViewY,setStaffShiftViewY]=useState(()=>(loadStaffShiftMonth()||getAutoMonth()).y);
+  const [staffShiftViewM,setStaffShiftViewM]=useState(()=>(loadStaffShiftMonth()||getAutoMonth()).m);
   const [newStaff,setNewStaff]=useState({name:"",grade:"L",aisaniOK:false,kitchenOK:false,password:""});
   const [staffPwModal,setStaffPwModal]=useState(null); // パスワード確認中のスタッフ
   const [staffPwInput,setStaffPwInput]=useState("");
@@ -1118,11 +1120,11 @@ export default function App(){
   const staffViewCS=deserializeConfirmedShift(allDataRef.current[`confirmedShift_${staffShiftViewYm}`])||null;
   const staffShiftViewPrev=()=>{
     const [y,m]=staffShiftViewM===0?[staffShiftViewY-1,11]:[staffShiftViewY,staffShiftViewM-1];
-    setStaffShiftViewY(y);setStaffShiftViewM(m);
+    setStaffShiftViewY(y);setStaffShiftViewM(m);saveStaffShiftMonth(y,m);
   };
   const staffShiftViewNext=()=>{
     const [y,m]=staffShiftViewM===11?[staffShiftViewY+1,0]:[staffShiftViewY,staffShiftViewM+1];
-    setStaffShiftViewY(y);setStaffShiftViewM(m);
+    setStaffShiftViewY(y);setStaffShiftViewM(m);saveStaffShiftMonth(y,m);
   };
 
 
