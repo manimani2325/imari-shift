@@ -462,6 +462,7 @@ function deserializeResult(r){
       avgRate:r.avgRate||0,
       workedDays:{},
       savedAt:r.savedAt||0,
+      ...(r.year!==undefined?{year:r.year,month:r.month}:{}),
     };
   }catch(_){ return null; }
 }
@@ -719,7 +720,7 @@ export default function App(){
     const genYm=`${year}_${month}`;
     setGenerating(true);
     setTimeout(()=>{
-      const r={...generateShifts(staff,year,month,avail,nightSlotConfig,aisaniConfig,kitchenConfig,dayTypeConfig),savedAt:Date.now()};
+      const r={...generateShifts(staff,year,month,avail,nightSlotConfig,aisaniConfig,kitchenConfig,dayTypeConfig),year,month,savedAt:Date.now()};
       setResult(r);saveResultLS(r,genYm);setView("result");setGenerating(false);
       const rbKey=`resultBackup_${genYm}`;
       pendingKeys.current.add(rbKey);
