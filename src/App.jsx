@@ -529,7 +529,7 @@ function loadCfgLS(key) {
   try { const s = localStorage.getItem(LS_CFG(key)); return s ? JSON.parse(s) : null; } catch(_) { return null; } }
 
 // ══════════════════════════════════════════════════════
-const AUTO_SWITCH_DAY=18;
+const AUTO_SWITCH_DAY=20;
 const getJSTDate=()=>new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Tokyo'}));
 const getAutoMonth=()=>{
   const jst=getJSTDate();
