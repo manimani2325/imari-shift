@@ -54,7 +54,7 @@ function calcCandWeight(hasMorning, hasPrep, hasNight) {
 }
 
 // ── 自動生成
-function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig, kitchenConfig, dayTypeConfig={}) {
+function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig, kitchenConfig, dayTypeConfig={}, shimikomiSlotConfig={}) {
   const days = daysIn(year, month);
   const result  = {};
   const worked  = {};
@@ -86,6 +86,7 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
         const activeMorning=hasMorning&&!hadPrevNight; // 前日夜がある場合、朝は0（夜朝カウント済み）
         // アイサニ/キッチン/夜/朝(有効)のいずれかがあれば+1、仕込みのみや夜朝の朝のみは0
         if(activeMorning||hasNight||hasAisani||hasKitchen) candDays[s.id]+=1;
+        if(hasShimikomi&&!hasMorning&&!hasPrep&&shimikomiSlotConfig[d]?.enabled) candDays[s.id]+=1;
       }
     }
   });
@@ -142,16 +143,16 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
         if(aiPick[0]) addWorked(aiPick[0],d,'aisani');
         aisaniShortage=aisaniId?0:1;
       }
-      result[d]={morning:[],prep:[],night:{},aisani:aisaniId,kitchen:null};
-      shortage[d]={morning:0,prep:0,night:{},aisani:aisaniShortage,kitchen:0};
+      result[d]={morning:[],prep:[],night:{},aisani:aisaniId,kitchen:null,shimikomiSlot:null};
+      shortage[d]={morning:0,prep:0,night:{},aisani:aisaniShortage,kitchen:0,shimikomiSlot:0};
       warnings[d]=[];
       continue;
     }
 
     // 朝営業休み: 仕込み1人 + 夜のみ
     if(morningClosed){
-      const dayR={morning:[],prep:[],night:{},aisani:null,kitchen:null};
-      const dayS={morning:0,prep:0,night:{},aisani:0,kitchen:0};
+      const dayR={morning:[],prep:[],night:{},aisani:null,kitchen:null,shimikomiSlot:null};
+      const dayS={morning:0,prep:0,night:{},aisani:0,kitchen:0,shimikomiSlot:0};
       const dayW=[];
       const slots=nightSlotConfig[d]||[];
       const prevNight=new Set(d>1?Object.values(result[d-1]?.night||{}).filter(Boolean):[]);
@@ -180,14 +181,24 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
           dayS.night[slotTime]=1;
         }
       });
+      const shimiConfMC=shimikomiSlotConfig[d];
+      if(shimiConfMC&&shimiConfMC.enabled){
+        const alreadyMC=new Set([...dayR.prep,...Object.values(dayR.night).filter(Boolean)]);
+        const shimiCandsMCStrict=staff.filter(s=>isAvail(s.id,`${d}_shimikomi`)&&!alreadyMC.has(s.id)&&!prevNight.has(s.id));
+        const shimiCandsMCAll=staff.filter(s=>isAvail(s.id,`${d}_shimikomi`)&&!alreadyMC.has(s.id));
+        const shimiPickMC=pick(shimiCandsMCStrict.length>=1?shimiCandsMCStrict:shimiCandsMCAll,1);
+        dayR.shimikomiSlot=shimiPickMC[0]?.id||null;
+        if(shimiPickMC[0]) addWorked(shimiPickMC[0],d,'shimikomiSlot');
+        dayS.shimikomiSlot=shimiPickMC[0]?0:1;
+      }
       result[d]=dayR;
       shortage[d]=dayS;
       warnings[d]=dayW;
       continue;
     }
     const spec=isSpec(year,month,d);
-    const dayR={morning:[],prep:[],night:{},aisani:null,kitchen:null};
-    const dayS={morning:0,prep:0,night:{},aisani:0,kitchen:0};
+    const dayR={morning:[],prep:[],night:{},aisani:null,kitchen:null,shimikomiSlot:null};
+    const dayS={morning:0,prep:0,night:{},aisani:0,kitchen:0,shimikomiSlot:0};
     const dayW=[];
     const slots=nightSlotConfig[d]||[];
 
@@ -336,6 +347,20 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
       dayS.aisani=aiPick[0]?0:1;
     }
 
+    const shimiConf=shimikomiSlotConfig[d];
+    if(shimiConf&&shimiConf.enabled){
+      const alreadyShimi=new Set([...dayR.morning,...dayR.prep,...Object.values(dayR.night).filter(Boolean),...(dayR.aisani?[dayR.aisani]:[]),...(dayR.kitchen?[dayR.kitchen]:[])]);
+      const shimiCandsStrict=staff.filter(s=>isAvail(s.id,`${d}_shimikomi`)&&!alreadyShimi.has(s.id)&&!(d>1&&Object.values(result[d-1]?.night||{}).filter(Boolean).includes(s.id)));
+      const shimiCandsAll=staff.filter(s=>isAvail(s.id,`${d}_shimikomi`)&&!alreadyShimi.has(s.id));
+      const shimiPick=pick(shimiCandsStrict.length>=1?shimiCandsStrict:shimiCandsAll,1);
+      dayR.shimikomiSlot=shimiPick[0]?.id||null;
+      if(shimiPick[0]) addWorked(shimiPick[0],d,'shimikomiSlot');
+      dayS.shimikomiSlot=shimiPick[0]?0:1;
+    } else {
+      dayR.shimikomiSlot=null;
+      dayS.shimikomiSlot=0;
+    }
+
     result[d]=dayR;
     shortage[d]=dayS;
     warnings[d]=dayW;
@@ -354,6 +379,7 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
       const inNight=Object.values(dayR.night||{}).some(id=>id===s.id);
       const inAisani=dayR.aisani===s.id;
       const inKitchen=dayR.kitchen===s.id;
+      const inShimikomiSlot=dayR.shimikomiSlot===s.id;
       if(inPrep){
         // 朝仕込み判定: _prep avail または (朝+仕込み両チェック=shimikomiMorning)
         const is2Count=isAvail(s.id,`${d}_prep`)||(isAvail(s.id,`${d}_morning`)&&isAvail(s.id,`${d}_shimikomi`));
@@ -362,6 +388,7 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
       if(inMorning) workedCounts[s.id]+=1;
       if(inNight) workedCounts[s.id]+=1;
       if(inAisani||inKitchen) workedCounts[s.id]+=1;
+      if(inShimikomiSlot) workedCounts[s.id]+=1;
     });
   }
   const totalW=staff.reduce((a,s)=>a+workedCounts[s.id],0);
@@ -385,6 +412,7 @@ function calcWorkedCount(sid, shifts, avail){
     const inNight=Object.values(dayR.night||{}).some(id=>id===sid);
     const inAisani=dayR.aisani===sid;
     const inKitchen=dayR.kitchen===sid;
+    const inShimikomiSlot=dayR.shimikomiSlot===sid;
     if(inPrep){
       // 朝仕込み判定: _prep avail または (朝+仕込み両チェック=shimikomiMorning)
       const is2Count=avail[sid]?.[`${d}_prep`]||(avail[sid]?.[`${d}_morning`]&&avail[sid]?.[`${d}_shimikomi`]);
@@ -393,6 +421,7 @@ function calcWorkedCount(sid, shifts, avail){
     if(inMorning) count+=1;
     if(inNight) count+=1;
     if(inAisani||inKitchen) count+=1;
+    if(inShimikomiSlot) count+=1;
   });
   return count;
 }
@@ -451,6 +480,7 @@ function deserializeResult(r){
         night:(day.night&&typeof day.night==='object')?day.night:{},
         aisani:day.aisani||null,
         kitchen:day.kitchen||null,
+        shimikomiSlot:day.shimikomiSlot||null,
       };
     });
     return {
@@ -469,7 +499,7 @@ function deserializeResult(r){
 
 // ── localStorage へ result を保存/復元
 // ── 確定シフト serialize/deserialize（Firebase 空配列対策）
-function serializeConfirmedShift(result, year, month, aisaniConfig={}, kitchenConfig={}, nightSlotConfig={}, dayTypeConfig={}) {
+function serializeConfirmedShift(result, year, month, aisaniConfig={}, kitchenConfig={}, nightSlotConfig={}, dayTypeConfig={}, shimikomiSlotConfig={}) {
   if (!result) return null;
   const shifts = {};
   Object.entries(result.shifts || {}).forEach(([d, day]) => {
@@ -487,6 +517,7 @@ function serializeConfirmedShift(result, year, month, aisaniConfig={}, kitchenCo
       night:   filteredNight,
       aisani:  aisaniConfig[dn]?.enabled  ? (day.aisani  ?? null) : null,
       kitchen: kitchenConfig[dn]?.enabled ? (day.kitchen ?? null) : null,
+      shimikomiSlot: shimikomiSlotConfig[dn]?.enabled ? (day.shimikomiSlot ?? null) : null,
     };
   });
   return { year, month, shifts };
@@ -503,6 +534,7 @@ function deserializeConfirmedShift(cs) {
         night:   (day.night && typeof day.night === 'object') ? day.night : {},
         aisani:  day.aisani  ?? null,
         kitchen: day.kitchen ?? null,
+        shimikomiSlot: day.shimikomiSlot ?? null,
       };
     });
     return { year: cs.year, month: cs.month, shifts };
@@ -559,6 +591,7 @@ export default function App(){
   const [nightSlotConfig,setNightSlotConfig]=useState({});
   const [aisaniConfig,setAisaniConfig]=useState({});
   const [kitchenConfig,setKitchenConfig]=useState({});
+  const [shimikomiSlotConfig,setShimikomiSlotConfig]=useState({});
   const [dayTypeConfig,setDayTypeConfig]=useState({});
   const [result,_setResultRaw]=useState(null);
   const resultRef=useRef(null);
@@ -606,6 +639,7 @@ export default function App(){
   };
   const toggleAisani=(d)=>updateAisaniCfg({...aisaniConfig,[d]:{enabled:!aisaniConfig[d]?.enabled}});
   const toggleKitchen=(d)=>updateKitchenCfg({...kitchenConfig,[d]:{enabled:!kitchenConfig[d]?.enabled}});
+  const toggleShimikomiSlot=(d)=>updateShimikomiSlotCfg({...shimikomiSlotConfig,[d]:{enabled:!shimikomiSlotConfig[d]?.enabled}});
   const toggleDayType=(d,type)=>{
     const cur=dayTypeConfig[d];
     const next=cur===type?undefined:type;
@@ -667,6 +701,8 @@ export default function App(){
       oldId=dayShift.aisani; dayShift.aisani=newId;
     } else if(slotType==='kitchen'){
       oldId=dayShift.kitchen; dayShift.kitchen=newId;
+    } else if(slotType==='shimikomiSlot'){
+      oldId=dayShift.shimikomiSlot; dayShift.shimikomiSlot=newId;
     } else if(slotType==='prep'){
       if(removeId){
         oldId=removeId; dayShift.prep=[];
@@ -698,6 +734,7 @@ export default function App(){
       Object.values(sh.night||{}).filter(Boolean).forEach(id=>{if(wd[id]) wd[id].add(dd);});
       if(sh.aisani&&wd[sh.aisani]) wd[sh.aisani].add(dd);
       if(sh.kitchen&&wd[sh.kitchen]) wd[sh.kitchen].add(dd);
+      if(sh.shimikomiSlot&&wd[sh.shimikomiSlot]) wd[sh.shimikomiSlot].add(dd);
     });
     const newWorked={};
     staff.forEach(s=>{newWorked[s.id]=wd[s.id].size;});
@@ -707,6 +744,7 @@ export default function App(){
     else if(slotType==='kitchen') newShortage[d]={...newShortage[d],kitchen:(newId&&!removeId)?0:1};
     else if(slotType==='prep') newShortage[d]={...newShortage[d],prep:(dayShift.prep.length>0)?0:1};
     else if(slotType==='morning') newShortage[d]={...newShortage[d],morning:Math.max(0,(prev.shortage[d]?.morning||0)+(removeId?1:0)-(newId&&!removeId?1:0))};
+    else if(slotType==='shimikomiSlot') newShortage[d]={...newShortage[d],shimikomiSlot:(newId&&!removeId)?0:1};
     const totalW=staff.reduce((a,s)=>a+wd[s.id].size,0);
     const totalC=staff.reduce((a,s)=>a+(prev.candW[s.id]||0),0);
     const newAvgRate=totalC>0?Math.round(totalW/totalC*100):0;
@@ -720,7 +758,7 @@ export default function App(){
     const genYm=`${year}_${month}`;
     setGenerating(true);
     setTimeout(()=>{
-      const r={...generateShifts(staff,year,month,avail,nightSlotConfig,aisaniConfig,kitchenConfig,dayTypeConfig),year,month,savedAt:Date.now()};
+      const r={...generateShifts(staff,year,month,avail,nightSlotConfig,aisaniConfig,kitchenConfig,dayTypeConfig,shimikomiSlotConfig),year,month,savedAt:Date.now()};
       setResult(r);saveResultLS(r,genYm);setView("result");setGenerating(false);
       const rbKey=`resultBackup_${genYm}`;
       pendingKeys.current.add(rbKey);
@@ -829,6 +867,8 @@ export default function App(){
         if(!pendingKeys.current.has(kitKey)&&data[kitKey]){setKitchenConfig(data[kitKey]);saveCfgLS(kitKey,data[kitKey]);}
         if(!pendingKeys.current.has(nsKey)&&data[nsKey]){setNightSlotConfig(data[nsKey]);saveCfgLS(nsKey,data[nsKey]);}
         if(!pendingKeys.current.has(dtKey)&&data[dtKey]){setDayTypeConfig(data[dtKey]);saveCfgLS(dtKey,data[dtKey]);}
+        const shimiSlotKey=`shimikomiSlotConfig_${fbYm}`;
+        if(!pendingKeys.current.has(shimiSlotKey)&&data[shimiSlotKey]){setShimikomiSlotConfig(data[shimiSlotKey]);saveCfgLS(shimiSlotKey,data[shimiSlotKey]);}
       }
       if(!pendingKeys.current.has(dcKey)&&data[dcKey]){setDayComments(data[dcKey]);saveCfgLS(dcKey,data[dcKey]);}
       if(!pendingKeys.current.has(soKey)&&data[soKey]){setStarOverrides(data[soKey]);saveCfgLS(soKey,data[soKey]);}
@@ -911,7 +951,7 @@ export default function App(){
     Object.entries(prev.shifts||{}).forEach(([dStr,day])=>{
       const d=parseInt(dStr);
       if(!day) return;
-      const dayShortage={...(prev.shortage[d]||{morning:0,prep:0,night:{},aisani:0,kitchen:0})};
+      const dayShortage={...(prev.shortage[d]||{morning:0,prep:0,night:{},aisani:0,kitchen:0,shimikomiSlot:0})};
       dayShortage.night={...(dayShortage.night||{})};
       let dayChanged=false;
       let newDay={...day,night:{...(day.night||{})}};
@@ -988,6 +1028,17 @@ export default function App(){
         if(cands.length>0){newDay.kitchen=cands[0].id;dayShortage.kitchen=0;dayChanged=true;}
       }
 
+      // 仕込みスロット: availがなくなった人を除去
+      if(newDay.shimikomiSlot&&!avail[newDay.shimikomiSlot]?.[`${d}_shimikomi`]){
+        newDay.shimikomiSlot=null;dayShortage.shimikomiSlot=(dayShortage.shimikomiSlot||0)+1;dayChanged=true;
+      }
+      // 不足補充: 仕込みスロット
+      if(!newDay.shimikomiSlot&&shimikomiSlotConfig[d]?.enabled){
+        const alreadyShimi=new Set([...newDay.morning,...newDay.prep,...Object.values(newDay.night).filter(Boolean),...(newDay.aisani?[newDay.aisani]:[]),...(newDay.kitchen?[newDay.kitchen]:[])]);
+        const cands=staff.filter(s=>newlyAdded(s.id,`${d}_shimikomi`)&&!alreadyShimi.has(s.id));
+        if(cands.length>0){newDay.shimikomiSlot=cands[0].id;dayShortage.shimikomiSlot=0;dayChanged=true;}
+      }
+
       if(dayChanged){anyChanged=true;newShifts[d]=newDay;newShortage[d]=dayShortage;}
     });
 
@@ -1020,6 +1071,7 @@ export default function App(){
   };
   const updateAisaniCfg=val=>{setAisaniConfig(val);saveCfgLS(`aisaniConfig_${ymRef.current}`,val);debounceSave(`aisaniConfig_${ymRef.current}`,val);};
   const updateKitchenCfg=val=>{setKitchenConfig(val);saveCfgLS(`kitchenConfig_${ymRef.current}`,val);debounceSave(`kitchenConfig_${ymRef.current}`,val);};
+  const updateShimikomiSlotCfg=val=>{setShimikomiSlotConfig(val);saveCfgLS(`shimikomiSlotConfig_${ymRef.current}`,val);debounceSave(`shimikomiSlotConfig_${ymRef.current}`,val);};
   const updateDayTypeCfg=val=>{setDayTypeConfig(val);saveCfgLS(`dayTypeConfig_${ymRef.current}`,val);debounceSave(`dayTypeConfig_${ymRef.current}`,val);};
   const updateYearMonth=(y,m)=>{
     // pendingYmRefを即座に新しい月に更新（レンダー前にFirebase購読が発火しても正しい月を参照できる）
@@ -1053,6 +1105,7 @@ export default function App(){
     setKitchenConfig(loadCfgLS(`kitchenConfig_${newYm}`)||{});
     setDayComments(loadCfgLS(`dayComments_${newYm}`)||{});
     setDayTypeConfig(loadCfgLS(`dayTypeConfig_${newYm}`)||{});
+    setShimikomiSlotConfig(loadCfgLS(`shimikomiSlotConfig_${newYm}`)||{});
     setStarOverrides(loadCfgLS(`starOverrides_${newYm}`)||{});
     setAvail(loadCfgLS(`avail_${newYm}`)||{});
     const rawCS=loadCfgLS(`confirmedShift_${newYm}`);
@@ -1429,6 +1482,10 @@ export default function App(){
                   <span style={{width:6,height:6,borderRadius:3,background:C.accent,display:"inline-block"}}/>
                   <span style={{color:C.accent,fontWeight:700}}>アイサニ</span>
                 </span>
+                <span style={{fontSize:10,display:"flex",alignItems:"center",gap:5,padding:"3px 10px",borderRadius:999,background:"rgba(91,127,166,0.1)",border:"1px solid rgba(91,127,166,0.25)"}}>
+                  <span style={{width:6,height:6,borderRadius:3,background:"#5b7fa6",display:"inline-block"}}/>
+                  <span style={{color:"#5b7fa6",fontWeight:700}}>仕込みスロット</span>
+                </span>
               </div>
             </div>
 
@@ -1445,8 +1502,9 @@ export default function App(){
                 const slots=nightSlotConfig[d]||[];
                 const aiOn=aisaniConfig[d]?.enabled;
                 const kitOn=kitchenConfig[d]?.enabled;
+                const shimiSlotOn=shimikomiSlotConfig[d]?.enabled;
                 const allClosed=closed||manualClosed;
-                const active=slots.length>0||aiOn||kitOn||morningClosed;
+                const active=slots.length>0||aiOn||kitOn||morningClosed||shimiSlotOn;
                 return(
                   <div key={d} style={{borderRadius:12,padding:"5px 3px",transition:"all .2s",
                     background:allClosed?(aiOn?"rgba(139,26,26,0.05)":"#f5f0eb"):morningClosed?"rgba(251,146,60,0.06)":active?"rgba(139,26,26,0.05)":"#fff",
@@ -1503,6 +1561,14 @@ export default function App(){
                             background:kitOn?"#276749":"rgba(39,103,73,0.08)",color:kitOn?"#fff":"#8c7b6b",
                             transition:"all .15s"}}>
                           キッチン
+                        </button>
+                      )}
+                      {!allClosed&&(
+                        <button onClick={()=>toggleShimikomiSlot(d)}
+                          style={{padding:"2px 5px",borderRadius:5,border:"none",cursor:"pointer",fontSize:7,fontWeight:800,
+                            background:shimiSlotOn?"#5b7fa6":"rgba(91,127,166,0.1)",color:shimiSlotOn?"#fff":"#5b7fa6",
+                            transition:"all .15s"}}>
+                          仕込
                         </button>
                       )}
                     </div>
@@ -1795,7 +1861,8 @@ export default function App(){
             const inNight=day.night&&Object.values(day.night).some(id=>id===sid||Number(id)===sid);
             const inAisani=day.aisani===sid||Number(day.aisani)===sid;
             const inKitchen=day.kitchen===sid||Number(day.kitchen)===sid;
-            if(!inMorning&&!inPrep&&!inNight&&!inAisani&&!inKitchen) continue;
+            const inShimikomiSlot=day.shimikomiSlot===sid||Number(day.shimikomiSlot)===sid;
+            if(!inMorning&&!inPrep&&!inNight&&!inAisani&&!inKitchen&&!inShimikomiSlot) continue;
             // 🌟計算
             const myMP=(day.morning||[]).map(id=>staffMap[id]||staffMap[Number(id)]).filter(Boolean);
             const myMAT=myMP.length?myMP.reduce((b,s)=>GRADE_SORT[s.grade]<GRADE_SORT[b.grade]?s:b):null;
@@ -1819,6 +1886,7 @@ export default function App(){
             }
             if(inAisani){const s=staffMap[day.aisani]||staffMap[Number(day.aisani)];groups.push({label:"アイサニ",color:"#10b981",members:s?[s]:[]});}
             if(inKitchen){const s=staffMap[day.kitchen]||staffMap[Number(day.kitchen)];groups.push({label:"キッチン",color:"#276749",members:s?[s]:[]});}
+            if(inShimikomiSlot){const s2=staffMap[day.shimikomiSlot]||staffMap[Number(day.shimikomiSlot)];groups.push({label:"仕込み",color:"#5b7fa6",members:s2?[s2]:[]});}
             myDays.push({d,dow:getDow(csYear,csMonth,d),groups});
           }
           return(
@@ -1908,10 +1976,12 @@ export default function App(){
                 const nightEntries=day?Object.entries(day.night||{}).filter(([,id])=>id!=null).sort(([a],[b])=>NIGHT_ORDER.indexOf(a)-NIGHT_ORDER.indexOf(b)):[];
                 const hasAisani=day&&day.aisani!=null;
                 const hasKitchen=day&&day.kitchen!=null;
+                const hasShimikomiSlot=day&&day.shimikomiSlot!=null;
                 if(!day&&!closed) return null;
                 const myDay=day&&([...(day.morning||[]),...(day.prep||[])].some(id=>id===sid||Number(id)===sid)||
                   Object.values(day.night||{}).some(id=>id===sid||Number(id)===sid)||
-                  day.aisani===sid||Number(day.aisani)===sid||day.kitchen===sid||Number(day.kitchen)===sid);
+                  day.aisani===sid||Number(day.aisani)===sid||day.kitchen===sid||Number(day.kitchen)===sid||
+                  day.shimikomiSlot===sid||Number(day.shimikomiSlot)===sid);
                 const bc=myDay?"rgba(139,26,26,0.12)":hol?"rgba(184,134,11,0.08)":dow===0?"rgba(192,57,43,0.06)":dow===6?"rgba(27,42,94,0.06)":"rgba(139,26,26,0.04)";
                 const borderCol=myDay?C.accent:hol?"#b8860b40":dow===0?"#c0392b30":dow===6?"#1b2a5e30":"rgba(139,26,26,0.1)";
                 // 🌟計算（confirmedShift用）
@@ -1992,6 +2062,15 @@ export default function App(){
                               border:`1px solid ${(day.aisani===sid||Number(day.aisani)===sid)?C.accent:"rgba(139,26,26,0.15)"}`}}>{s.grade==='J'?'🍀':''}{s.name}</span>
                           </div>
                         ):null;})()}
+                        {hasShimikomiSlot&&(()=>{const s=staffMap[day.shimikomiSlot]||staffMap[Number(day.shimikomiSlot)];return s?(
+                          <div style={{display:"flex",alignItems:"center",gap:6}}>
+                            <span style={{fontSize:10,fontWeight:700,color:"#5b7fa6",background:"rgba(91,127,166,0.1)",borderRadius:999,padding:"3px 10px",border:"1px solid rgba(91,127,166,0.3)",minWidth:60,textAlign:"center",flexShrink:0}}>仕込み</span>
+                            <span style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,
+                              background:(day.shimikomiSlot===sid||Number(day.shimikomiSlot)===sid)?"#5b7fa6":"rgba(91,127,166,0.06)",
+                              color:(day.shimikomiSlot===sid||Number(day.shimikomiSlot)===sid)?"#fff":C.text,
+                              border:`1px solid ${(day.shimikomiSlot===sid||Number(day.shimikomiSlot)===sid)?"#5b7fa6":"rgba(91,127,166,0.2)"}`}}>{s.grade==='J'?'🍀':''}{s.name}</span>
+                          </div>
+                        ):null;})()}
                       </div>
                     )}
                   </div>
@@ -2037,6 +2116,7 @@ export default function App(){
                 const nightEntries=day?Object.entries(day.night||{}).filter(([,id])=>id!=null).sort(([a],[b])=>NIGHT_ORDER.indexOf(a)-NIGHT_ORDER.indexOf(b)):[];
                 const hasAisani=day&&day.aisani!=null;
                 const hasKitchen=day&&day.kitchen!=null;
+                const hasShimikomiSlot=day&&day.shimikomiSlot!=null;
                 if(!day&&!closed) return null;
                 const bc=hol?"rgba(184,134,11,0.08)":dow===0?"rgba(192,57,43,0.06)":dow===6?"rgba(27,42,94,0.06)":"rgba(139,26,26,0.04)";
                 const borderCol=hol?"#b8860b40":dow===0?"#c0392b30":dow===6?"#1b2a5e30":"rgba(139,26,26,0.1)";
@@ -2101,6 +2181,12 @@ export default function App(){
                             <span style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,background:"rgba(139,26,26,0.06)",color:C.text,border:"1px solid rgba(139,26,26,0.15)"}}>{s.grade==='J'?'🍀':''}{s.name}</span>
                           </div>
                         ):null;})()}
+                        {hasShimikomiSlot&&(()=>{const s=staffMap[day.shimikomiSlot]||staffMap[Number(day.shimikomiSlot)];return s?(
+                          <div style={{display:"flex",alignItems:"center",gap:6}}>
+                            <span style={{fontSize:10,fontWeight:700,color:"#5b7fa6",background:"rgba(91,127,166,0.1)",borderRadius:999,padding:"3px 10px",border:"1px solid rgba(91,127,166,0.3)",minWidth:60,textAlign:"center",flexShrink:0}}>仕込み</span>
+                            <span style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,background:"rgba(91,127,166,0.06)",color:C.text,border:"1px solid rgba(91,127,166,0.2)"}}>{s.grade==='J'?'🍀':''}{s.name}</span>
+                          </div>
+                        ):null;})()}
                       </div>
                     )}
                   </div>
@@ -2142,7 +2228,7 @@ export default function App(){
                 </div>
                 <div style={{display:"flex",gap:8,marginBottom:16}}>
                   <button onClick={()=>{
-                    const cs=serializeConfirmedShift(result,year,month,aisaniConfig,kitchenConfig,nightSlotConfig,dayTypeConfig);
+                    const cs=serializeConfirmedShift(result,year,month,aisaniConfig,kitchenConfig,nightSlotConfig,dayTypeConfig,shimikomiSlotConfig);
                     if(cs){const csKey=`confirmedShift_${ymRef.current}`;saveKey(csKey,cs);saveCfgLS(csKey,cs);setConfirmedShift(deserializeConfirmedShift(cs));alert(`${year}年${month+1}月のシフトを公開しました`);}
                   }} style={{flex:1,padding:"13px",borderRadius:12,border:"none",cursor:"pointer",fontSize:13,fontWeight:900,background:"linear-gradient(135deg,#276749,#1a4731)",color:"#fff",boxShadow:"0 4px 14px rgba(39,103,73,0.3)"}}>
                     ✅ シフトを公開
@@ -2253,14 +2339,15 @@ export default function App(){
                     if(resultStaffFilter){
                       const sid=resultStaffFilter;
                       const inShift=day.morning.includes(sid)||day.prep.includes(sid)||
-                        Object.values(day.night).includes(sid)||day.aisani===sid||day.kitchen===sid;
+                        Object.values(day.night).includes(sid)||day.aisani===sid||day.kitchen===sid||day.shimikomiSlot===sid;
                       if(!inShift) return null;
                     }
                     const slots=nightSlotConfig[d]||[];
                     const sh=(result.shortage&&result.shortage[d])||{};
                     const warns=(result.warnings&&result.warnings[d])||[];
                     const kitOn=kitchenConfig[d]?.enabled;
-                    const totalS=(morningClosed?0:(sh.morning||0))+(sh.prep||0)+slots.reduce((s,t)=>s+(sh.night?.[t]||0),0)+(aiOn?sh.aisani||0:0)+(kitOn?sh.kitchen||0:0);
+                    const shimiSlotOnR=shimikomiSlotConfig[d]?.enabled;
+                    const totalS=(morningClosed?0:(sh.morning||0))+(sh.prep||0)+slots.reduce((s,t)=>s+(sh.night?.[t]||0),0)+(aiOn?sh.aisani||0:0)+(kitOn?sh.kitchen||0:0)+(shimiSlotOnR?sh.shimikomiSlot||0:0);
                     const bc=totalS>0?"rgba(192,57,43,0.2)":warns.length?"rgba(184,134,11,0.2)":hol?"rgba(184,134,11,0.12)":dow===0?"rgba(192,57,43,0.1)":dow===6?"rgba(27,42,94,0.1)":"rgba(139,26,26,0.06)";
                     return(
                       <div key={d} style={{background:"#fff",borderRadius:14,border:`1px solid ${bc}`,padding:14,marginBottom:8,boxShadow:"0 1px 6px rgba(0,0,0,0.04)"}}>
@@ -2299,6 +2386,12 @@ export default function App(){
                             onSwap={newId=>swapShiftAssignment(d,'kitchen',null,newId)}
                             onRemove={()=>swapShiftAssignment(d,'kitchen',null,null)}
                             onDismissShortage={(sh.kitchen||0)>0?()=>dismissShortage(d,'kitchen'):null}/>}
+                          {!allClosed&&shimiSlotOnR&&<SRow label="仕込み" time="" color="#5b7fa6"
+                            people={day.shimikomiSlot?[staffMap[day.shimikomiSlot]].filter(Boolean):[]} shortage={sh.shimikomiSlot||0}
+                            candidates={staff.filter(s=>avail[s.id]?.[`${d}_shimikomi`]&&s.id!==day.shimikomiSlot)}
+                            onSwap={newId=>swapShiftAssignment(d,'shimikomiSlot',null,newId)}
+                            onRemove={()=>swapShiftAssignment(d,'shimikomiSlot',null,null)}
+                            onDismissShortage={(sh.shimikomiSlot||0)>0?()=>dismissShortage(d,'shimikomiSlot'):null}/>}
                           {!allClosed&&slots.map(t=>{
                             const p=(day.night||{})[t];
                             const nightCands=staff.filter(s=>s.id!==p&&NIGHT_TIMES.some(nt=>avail[s.id]?.[`${d}_night_${nt}`]&&nightCompat(nt,t)));
