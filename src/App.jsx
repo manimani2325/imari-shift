@@ -872,8 +872,14 @@ export default function App(){
   useEffect(()=>{
     const r=loadResultLS(ymRef.current);
     if(r) setResult(r);
-    const savedAvail=loadCfgLS(`avail_${ymRef.current}`);
-    if(savedAvail) setAvail(savedAvail);
+    const avKey=`avail_${ymRef.current}`;
+    const savedAvail=loadCfgLS(avKey);
+    if(savedAvail){
+      setAvail(savedAvail);
+      // Firebase onValueが古いデータで上書きしないよう、pendingKeysでブロックしながら即時書き込み
+      pendingKeys.current.add(avKey);
+      saveKey(avKey,savedAvail).catch(()=>{}).finally(()=>{pendingKeys.current.delete(avKey);});
+    }
   },[]);
 
   // ── avail変更時にシフト結果を同期（候補消去→除去、候補追加→不足補充）
