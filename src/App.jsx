@@ -1622,15 +1622,15 @@ export default function App(){
                           const slots=nightSlotConfig[d]||[];
                           const rowBg=allClosed?"#f5f0eb":morningClosed?"rgba(251,146,60,0.04)":hol?"rgba(184,134,11,0.04)":dow===0?"rgba(192,57,43,0.03)":dow===6?"rgba(27,42,94,0.03)":"#fff";
                           return(
-                            <tr key={d} className="avail-row" style={{borderBottom:"1px solid rgba(139,26,26,0.06)",opacity:allClosed?0.4:1}}>
-                              <td style={{background:rowBg,textAlign:"center",fontSize:12,fontWeight:800,padding:"5px 2px",
+                            <tr key={d} className="avail-row" style={{borderBottom:"1px solid rgba(139,26,26,0.06)"}}>
+                              <td style={{background:rowBg,textAlign:"center",fontSize:12,fontWeight:800,padding:"5px 2px",opacity:allClosed?0.4:1,
                                 color:allClosed?"#b0a090":morningClosed?"#ea580c":hol?"#b8860b":dow===0?"#c0392b":dow===6?"#1b2a5e":C.text}}>
                                 {d}{hol?"🎌":""}{allClosed?"🔒":morningClosed?"☀":""}
                               </td>
-                              <td style={{background:rowBg,textAlign:"center",fontSize:10,color:allClosed?"#b0a090":C.muted}}>{DOW_JP[dow]}</td>
+                              <td style={{background:rowBg,textAlign:"center",fontSize:10,opacity:allClosed?0.4:1,color:allClosed?"#b0a090":C.muted}}>{DOW_JP[dow]}</td>
                               {allClosed?(
                                 <>
-                                  <td colSpan={3+NIGHT_TIMES.length} style={{background:rowBg,textAlign:"center",fontSize:10,color:"#b0a090",padding:"6px"}}>{manualClosed?"休業日":"定休日"}</td>
+                                  <td colSpan={3+NIGHT_TIMES.length} style={{background:rowBg,textAlign:"center",fontSize:10,color:"#b0a090",padding:"6px",opacity:0.4}}>{manualClosed?"休業日":"定休日"}</td>
                                   {availViewStaff.aisaniOK&&(
                                     <td style={{background:rowBg,textAlign:"center",padding:"3px 3px"}}>
                                       {aisaniConfig[d]?.enabled?(
