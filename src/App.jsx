@@ -1405,6 +1405,11 @@ export default function App(){
                   <label style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:s.kitchenOK?"#276749":C.muted,cursor:"pointer"}}>
                     <input type="checkbox" checked={!!s.kitchenOK} onChange={e=>updateStaff(staff.map(x=>x.id===s.id?{...x,kitchenOK:e.target.checked}:x))}/>キッチン
                   </label>
+                  {s.grade==='J'&&(
+                    <label style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:s.showClover!==false?"#22c55e":C.muted,cursor:"pointer"}}>
+                      <input type="checkbox" checked={s.showClover!==false} onChange={e=>updateStaff(staff.map(x=>x.id===s.id?{...x,showClover:e.target.checked}:x))}/>🍀表示
+                    </label>
+                  )}
                   <div style={{display:"flex",alignItems:"center",gap:4}}>
                     <span style={{fontSize:10,color:C.muted}}>🔒</span>
                     <input className="inp" type="text" inputMode="numeric" maxLength={4} value={s.password||""}
@@ -1816,8 +1821,8 @@ export default function App(){
             const groups=[];
             if(inMorning||inPrep){
               const morningMembers=[];
-              (day.morning||[]).forEach(id=>{const s=staffMap[id]||staffMap[Number(id)];if(s) morningMembers.push({person:s,time:"朝（7:00〜11:00）",isStar:(id===myMStar||Number(id)===myMStar),isJ:s.grade==='J'});});
-              (day.prep||[]).forEach(id=>{const s=staffMap[id]||staffMap[Number(id)];if(s) morningMembers.push({person:s,time:"朝仕込み（8:30〜16:00）",isStar:false,isJ:s.grade==='J'});});
+              (day.morning||[]).forEach(id=>{const s=staffMap[id]||staffMap[Number(id)];if(s) morningMembers.push({person:s,time:"朝（7:00〜11:00）",isStar:(id===myMStar||Number(id)===myMStar),isJ:s.grade==='J'&&s.showClover!==false});});
+              (day.prep||[]).forEach(id=>{const s=staffMap[id]||staffMap[Number(id)];if(s) morningMembers.push({person:s,time:"朝仕込み（8:30〜16:00）",isStar:false,isJ:s.grade==='J'&&s.showClover!==false});});
               groups.push({label:"朝・朝仕込み",color:"#f97316",night:true,members:morningMembers});
             }
             if(inNight){
@@ -1863,7 +1868,7 @@ export default function App(){
                                       background:(person.id===sid||Number(person.id)===sid)?g.color:"rgba(0,0,0,0.04)",
                                       color:(person.id===sid||Number(person.id)===sid)?"#fff":C.text,
                                       border:`1px solid ${g.color}${(person.id===sid||Number(person.id)===sid)?"":"20"}`}}>
-                                      {person.grade==='J'?'🍀':''}{person.name}
+                                      {person.grade==='J'&&person.showClover!==false?'🍀':''}{person.name}
                                     </span>
                                   ))
                               }
@@ -1954,7 +1959,7 @@ export default function App(){
                                 <span key={id} style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,
                                   background:(id===sid||Number(id)===sid)?C.accent:"rgba(176,125,18,0.08)",
                                   color:(id===sid||Number(id)===sid)?"#fff":"#b07d12",
-                                  border:`1px solid ${(id===sid||Number(id)===sid)?C.accent:"#b07d1230"}`}}>{(id===csMStar||Number(id)===csMStar)?'🌟':''}{s.grade==='J'?'🍀':''}{s.name}</span>
+                                  border:`1px solid ${(id===sid||Number(id)===sid)?C.accent:"#b07d1230"}`}}>{(id===csMStar||Number(id)===csMStar)?'🌟':''}{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}</span>
                               ):null;})}
                             </div>
                           </div>
@@ -1968,7 +1973,7 @@ export default function App(){
                                 <span key={id} style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,
                                   background:(id===sid||Number(id)===sid)?C.accent:"rgba(39,103,73,0.08)",
                                   color:(id===sid||Number(id)===sid)?"#fff":"#276749",
-                                  border:`1px solid ${(id===sid||Number(id)===sid)?C.accent:"#27674930"}`}}>{s.grade==='J'?'🍀':''}{s.name}</span>
+                                  border:`1px solid ${(id===sid||Number(id)===sid)?C.accent:"#27674930"}`}}>{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}</span>
                               ):null;})}
                             </div>
                           </div>
@@ -1979,7 +1984,7 @@ export default function App(){
                             <span style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,
                               background:(day.kitchen===sid||Number(day.kitchen)===sid)?"#276749":"rgba(39,103,73,0.06)",
                               color:(day.kitchen===sid||Number(day.kitchen)===sid)?"#fff":C.text,
-                              border:`1px solid ${(day.kitchen===sid||Number(day.kitchen)===sid)?"#276749":"#27674930"}`}}>{s.grade==='J'?'🍀':''}{s.name}</span>
+                              border:`1px solid ${(day.kitchen===sid||Number(day.kitchen)===sid)?"#276749":"#27674930"}`}}>{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}</span>
                           </div>
                         ):null;})()}
                         {!closed&&nightEntries.map(([t,id])=>{const s=staffMap[id]||staffMap[Number(id)];return s?(
@@ -1988,7 +1993,7 @@ export default function App(){
                             <span key={id} style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,
                               background:(id===sid||Number(id)===sid)?NIGHT_TC[t]:"rgba(0,0,0,0.04)",
                               color:(id===sid||Number(id)===sid)?"#fff":C.text,
-                              border:`1px solid ${(id===sid||Number(id)===sid)?NIGHT_TC[t]:"rgba(0,0,0,0.1)"}`}}>{(id===csNStar||Number(id)===csNStar)?'🌟':''}{s.grade==='J'?'🍀':''}{s.name}</span>
+                              border:`1px solid ${(id===sid||Number(id)===sid)?NIGHT_TC[t]:"rgba(0,0,0,0.1)"}`}}>{(id===csNStar||Number(id)===csNStar)?'🌟':''}{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}</span>
                           </div>
                         ):null;})}
                         {hasAisani&&(()=>{const s=staffMap[day.aisani]||staffMap[Number(day.aisani)];return s?(
@@ -1997,7 +2002,7 @@ export default function App(){
                             <span style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,
                               background:(day.aisani===sid||Number(day.aisani)===sid)?C.accent:"rgba(139,26,26,0.06)",
                               color:(day.aisani===sid||Number(day.aisani)===sid)?"#fff":C.text,
-                              border:`1px solid ${(day.aisani===sid||Number(day.aisani)===sid)?C.accent:"rgba(139,26,26,0.15)"}`}}>{s.grade==='J'?'🍀':''}{s.name}</span>
+                              border:`1px solid ${(day.aisani===sid||Number(day.aisani)===sid)?C.accent:"rgba(139,26,26,0.15)"}`}}>{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}</span>
                           </div>
                         ):null;})()}
                       </div>
@@ -2075,7 +2080,7 @@ export default function App(){
                             <span style={{fontSize:9,color:C.muted,flexShrink:0}}>7:00〜11:00</span>
                             <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
                               {(day.morning||[]).map(id=>{const s=staffMap[id]||staffMap[Number(id)];return s?(
-                                <span key={id} style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,background:"rgba(176,125,18,0.08)",color:"#b07d12",border:"1px solid #b07d1230"}}>{(id===csMStar||Number(id)===csMStar)?'🌟':''}{s.grade==='J'?'🍀':''}{s.name}</span>
+                                <span key={id} style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,background:"rgba(176,125,18,0.08)",color:"#b07d12",border:"1px solid #b07d1230"}}>{(id===csMStar||Number(id)===csMStar)?'🌟':''}{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}</span>
                               ):null;})}
                             </div>
                           </div>
@@ -2086,7 +2091,7 @@ export default function App(){
                             <span style={{fontSize:9,color:C.muted,flexShrink:0}}>8:30〜16:00</span>
                             <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
                               {(day.prep||[]).map(id=>{const s=staffMap[id]||staffMap[Number(id)];return s?(
-                                <span key={id} style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,background:"rgba(39,103,73,0.08)",color:"#276749",border:"1px solid #27674930"}}>{s.grade==='J'?'🍀':''}{s.name}</span>
+                                <span key={id} style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,background:"rgba(39,103,73,0.08)",color:"#276749",border:"1px solid #27674930"}}>{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}</span>
                               ):null;})}
                             </div>
                           </div>
@@ -2094,19 +2099,19 @@ export default function App(){
                         {hasKitchen&&(()=>{const s=staffMap[day.kitchen]||staffMap[Number(day.kitchen)];return s?(
                           <div style={{display:"flex",alignItems:"center",gap:6}}>
                             <span style={{fontSize:10,fontWeight:700,color:"#276749",background:"#27674918",borderRadius:999,padding:"3px 10px",border:"1px solid #27674930",minWidth:60,textAlign:"center",flexShrink:0}}>キッチン</span>
-                            <span style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,background:"rgba(39,103,73,0.06)",color:C.text,border:"1px solid #27674930"}}>{s.grade==='J'?'🍀':''}{s.name}</span>
+                            <span style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,background:"rgba(39,103,73,0.06)",color:C.text,border:"1px solid #27674930"}}>{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}</span>
                           </div>
                         ):null;})()}
                         {!closed&&nightEntries.map(([t,id])=>{const s=staffMap[id]||staffMap[Number(id)];return s?(
                           <div key={t} style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
                             <span style={{fontSize:10,fontWeight:700,color:NIGHT_TC[t],background:NIGHT_TC[t]+"18",borderRadius:999,padding:"3px 10px",border:`1px solid ${NIGHT_TC[t]}30`,minWidth:60,textAlign:"center",flexShrink:0}}>夜 {t}</span>
-                            <span key={id} style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,background:"rgba(0,0,0,0.04)",color:C.text,border:"1px solid rgba(0,0,0,0.1)"}}>{(id===csNStar||Number(id)===csNStar)?'🌟':''}{s.grade==='J'?'🍀':''}{s.name}</span>
+                            <span key={id} style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,background:"rgba(0,0,0,0.04)",color:C.text,border:"1px solid rgba(0,0,0,0.1)"}}>{(id===csNStar||Number(id)===csNStar)?'🌟':''}{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}</span>
                           </div>
                         ):null;})}
                         {hasAisani&&(()=>{const s=staffMap[day.aisani]||staffMap[Number(day.aisani)];return s?(
                           <div style={{display:"flex",alignItems:"center",gap:6}}>
                             <span style={{fontSize:10,fontWeight:700,color:C.accent,background:C.accent+"18",borderRadius:999,padding:"3px 10px",border:`1px solid ${C.accent}30`,minWidth:60,textAlign:"center",flexShrink:0}}>アイサニ</span>
-                            <span style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,background:"rgba(139,26,26,0.06)",color:C.text,border:"1px solid rgba(139,26,26,0.15)"}}>{s.grade==='J'?'🍀':''}{s.name}</span>
+                            <span style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,background:"rgba(139,26,26,0.06)",color:C.text,border:"1px solid rgba(139,26,26,0.15)"}}>{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}</span>
                           </div>
                         ):null;})()}
                       </div>
@@ -2352,10 +2357,10 @@ function SRow({label,time,color,people,shortage=0,candidates=[],onSwap=null,onRe
             const isTop=topIds?.has(s.id);
             const nameEl=onRemove
               ? <button key={s.id} onClick={()=>onRemove(s.id)} title="タップで削除" style={{fontSize:12,padding:"4px 12px",borderRadius:999,background:"rgba(139,26,26,0.05)",color:"#1a0a00",fontWeight:700,border:"1px solid rgba(139,26,26,0.12)",cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:4}}>
-                  {!onStarToggle&&isTop?'🌟':''}{s.grade==='J'?'🍀':''}{s.name}<span style={{fontSize:9,color:"#c0392b",fontWeight:900}}>×</span>
+                  {!onStarToggle&&isTop?'🌟':''}{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}<span style={{fontSize:9,color:"#c0392b",fontWeight:900}}>×</span>
                 </button>
               : <span key={s.id} style={{fontSize:12,padding:"4px 14px",borderRadius:999,background:"rgba(139,26,26,0.05)",color:"#1a0a00",fontWeight:700,border:"1px solid rgba(139,26,26,0.12)"}}>
-                  {!onStarToggle&&isTop?'🌟':''}{s.grade==='J'?'🍀':''}{s.name}
+                  {!onStarToggle&&isTop?'🌟':''}{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}
                 </span>;
             return onStarToggle?(
               <div key={s.id} style={{display:"flex",alignItems:"center",gap:2}}>
