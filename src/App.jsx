@@ -530,16 +530,12 @@ function loadCfgLS(key) {
   try { const s = localStorage.getItem(LS_CFG(key)); return s ? JSON.parse(s) : null; } catch(_) { return null; } }
 
 // ══════════════════════════════════════════════════════
-const AUTO_SWITCH_DAY=16;
-const AUTO_SWITCH_HOUR=17;
-const AUTO_SWITCH_MIN=30;
+const AUTO_SWITCH_DAY=20;
 const getJSTDate=()=>new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Tokyo'}));
 const getAutoMonth=()=>{
   const jst=getJSTDate();
   const d=jst.getDate(),m=jst.getMonth(),y=jst.getFullYear();
-  const h=jst.getHours(),min=jst.getMinutes();
-  const pastSwitch=d>AUTO_SWITCH_DAY||(d===AUTO_SWITCH_DAY&&(h>AUTO_SWITCH_HOUR||(h===AUTO_SWITCH_HOUR&&min>=AUTO_SWITCH_MIN)));
-  if(pastSwitch) return{y:m===11?y+1:y,m:m===11?0:m+1};
+  if(d>=AUTO_SWITCH_DAY) return{y:m===11?y+1:y,m:m===11?0:m+1};
   return{y,m};
 };
 const getJSTCalendarMonth=()=>{const jst=getJSTDate();return{y:jst.getFullYear(),m:jst.getMonth()};};
