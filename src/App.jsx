@@ -788,6 +788,7 @@ export default function App(){
   const [syncing,setSyncing]=useState(false);
   const saveTimers=useRef({});
   const pendingKeys=useRef(new Set());
+  const availStartupTsRef=useRef(0);
   const ymRef=useRef(`${year}_${month}`);
   ymRef.current=`${year}_${month}`;
   // pendingYmRef: updateYearMonth呼び出し時に即座に更新（レンダー前でも正しい月を反映）
@@ -824,7 +825,20 @@ export default function App(){
       const isFirst=!initialLoadDone.current;
       // availはデータがある場合のみ更新（空データで上書きしない）
       // Firebaseから受け取ったデータはlocalStorageにも同時保存し、次回起動で即座に表示できるようにする
-      if(!pendingKeys.current.has(avKey)&&data[avKey]){setAvail(data[avKey]);saveCfgLS(avKey,data[avKey]);}
+      if(pendingKeys.current.has(avKey)){
+        // 起動時: タイムスタンプを比較してローカルとFirebaseのどちらが新しいか判定
+        const {_ts:fbTs,...fbData}=data[avKey]||{};
+        const localTs=availStartupTsRef.current;
+        if(data[avKey]&&localTs<=(fbTs||0)){
+          // Firebaseが新しい（GMの編集を反映）→ Firebaseを使用
+          setAvail(fbData);saveCfgLS(avKey,data[avKey]);pendingKeys.current.delete(avKey);
+        } else {
+          // ローカルが新しい（未送信の編集あり）→ ローカルをFirebaseに書き込む
+          const localRaw=loadCfgLS(avKey);
+          if(localRaw) saveKey(avKey,localRaw).catch(()=>{}).finally(()=>pendingKeys.current.delete(avKey));
+          else pendingKeys.current.delete(avKey);
+        }
+      } else if(data[avKey]){const {_ts,...clean}=data[avKey];setAvail(clean);saveCfgLS(avKey,data[avKey]);}
       // GM専用ステート: 初回ロード時 or GMモード時のみFirebaseから更新
       // スタッフが月切替しても、GMの設定が消えないようにする
       const loadGm=isFirst||gmModeRef.current;
@@ -877,12 +891,13 @@ export default function App(){
     const r=loadResultLS(ymRef.current);
     if(r) setResult(r);
     const avKey=`avail_${ymRef.current}`;
-    const savedAvail=loadCfgLS(avKey);
-    if(savedAvail){
+    const savedRaw=loadCfgLS(avKey);
+    if(savedRaw){
+      const {_ts:localTs,...savedAvail}=savedRaw;
       setAvail(savedAvail);
-      // Firebase onValueが古いデータで上書きしないよう、pendingKeysでブロックしながら即時書き込み
+      availStartupTsRef.current=localTs||0;
+      // Firebase onValueコールバック内でタイムスタンプを比較してから書き込み判定する
       pendingKeys.current.add(avKey);
-      saveKey(avKey,savedAvail).catch(()=>{}).finally(()=>{pendingKeys.current.delete(avKey);});
     }
   },[]);
 
@@ -1024,7 +1039,7 @@ export default function App(){
 
   // ── 状態変更 → localStorage即時保存 + Firebase保存（debounce）
   const updateStaff=val=>{const s=sortByGrade(val);setStaff(s);debounceSave('staff',s);};
-  const updateAvail=val=>{setAvail(val);saveCfgLS(`avail_${ymRef.current}`,val);debounceSave(`avail_${ymRef.current}`,val);};
+  const updateAvail=val=>{const ts=Date.now();setAvail(val);saveCfgLS(`avail_${ymRef.current}`,{...val,_ts:ts});debounceSave(`avail_${ymRef.current}`,{...val,_ts:ts});};
   const updateNightSlot=val=>{
     setNightSlotConfig(val);
     saveCfgLS(`nightSlotConfig_${ymRef.current}`,val);
@@ -1066,7 +1081,7 @@ export default function App(){
     setDayComments(loadCfgLS(`dayComments_${newYm}`)||{});
     setDayTypeConfig(loadCfgLS(`dayTypeConfig_${newYm}`)||{});
     setStarOverrides(loadCfgLS(`starOverrides_${newYm}`)||{});
-    setAvail(loadCfgLS(`avail_${newYm}`)||{});
+    const {_ts:__ts,...rawAvail}=loadCfgLS(`avail_${newYm}`)||{};setAvail(rawAvail);
     const rawCS=loadCfgLS(`confirmedShift_${newYm}`);
     setConfirmedShift(rawCS?deserializeConfirmedShift(rawCS):null);
     prevAvailRef.current={};
