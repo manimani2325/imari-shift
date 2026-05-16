@@ -839,8 +839,8 @@ export default function App(){
       } else if(!pendingKeys.current.has(avKey)&&data[avKey]){
         const {_ts:fbTs,...clean}=data[avKey];
         const localTs=(loadCfgLS(avKey)||{})._ts||0;
-        // ローカルの方が新しい（未送信の編集あり）場合はFirebaseで上書きしない
-        if((fbTs||0)>=(localTs||0)){setAvail(clean);saveCfgLS(avKey,data[avKey]);}
+        // Firebaseが厳密に新しい場合のみ反映（GMの月変更だけでは上書きしない）
+        if((fbTs||0)>localTs){setAvail(clean);saveCfgLS(avKey,data[avKey]);}
       }
       // GM専用ステート: 初回ロード時 or GMモード時のみFirebaseから更新
       // スタッフが月切替しても、GMの設定が消えないようにする
@@ -1312,7 +1312,7 @@ export default function App(){
             <div style={{display:"flex",gap:6,alignItems:"center"}}>
               <div style={{display:"flex",background:"rgba(139,26,26,0.05)",borderRadius:999,padding:3,gap:2,border:"1px solid rgba(139,26,26,0.1)"}}>
                 <button onClick={()=>{if(gmMode)return;setPwModal(true);}} style={{...btn(gmMode,"linear-gradient(135deg,#8b1a1a,#b8860b)"),fontSize:11,padding:"5px 14px",borderRadius:999}}>管理者</button>
-                <button onClick={()=>{gmMonthRef.current={y:year,m:month};saveGMMonth(year,month);setGmMode(false);setView("avail");setLoginStaff(null);const a=getAutoMonth();setYear(a.y);setMonth(a.m);pendingYmRef.current=`${a.y}_${a.m}`;}} style={{...btn(!gmMode,"linear-gradient(135deg,#1b2a5e,#2d4a9e)"),fontSize:11,padding:"5px 14px",borderRadius:999}}>スタッフ</button>
+                <button onClick={()=>{gmMonthRef.current={y:year,m:month};saveGMMonth(year,month);setGmMode(false);setView("avail");setLoginStaff(null);const a=getAutoMonth();setYear(a.y);setMonth(a.m);pendingYmRef.current=`${a.y}_${a.m}`;prevAvailRef.current={};const{_ts:_,...staffAvail}=loadCfgLS(`avail_${a.y}_${a.m}`)||{};setAvail(staffAvail);}} style={{...btn(!gmMode,"linear-gradient(135deg,#1b2a5e,#2d4a9e)"),fontSize:11,padding:"5px 14px",borderRadius:999}}>スタッフ</button>
               </div>
               {gmMode&&<button onClick={()=>setStaffPanelOpen(v=>!v)} style={{...btn(staffPanelOpen,"rgba(139,26,26,0.15)"),fontSize:11,padding:"7px 14px",border:staffPanelOpen?"none":`1px solid rgba(139,26,26,0.15)`}}>👥 スタッフ</button>}
             </div>
