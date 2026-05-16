@@ -867,11 +867,13 @@ export default function App(){
     return()=>clearInterval(id);
   },[gmMode]);
 
-  // ── localStorage から result を起動時に復元
+  // ── localStorage から result / avail を起動時に復元（Firebase到達前に即表示）
   const prevAvailRef=useRef({});
   useEffect(()=>{
     const r=loadResultLS(ymRef.current);
     if(r) setResult(r);
+    const savedAvail=loadCfgLS(`avail_${ymRef.current}`);
+    if(savedAvail) setAvail(savedAvail);
   },[]);
 
   // ── avail変更時にシフト結果を同期（候補消去→除去、候補追加→不足補充）
