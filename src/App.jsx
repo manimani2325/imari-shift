@@ -785,6 +785,7 @@ export default function App(){
   const saveTimers=useRef({});
   const pendingKeys=useRef(new Set());
   const availStartupTsRef=useRef(0);
+  const startupAvailPending=useRef(false); // 起動時のavail比較が完了したかどうか
   const ymRef=useRef(`${year}_${month}`);
   ymRef.current=`${year}_${month}`;
   // pendingYmRef: updateYearMonth呼び出し時に即座に更新（レンダー前でも正しい月を反映）
@@ -821,8 +822,9 @@ export default function App(){
       const isFirst=!initialLoadDone.current;
       // availはデータがある場合のみ更新（空データで上書きしない）
       // Firebaseから受け取ったデータはlocalStorageにも同時保存し、次回起動で即座に表示できるようにする
-      if(pendingKeys.current.has(avKey)){
-        // 起動時: タイムスタンプを比較してローカルとFirebaseのどちらが新しいか判定
+      if(pendingKeys.current.has(avKey)&&startupAvailPending.current){
+        // 起動時のみ: タイムスタンプを比較してローカルとFirebaseのどちらが新しいか判定
+        startupAvailPending.current=false;
         const {_ts:fbTs,...fbData}=data[avKey]||{};
         const localTs=availStartupTsRef.current;
         if(data[avKey]&&localTs<=(fbTs||0)){
@@ -834,7 +836,7 @@ export default function App(){
           if(localRaw) saveKey(avKey,localRaw).catch(()=>{}).finally(()=>pendingKeys.current.delete(avKey));
           else pendingKeys.current.delete(avKey);
         }
-      } else if(data[avKey]){const {_ts,...clean}=data[avKey];setAvail(clean);saveCfgLS(avKey,data[avKey]);}
+      } else if(!pendingKeys.current.has(avKey)&&data[avKey]){const {_ts,...clean}=data[avKey];setAvail(clean);saveCfgLS(avKey,data[avKey]);}
       // GM専用ステート: 初回ロード時 or GMモード時のみFirebaseから更新
       // スタッフが月切替しても、GMの設定が消えないようにする
       const loadGm=isFirst||gmModeRef.current;
@@ -892,7 +894,7 @@ export default function App(){
       const {_ts:localTs,...savedAvail}=savedRaw;
       setAvail(savedAvail);
       availStartupTsRef.current=localTs||0;
-      // Firebase onValueコールバック内でタイムスタンプを比較してから書き込み判定する
+      startupAvailPending.current=true;
       pendingKeys.current.add(avKey);
     }
   },[]);
