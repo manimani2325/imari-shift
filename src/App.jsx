@@ -1575,12 +1575,19 @@ export default function App(){
           <div className="fi">
             {gmMode&&(
               <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:14}}>
-                {staff.map(s=>(
-                  <button key={s.id} onClick={()=>setSelectedStaffTab(s.id)}
-                    style={{...btn((selectedStaffTab===s.id)||(selectedStaffTab===null&&s.id===staff[0]?.id),GRADE_COLOR[s.grade]),fontSize:12,padding:"7px 16px",borderRadius:999}}>
-                    {s.name}
-                  </button>
-                ))}
+                {staff.map(s=>{
+                  const isSelected=(selectedStaffTab===s.id)||(selectedStaffTab===null&&s.id===staff[0]?.id);
+                  const hasAvail=Object.values(avail[s.id]||{}).some(Boolean);
+                  return(
+                    <button key={s.id} onClick={()=>setSelectedStaffTab(s.id)}
+                      style={{...btn(isSelected,GRADE_COLOR[s.grade]),fontSize:12,padding:"7px 16px",borderRadius:999,
+                        color:isSelected?"#fff":hasAvail?C.muted:"#ef4444",
+                        border:isSelected?"none":hasAvail?`1px solid ${GRADE_COLOR[s.grade]}30`:"1px solid #ef444440",
+                      }}>
+                      {s.name}
+                    </button>
+                  );
+                })}
               </div>
             )}
 
