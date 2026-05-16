@@ -836,7 +836,12 @@ export default function App(){
           if(localRaw) saveKey(avKey,localRaw).catch(()=>{}).finally(()=>pendingKeys.current.delete(avKey));
           else pendingKeys.current.delete(avKey);
         }
-      } else if(!pendingKeys.current.has(avKey)&&data[avKey]){const {_ts,...clean}=data[avKey];setAvail(clean);saveCfgLS(avKey,data[avKey]);}
+      } else if(!pendingKeys.current.has(avKey)&&data[avKey]){
+        const {_ts:fbTs,...clean}=data[avKey];
+        const localTs=(loadCfgLS(avKey)||{})._ts||0;
+        // ローカルの方が新しい（未送信の編集あり）場合はFirebaseで上書きしない
+        if((fbTs||0)>=(localTs||0)){setAvail(clean);saveCfgLS(avKey,data[avKey]);}
+      }
       // GM専用ステート: 初回ロード時 or GMモード時のみFirebaseから更新
       // スタッフが月切替しても、GMの設定が消えないようにする
       const loadGm=isFirst||gmModeRef.current;
