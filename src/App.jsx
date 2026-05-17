@@ -429,11 +429,13 @@ function serializeResult(r){
   const shifts={};
   Object.entries(r.shifts||{}).forEach(([d,day])=>{
     if(!day){shifts[d]=day;return;}
+    const nightSer={};
+    Object.entries(day.night||{}).forEach(([t,id])=>{nightSer[t]=(id===null||id===undefined)?'_NULL_':id;});
     shifts[d]={
       ...day,
       morning:(day.morning&&day.morning.length)?day.morning:['_EMPTY_'],
       prep:(day.prep&&day.prep.length)?day.prep:['_EMPTY_'],
-      night:day.night||{},
+      night:nightSer,
     };
   });
   const {workedDays,warnings,...rest}=r;
@@ -446,10 +448,13 @@ function deserializeResult(r){
     const shifts={};
     Object.entries(r.shifts).forEach(([d,day])=>{
       if(!day){shifts[d]=null;return;}
+      const nightRaw=(day.night&&typeof day.night==='object')?day.night:{};
+      const nightDeser={};
+      Object.entries(nightRaw).forEach(([t,id])=>{nightDeser[t]=(id==='_NULL_')?null:id;});
       shifts[d]={
         morning:Array.isArray(day.morning)?day.morning.filter(x=>x!=='_EMPTY_'):[],
         prep:Array.isArray(day.prep)?day.prep.filter(x=>x!=='_EMPTY_'):[],
-        night:(day.night&&typeof day.night==='object')?day.night:{},
+        night:nightDeser,
         aisani:day.aisani||null,
         kitchen:day.kitchen||null,
       };
@@ -480,8 +485,9 @@ function serializeConfirmedShift(result, year, month, aisaniConfig={}, kitchenCo
     const configuredSlots = nightSlotConfig[dn] || [];
     const filteredNight = {};
     Object.entries(day.night || {}).forEach(([t, id]) => {
+      const effectiveId=(id==='_NULL_')?null:id;
       // 設定済みスロット + カスタム追加スロット（両方を確定シフトに含める）
-      if (configuredSlots.includes(t) || id != null) filteredNight[t] = id;
+      if (configuredSlots.includes(t) || effectiveId != null) filteredNight[t] = effectiveId;
     });
     shifts[d] = {
       morning: morningClosed ? ['_EMPTY_'] : ((day.morning && day.morning.length) ? day.morning : ['_EMPTY_']),
@@ -2390,7 +2396,7 @@ export default function App(){
                                 <button onClick={()=>{
                                   const t=addSlotState.time;
                                   if(!t){setAddSlotState(s=>({...s,error:"時間を選択してください"}));return;}
-                                  const existing=Object.keys(result?.shifts?.[d]?.night||{});
+                                  const existing=Object.keys(resultRef.current?.shifts?.[d]?.night||{});
                                   let key=t;if(existing.includes(key)){let i=2;while(existing.includes(`${t}_${i}`))i++;key=`${t}_${i}`;}
                                   swapShiftAssignment(d,'night',key,null,null,true);
                                   setAddSlotState(null);
