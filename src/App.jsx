@@ -2389,7 +2389,6 @@ export default function App(){
                                 <button onClick={()=>{
                                   const t=addSlotState.time;
                                   if(!t){setAddSlotState(s=>({...s,error:"時間を選択してください"}));return;}
-                                  if(slots.includes(t)||customNightSlots.includes(t)){setAddSlotState(s=>({...s,error:"この時間はすでに存在します"}));return;}
                                   swapShiftAssignment(d,'night',t,null,null,true);
                                   setAddSlotState(null);
                                 }} style={{padding:"5px 14px",borderRadius:8,border:"none",background:"linear-gradient(135deg,#8b1a1a,#b8860b)",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>追加</button>
