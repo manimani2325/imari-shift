@@ -2374,26 +2374,30 @@ export default function App(){
                             const nightCands=staff.filter(s=>s.id!==p&&NIGHT_TIMES.some(nt=>avail[s.id]?.[`${d}_night_${nt}`]&&nightCompat(nt,t)));
                             return <SRow key={`custom_${t}`} label={`夜 ${t}〜`} time="追加" color="#64748b" people={p?[staffMap[p]].filter(Boolean):[]} shortage={sh.night?.[t]||0} candidates={nightCands}
                               onSwap={newId=>swapShiftAssignment(d,'night',t,newId)}
-                              onRemove={()=>removeCustomNightSlot(d,t)}
+                              onRemove={p?()=>swapShiftAssignment(d,'night',t,null):null}
+                              onDeleteSlot={()=>removeCustomNightSlot(d,t)}
                               onDismissShortage={(sh.night?.[t]||0)>0?()=>dismissShortage(d,'night',t):null}/>;
                           })}
                           {!allClosed&&(addSlotState?.d===d?(
-                            <div style={{display:"flex",alignItems:"center",gap:6,padding:"4px 0",flexWrap:"wrap"}}>
-                              <input type="time" value={addSlotState.time} step={900}
-                                onChange={e=>setAddSlotState(s=>({...s,time:e.target.value}))}
-                                style={{padding:"5px 8px",borderRadius:8,border:"1px solid rgba(139,26,26,0.25)",fontSize:12,fontFamily:"inherit",outline:"none",color:C.text}}
-                              />
-                              <button onClick={()=>{
-                                const t=addSlotState.time;
-                                if(!t)return;
-                                if(slots.includes(t)||customNightSlots.includes(t)){setAddSlotState(null);return;}
-                                swapShiftAssignment(d,'night',t,null,null,true);
-                                setAddSlotState(null);
-                              }} style={{padding:"5px 14px",borderRadius:8,border:"none",background:"linear-gradient(135deg,#8b1a1a,#b8860b)",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>追加</button>
-                              <button onClick={()=>setAddSlotState(null)} style={{padding:"5px 10px",borderRadius:8,border:"1px solid rgba(139,26,26,0.2)",background:"transparent",fontSize:11,cursor:"pointer",color:C.muted,fontWeight:600}}>キャンセル</button>
+                            <div style={{display:"flex",flexDirection:"column",gap:4,padding:"4px 0"}}>
+                              <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                                <input type="time" value={addSlotState.time}
+                                  onChange={e=>setAddSlotState(s=>({...s,time:e.target.value,error:null}))}
+                                  style={{padding:"5px 8px",borderRadius:8,border:`1px solid ${addSlotState.error?"#c0392b":"rgba(139,26,26,0.25)"}`,fontSize:12,fontFamily:"inherit",outline:"none",color:C.text}}
+                                />
+                                <button onClick={()=>{
+                                  const t=addSlotState.time;
+                                  if(!t){setAddSlotState(s=>({...s,error:"時間を選択してください"}));return;}
+                                  if(slots.includes(t)||customNightSlots.includes(t)){setAddSlotState(s=>({...s,error:"この時間はすでに存在します"}));return;}
+                                  swapShiftAssignment(d,'night',t,null,null,true);
+                                  setAddSlotState(null);
+                                }} style={{padding:"5px 14px",borderRadius:8,border:"none",background:"linear-gradient(135deg,#8b1a1a,#b8860b)",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>追加</button>
+                                <button onClick={()=>setAddSlotState(null)} style={{padding:"5px 10px",borderRadius:8,border:"1px solid rgba(139,26,26,0.2)",background:"transparent",fontSize:11,cursor:"pointer",color:C.muted,fontWeight:600}}>キャンセル</button>
+                              </div>
+                              {addSlotState.error&&<div style={{fontSize:10,color:"#c0392b",paddingLeft:2}}>{addSlotState.error}</div>}
                             </div>
                           ):(
-                            <button onClick={()=>setAddSlotState({d,time:""})} style={{padding:"4px 12px",borderRadius:8,border:"1px dashed rgba(100,116,139,0.4)",background:"rgba(100,116,139,0.04)",fontSize:11,cursor:"pointer",color:"#64748b",fontWeight:600}}>＋ 夜枠追加</button>
+                            <button onClick={()=>setAddSlotState({d,time:"",error:null})} style={{padding:"4px 12px",borderRadius:8,border:"1px dashed rgba(100,116,139,0.4)",background:"rgba(100,116,139,0.04)",fontSize:11,cursor:"pointer",color:"#64748b",fontWeight:600}}>＋ 夜枠追加</button>
                           ))}
                           {aiOn&&<SRow label="アイサニ" time="ヘルプ" color={C.accent}
                             people={day.aisani?[staffMap[day.aisani]].filter(Boolean):[]} shortage={sh.aisani||0}
@@ -2420,11 +2424,12 @@ export default function App(){
   );
 }
 
-function SRow({label,time,color,people,shortage=0,candidates=[],onSwap=null,onRemove=null,onDismissShortage=null,topIds=null,onStarToggle=null}){
+function SRow({label,time,color,people,shortage=0,candidates=[],onSwap=null,onRemove=null,onDeleteSlot=null,onDismissShortage=null,topIds=null,onStarToggle=null}){
   return(
     <div style={{display:"flex",flexDirection:"column",gap:3}}>
       <div style={{display:"flex",alignItems:"center",gap:7,flexWrap:"wrap"}}>
         <div style={{minWidth:70,fontSize:10,fontWeight:700,color,background:color+"18",borderRadius:999,padding:"3px 10px",textAlign:"center",flexShrink:0,border:`1px solid ${color}30`}}>{label}</div>
+        {onDeleteSlot&&<button onClick={onDeleteSlot} title="この枠を削除" style={{background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontWeight:900,fontSize:13,padding:"0 2px",lineHeight:1}}>×</button>}
         {time&&<div style={{fontSize:9,color:"#8c7b6b",minWidth:76,flexShrink:0}}>{time}</div>}
         <div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}>
           {people.map(s=>{
