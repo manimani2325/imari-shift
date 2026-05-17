@@ -40,7 +40,7 @@ const isHol  = (y,m,d) => HOLIDAYS.has(toStr(y,m,d));
 const isSpec = (y,m,d) => { const w=getDow(y,m,d); return w===0||w===5||w===6||isHol(y,m,d); };
 const daysIn = (y,m)   => new Date(y,m+1,0).getDate();
 const isClosed=(y,m,d) => { const w=getDow(y,m,d); return w===2||w===3; };
-const nightCompat=(cand,slot)=>NIGHT_ORDER.indexOf(cand)<=NIGHT_ORDER.indexOf(slot);
+const nightCompat=(cand,slot)=>{const si=NIGHT_ORDER.indexOf(slot);return si>=0?NIGHT_ORDER.indexOf(cand)<=si:cand<=slot;};
 
 // ── 候補ウェイト計算（1日単位ではなく重み付き）
 // 朝:1, 朝仕込:2, 夜:1, 朝+夜:1, 朝仕込+夜:2
@@ -479,7 +479,8 @@ function serializeConfirmedShift(result, year, month, aisaniConfig={}, kitchenCo
     const configuredSlots = nightSlotConfig[dn] || [];
     const filteredNight = {};
     Object.entries(day.night || {}).forEach(([t, id]) => {
-      if (configuredSlots.includes(t)) filteredNight[t] = id;
+      // 設定済みスロット + カスタム追加スロット（両方を確定シフトに含める）
+      if (configuredSlots.includes(t) || id != null) filteredNight[t] = id;
     });
     shifts[d] = {
       morning: morningClosed ? ['_EMPTY_'] : ((day.morning && day.morning.length) ? day.morning : ['_EMPTY_']),
@@ -587,6 +588,7 @@ export default function App(){
   const [shiftPreviewPwInput,setShiftPreviewPwInput]=useState("");
   const [shiftPreviewPwError,setShiftPreviewPwError]=useState(false);
   const [shiftPreviewOpen,setShiftPreviewOpen]=useState(false);
+  const [addSlotState,setAddSlotState]=useState(null); // {d, time} | null
   const [generating,setGenerating]=useState(false);
   const [resultStaffFilter,setResultStaffFilter]=useState(null);
   const [exporting,setExporting]=useState(false);
@@ -654,7 +656,7 @@ export default function App(){
     updateAvail({...avail,[sid]:next});
   };
 
-  const swapShiftAssignment=useCallback((d,slotType,slotTime,newId,removeId=null)=>{
+  const swapShiftAssignment=useCallback((d,slotType,slotTime,newId,removeId=null,force=false)=>{
     const prev=resultRef.current;
     if(!prev) return;
     const newShifts={...prev.shifts};
@@ -688,7 +690,7 @@ export default function App(){
         dayShift.morning=arr;
       }
     }
-    if(!removeId&&oldId===newId) return;
+    if(!force&&!removeId&&oldId===newId) return;
     newShifts[d]=dayShift;
     const wd={};
     staff.forEach(s=>{wd[s.id]=new Set();});
@@ -714,6 +716,20 @@ export default function App(){
     setResult(next);
     saveResultLS(next,ymRef.current);
     debounceSave(`resultBackup_${ymRef.current}`,serializeResult(next));
+  },[staff]);
+
+  const removeCustomNightSlot=useCallback((d,t)=>{
+    const prev=resultRef.current;if(!prev)return;
+    const newShifts={...prev.shifts,[d]:{...prev.shifts[d],night:{...(prev.shifts[d]?.night||{})}}};
+    delete newShifts[d].night[t];
+    const wd={};staff.forEach(s=>{wd[s.id]=new Set();});
+    Object.entries(newShifts).forEach(([ds,sh])=>{const dd=Number(ds);[...(sh.morning||[]),...(sh.prep||[])].forEach(id=>{if(wd[id])wd[id].add(dd);});Object.values(sh.night||{}).filter(Boolean).forEach(id=>{if(wd[id])wd[id].add(dd);});if(sh.aisani&&wd[sh.aisani])wd[sh.aisani].add(dd);if(sh.kitchen&&wd[sh.kitchen])wd[sh.kitchen].add(dd);});
+    const newWorked={};staff.forEach(s=>{newWorked[s.id]=wd[s.id].size;});
+    const newShortage={...prev.shortage,[d]:{...prev.shortage[d],night:{...(prev.shortage[d]?.night||{})}}};
+    delete newShortage[d].night[t];
+    const totalW=staff.reduce((a,s)=>a+wd[s.id].size,0);const totalC=staff.reduce((a,s)=>a+(prev.candW[s.id]||0),0);
+    const next={...prev,shifts:newShifts,worked:newWorked,workedDays:wd,shortage:newShortage,avgRate:totalC>0?Math.round(totalW/totalC*100):0,savedAt:Date.now()};
+    setResult(next);saveResultLS(next,ymRef.current);debounceSave(`resultBackup_${ymRef.current}`,serializeResult(next));
   },[staff]);
 
   const handleGenerate=()=>{
@@ -1947,7 +1963,7 @@ export default function App(){
                 const closed=isClosed(csYear,csMonth,d);
                 const day=staffViewCS.shifts[d];
                 if(!day&&closed) return null;
-                const nightEntries=day?Object.entries(day.night||{}).filter(([,id])=>id!=null).sort(([a],[b])=>NIGHT_ORDER.indexOf(a)-NIGHT_ORDER.indexOf(b)):[];
+                const nightEntries=day?Object.entries(day.night||{}).filter(([,id])=>id!=null).sort(([a],[b])=>{const ai=NIGHT_ORDER.indexOf(a),bi=NIGHT_ORDER.indexOf(b);return(ai>=0&&bi>=0)?ai-bi:a<b?-1:a>b?1:0;}):[];
                 const hasAisani=day&&day.aisani!=null;
                 const hasKitchen=day&&day.kitchen!=null;
                 if(!day&&!closed) return null;
@@ -2076,7 +2092,7 @@ export default function App(){
                 const closed=isClosed(csYear,csMonth,d);
                 const day=staffViewCS.shifts[d];
                 if(!day&&closed) return null;
-                const nightEntries=day?Object.entries(day.night||{}).filter(([,id])=>id!=null).sort(([a],[b])=>NIGHT_ORDER.indexOf(a)-NIGHT_ORDER.indexOf(b)):[];
+                const nightEntries=day?Object.entries(day.night||{}).filter(([,id])=>id!=null).sort(([a],[b])=>{const ai=NIGHT_ORDER.indexOf(a),bi=NIGHT_ORDER.indexOf(b);return(ai>=0&&bi>=0)?ai-bi:a<b?-1:a>b?1:0;}):[];
                 const hasAisani=day&&day.aisani!=null;
                 const hasKitchen=day&&day.kitchen!=null;
                 if(!day&&!closed) return null;
@@ -2299,10 +2315,11 @@ export default function App(){
                       if(!inShift) return null;
                     }
                     const slots=nightSlotConfig[d]||[];
+                    const customNightSlots=Object.keys(day.night||{}).filter(t=>!slots.includes(t)).sort();
                     const sh=(result.shortage&&result.shortage[d])||{};
                     const warns=(result.warnings&&result.warnings[d])||[];
                     const kitOn=kitchenConfig[d]?.enabled;
-                    const totalS=(morningClosed?0:(sh.morning||0))+(sh.prep||0)+slots.reduce((s,t)=>s+(sh.night?.[t]||0),0)+(aiOn?sh.aisani||0:0)+(kitOn?sh.kitchen||0:0);
+                    const totalS=(morningClosed?0:(sh.morning||0))+(sh.prep||0)+slots.reduce((s,t)=>s+(sh.night?.[t]||0),0)+customNightSlots.reduce((s,t)=>s+(sh.night?.[t]||0),0)+(aiOn?sh.aisani||0:0)+(kitOn?sh.kitchen||0:0);
                     const bc=totalS>0?"rgba(192,57,43,0.2)":warns.length?"rgba(184,134,11,0.2)":hol?"rgba(184,134,11,0.12)":dow===0?"rgba(192,57,43,0.1)":dow===6?"rgba(27,42,94,0.1)":"rgba(139,26,26,0.06)";
                     return(
                       <div key={d} style={{background:"#fff",borderRadius:14,border:`1px solid ${bc}`,padding:14,marginBottom:8,boxShadow:"0 1px 6px rgba(0,0,0,0.04)"}}>
@@ -2350,6 +2367,32 @@ export default function App(){
                               onRemove={()=>swapShiftAssignment(d,'night',t,null)}
                               onDismissShortage={(sh.night?.[t]||0)>0?()=>dismissShortage(d,'night',t):null}/>;
                           })}
+                          {!allClosed&&customNightSlots.map(t=>{
+                            const p=(day.night||{})[t];
+                            const nightCands=staff.filter(s=>s.id!==p&&NIGHT_TIMES.some(nt=>avail[s.id]?.[`${d}_night_${nt}`]&&nightCompat(nt,t)));
+                            return <SRow key={`custom_${t}`} label={`夜 ${t}〜`} time="追加" color="#64748b" people={p?[staffMap[p]].filter(Boolean):[]} shortage={sh.night?.[t]||0} candidates={nightCands}
+                              onSwap={newId=>swapShiftAssignment(d,'night',t,newId)}
+                              onRemove={()=>removeCustomNightSlot(d,t)}
+                              onDismissShortage={(sh.night?.[t]||0)>0?()=>dismissShortage(d,'night',t):null}/>;
+                          })}
+                          {!allClosed&&(addSlotState?.d===d?(
+                            <div style={{display:"flex",alignItems:"center",gap:6,padding:"4px 0",flexWrap:"wrap"}}>
+                              <input type="time" value={addSlotState.time} step={900}
+                                onChange={e=>setAddSlotState(s=>({...s,time:e.target.value}))}
+                                style={{padding:"5px 8px",borderRadius:8,border:"1px solid rgba(139,26,26,0.25)",fontSize:12,fontFamily:"inherit",outline:"none",color:C.text}}
+                              />
+                              <button onClick={()=>{
+                                const t=addSlotState.time;
+                                if(!t)return;
+                                if(slots.includes(t)||customNightSlots.includes(t)){setAddSlotState(null);return;}
+                                swapShiftAssignment(d,'night',t,null,null,true);
+                                setAddSlotState(null);
+                              }} style={{padding:"5px 14px",borderRadius:8,border:"none",background:"linear-gradient(135deg,#8b1a1a,#b8860b)",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>追加</button>
+                              <button onClick={()=>setAddSlotState(null)} style={{padding:"5px 10px",borderRadius:8,border:"1px solid rgba(139,26,26,0.2)",background:"transparent",fontSize:11,cursor:"pointer",color:C.muted,fontWeight:600}}>キャンセル</button>
+                            </div>
+                          ):(
+                            <button onClick={()=>setAddSlotState({d,time:""})} style={{padding:"4px 12px",borderRadius:8,border:"1px dashed rgba(100,116,139,0.4)",background:"rgba(100,116,139,0.04)",fontSize:11,cursor:"pointer",color:"#64748b",fontWeight:600}}>＋ 夜枠追加</button>
+                          ))}
                           {aiOn&&<SRow label="アイサニ" time="ヘルプ" color={C.accent}
                             people={day.aisani?[staffMap[day.aisani]].filter(Boolean):[]} shortage={sh.aisani||0}
                             candidates={staff.filter(s=>s.aisaniOK&&s.id!==day.aisani&&(avail[s.id]?.[`${d}_aisani`]||NIGHT_TIMES.some(t=>avail[s.id]?.[`${d}_night_${t}`])))}
