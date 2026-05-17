@@ -2366,7 +2366,8 @@ export default function App(){
                             return <SRow key={t} label={`夜 ${t}〜`} time="" color={NIGHT_TC[t]} people={p?[staffMap[p]].filter(Boolean):[]} shortage={sh.night?.[t]||0} candidates={nightCands}
                               topIds={nTopIds} onStarToggle={p?sid=>toggleStar(d,'night',sid):null}
                               onSwap={newId=>swapShiftAssignment(d,'night',t,newId)}
-                              onRemove={()=>swapShiftAssignment(d,'night',t,null)}
+                              onRemove={p?()=>swapShiftAssignment(d,'night',t,null):null}
+                              onDeleteSlot={()=>{const next=(nightSlotConfig[d]||[]).filter(nt=>nt!==t);updateNightSlot({...nightSlotConfig,[d]:next});removeCustomNightSlot(d,t);}}
                               onDismissShortage={(sh.night?.[t]||0)>0?()=>dismissShortage(d,'night',t):null}/>;
                           })}
                           {!allClosed&&customNightSlots.map(t=>{
