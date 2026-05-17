@@ -103,7 +103,9 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
         const da=(workedNight[a.id]-workedMorning[a.id]),db=(workedNight[b.id]-workedMorning[b.id]);
         if(da!==db) return da-db;
       }
-      const lo = {J:3,L:2,M:1,SM:0,GM:0}; return lo[a.grade]-lo[b.grade];
+      // 夜はGM最優先→SM→M→L→J、それ以外はSM/GM同等
+      const lo = balanceMode==='night' ? {GM:0,SM:1,M:2,L:3,J:4} : {J:3,L:2,M:1,SM:0,GM:0};
+      return (lo[a.grade]??5)-(lo[b.grade]??5);
     });
     const res=[]; let nb=0;
     for(const s of sorted){
@@ -112,7 +114,8 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
       res.push(s); if(isJunior(s.grade)) nb++;
     }
     if(needSeniorIfJunior&&res.some(s=>isJunior(s.grade))&&!res.some(s=>isSenior(s.grade))){
-      const vet=candidates.find(s=>isSenior(s.grade)&&!res.includes(s));
+      // GM優先、次にSM
+      const vet=candidates.find(s=>s.grade==='GM'&&!res.includes(s))||candidates.find(s=>s.grade==='SM'&&!res.includes(s));
       if(vet){ const ri=res.findLastIndex(s=>isMid(s.grade)); if(ri>=0) res[ri]=vet; else{ res.pop(); res.push(vet); } }
     }
     return res.slice(0,count);
