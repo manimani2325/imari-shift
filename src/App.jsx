@@ -40,7 +40,8 @@ const isHol  = (y,m,d) => HOLIDAYS.has(toStr(y,m,d));
 const isSpec = (y,m,d) => { const w=getDow(y,m,d); return w===0||w===5||w===6||isHol(y,m,d); };
 const daysIn = (y,m)   => new Date(y,m+1,0).getDate();
 const isClosed=(y,m,d) => { const w=getDow(y,m,d); return w===2||w===3; };
-const nightCompat=(cand,slot)=>{const si=NIGHT_ORDER.indexOf(slot);return si>=0?NIGHT_ORDER.indexOf(cand)<=si:cand<=slot;};
+const slotDisplayTime=k=>k.replace(/_\d+$/,'');
+const nightCompat=(cand,slot)=>{const s=slotDisplayTime(slot);const si=NIGHT_ORDER.indexOf(s);return si>=0?NIGHT_ORDER.indexOf(cand)<=si:cand<=s;};
 
 // ── 候補ウェイト計算（1日単位ではなく重み付き）
 // 朝:1, 朝仕込:2, 夜:1, 朝+夜:1, 朝仕込+夜:2
@@ -1874,7 +1875,7 @@ export default function App(){
               const nightMembers=[];
               NIGHT_ORDER.forEach(t=>{const id=day.night[t];if(id!=null){const s=staffMap[id]||staffMap[Number(id)];if(s) nightMembers.push({person:s,time:t,isStar:(id===myNStar||Number(id)===myNStar),isJ:s.grade==='J'});}});
               // カスタム夜枠（NIGHT_ORDERにない時間）も含める
-              Object.keys(day.night||{}).filter(t=>!NIGHT_ORDER.includes(t)).sort().forEach(t=>{const id=day.night[t];if(id!=null){const s=staffMap[id]||staffMap[Number(id)];if(s) nightMembers.push({person:s,time:t,isStar:false,isJ:s.grade==='J'});}});
+              Object.keys(day.night||{}).filter(t=>!NIGHT_ORDER.includes(t)).sort((a,b)=>{const da=slotDisplayTime(a),db=slotDisplayTime(b);return da<db?-1:da>db?1:a<b?-1:1}).forEach(t=>{const id=day.night[t];if(id!=null){const s=staffMap[id]||staffMap[Number(id)];if(s) nightMembers.push({person:s,time:slotDisplayTime(t),isStar:false,isJ:s.grade==='J'});}});
               groups.push({label:"夜",color:"#3b82f6",night:true,members:nightMembers});
             }
             if(inAisani){const s=staffMap[day.aisani]||staffMap[Number(day.aisani)];groups.push({label:"アイサニ",color:"#10b981",members:s?[s]:[]});}
@@ -1965,7 +1966,7 @@ export default function App(){
                 const closed=isClosed(csYear,csMonth,d);
                 const day=staffViewCS.shifts[d];
                 if(!day&&closed) return null;
-                const nightEntries=day?Object.entries(day.night||{}).filter(([,id])=>id!=null).sort(([a],[b])=>{const ai=NIGHT_ORDER.indexOf(a),bi=NIGHT_ORDER.indexOf(b);return(ai>=0&&bi>=0)?ai-bi:a<b?-1:a>b?1:0;}):[];
+                const nightEntries=day?Object.entries(day.night||{}).filter(([,id])=>id!=null).sort(([a],[b])=>{const da=slotDisplayTime(a),db=slotDisplayTime(b);const ai=NIGHT_ORDER.indexOf(da),bi=NIGHT_ORDER.indexOf(db);return(ai>=0&&bi>=0)?ai!==bi?ai-bi:a<b?-1:a>b?1:0:da<db?-1:da>db?1:a<b?-1:1;}):[];
                 const hasAisani=day&&day.aisani!=null;
                 const hasKitchen=day&&day.kitchen!=null;
                 if(!day&&!closed) return null;
@@ -2034,13 +2035,13 @@ export default function App(){
                               border:`1px solid ${(day.kitchen===sid||Number(day.kitchen)===sid)?"#276749":"#27674930"}`}}>{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}</span>
                           </div>
                         ):null;})()}
-                        {!closed&&nightEntries.map(([t,id])=>{const s=staffMap[id]||staffMap[Number(id)];return s?(
+                        {!closed&&nightEntries.map(([t,id])=>{const s=staffMap[id]||staffMap[Number(id)];const dt=slotDisplayTime(t);const nc=NIGHT_TC[dt]||"#64748b";return s?(
                           <div key={t} style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-                            <span style={{fontSize:10,fontWeight:700,color:NIGHT_TC[t],background:NIGHT_TC[t]+"18",borderRadius:999,padding:"3px 10px",border:`1px solid ${NIGHT_TC[t]}30`,minWidth:60,textAlign:"center",flexShrink:0}}>夜 {t}</span>
+                            <span style={{fontSize:10,fontWeight:700,color:nc,background:nc+"18",borderRadius:999,padding:"3px 10px",border:`1px solid ${nc}30`,minWidth:60,textAlign:"center",flexShrink:0}}>夜 {dt}</span>
                             <span key={id} style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,
-                              background:(id===sid||Number(id)===sid)?NIGHT_TC[t]:"rgba(0,0,0,0.04)",
+                              background:(id===sid||Number(id)===sid)?nc:"rgba(0,0,0,0.04)",
                               color:(id===sid||Number(id)===sid)?"#fff":C.text,
-                              border:`1px solid ${(id===sid||Number(id)===sid)?NIGHT_TC[t]:"rgba(0,0,0,0.1)"}`}}>{(id===csNStar||Number(id)===csNStar)?'🌟':''}{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}</span>
+                              border:`1px solid ${(id===sid||Number(id)===sid)?nc:"rgba(0,0,0,0.1)"}`}}>{(id===csNStar||Number(id)===csNStar)?'🌟':''}{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}</span>
                           </div>
                         ):null;})}
                         {hasAisani&&(()=>{const s=staffMap[day.aisani]||staffMap[Number(day.aisani)];return s?(
@@ -2094,7 +2095,7 @@ export default function App(){
                 const closed=isClosed(csYear,csMonth,d);
                 const day=staffViewCS.shifts[d];
                 if(!day&&closed) return null;
-                const nightEntries=day?Object.entries(day.night||{}).filter(([,id])=>id!=null).sort(([a],[b])=>{const ai=NIGHT_ORDER.indexOf(a),bi=NIGHT_ORDER.indexOf(b);return(ai>=0&&bi>=0)?ai-bi:a<b?-1:a>b?1:0;}):[];
+                const nightEntries=day?Object.entries(day.night||{}).filter(([,id])=>id!=null).sort(([a],[b])=>{const da=slotDisplayTime(a),db=slotDisplayTime(b);const ai=NIGHT_ORDER.indexOf(da),bi=NIGHT_ORDER.indexOf(db);return(ai>=0&&bi>=0)?ai!==bi?ai-bi:a<b?-1:a>b?1:0:da<db?-1:da>db?1:a<b?-1:1;}):[];
                 const hasAisani=day&&day.aisani!=null;
                 const hasKitchen=day&&day.kitchen!=null;
                 if(!day&&!closed) return null;
@@ -2149,9 +2150,9 @@ export default function App(){
                             <span style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,background:"rgba(39,103,73,0.06)",color:C.text,border:"1px solid #27674930"}}>{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}</span>
                           </div>
                         ):null;})()}
-                        {!closed&&nightEntries.map(([t,id])=>{const s=staffMap[id]||staffMap[Number(id)];const nc=NIGHT_TC[t]||"#64748b";return s?(
+                        {!closed&&nightEntries.map(([t,id])=>{const s=staffMap[id]||staffMap[Number(id)];const dt=slotDisplayTime(t);const nc=NIGHT_TC[dt]||"#64748b";return s?(
                           <div key={t} style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-                            <span style={{fontSize:10,fontWeight:700,color:nc,background:nc+"18",borderRadius:999,padding:"3px 10px",border:`1px solid ${nc}30`,minWidth:60,textAlign:"center",flexShrink:0}}>夜 {t}</span>
+                            <span style={{fontSize:10,fontWeight:700,color:nc,background:nc+"18",borderRadius:999,padding:"3px 10px",border:`1px solid ${nc}30`,minWidth:60,textAlign:"center",flexShrink:0}}>夜 {dt}</span>
                             <span key={id} style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,background:"rgba(0,0,0,0.04)",color:C.text,border:"1px solid rgba(0,0,0,0.1)"}}>{(id===csNStar||Number(id)===csNStar)?'🌟':''}{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}</span>
                           </div>
                         ):null;})}
@@ -2317,7 +2318,7 @@ export default function App(){
                       if(!inShift) return null;
                     }
                     const slots=nightSlotConfig[d]||[];
-                    const customNightSlots=Object.keys(day.night||{}).filter(t=>!slots.includes(t)).sort();
+                    const customNightSlots=Object.keys(day.night||{}).filter(t=>!slots.includes(t)).sort((a,b)=>{const da=slotDisplayTime(a),db=slotDisplayTime(b);return da<db?-1:da>db?1:a<b?-1:1});
                     const sh=(result.shortage&&result.shortage[d])||{};
                     const warns=(result.warnings&&result.warnings[d])||[];
                     const kitOn=kitchenConfig[d]?.enabled;
@@ -2373,7 +2374,7 @@ export default function App(){
                           {!allClosed&&customNightSlots.map(t=>{
                             const p=(day.night||{})[t];
                             const nightCands=staff.filter(s=>s.id!==p&&NIGHT_TIMES.some(nt=>avail[s.id]?.[`${d}_night_${nt}`]&&nightCompat(nt,t)));
-                            return <SRow key={`custom_${t}`} label={`夜 ${t}〜`} time="追加" color="#64748b" people={p?[staffMap[p]].filter(Boolean):[]} shortage={sh.night?.[t]||0} candidates={nightCands}
+                            return <SRow key={`custom_${t}`} label={`夜 ${slotDisplayTime(t)}〜`} time="追加" color="#64748b" people={p?[staffMap[p]].filter(Boolean):[]} shortage={sh.night?.[t]||0} candidates={nightCands}
                               onSwap={newId=>swapShiftAssignment(d,'night',t,newId)}
                               onRemove={p?()=>swapShiftAssignment(d,'night',t,null):null}
                               onDeleteSlot={()=>removeCustomNightSlot(d,t)}
@@ -2389,7 +2390,9 @@ export default function App(){
                                 <button onClick={()=>{
                                   const t=addSlotState.time;
                                   if(!t){setAddSlotState(s=>({...s,error:"時間を選択してください"}));return;}
-                                  swapShiftAssignment(d,'night',t,null,null,true);
+                                  const existing=Object.keys(result?.shifts?.[d]?.night||{});
+                                  let key=t;if(existing.includes(key)){let i=2;while(existing.includes(`${t}_${i}`))i++;key=`${t}_${i}`;}
+                                  swapShiftAssignment(d,'night',key,null,null,true);
                                   setAddSlotState(null);
                                 }} style={{padding:"5px 14px",borderRadius:8,border:"none",background:"linear-gradient(135deg,#8b1a1a,#b8860b)",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>追加</button>
                                 <button onClick={()=>setAddSlotState(null)} style={{padding:"5px 10px",borderRadius:8,border:"1px solid rgba(139,26,26,0.2)",background:"transparent",fontSize:11,cursor:"pointer",color:C.muted,fontWeight:600}}>キャンセル</button>
