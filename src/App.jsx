@@ -1873,6 +1873,8 @@ export default function App(){
             if(inNight){
               const nightMembers=[];
               NIGHT_ORDER.forEach(t=>{const id=day.night[t];if(id!=null){const s=staffMap[id]||staffMap[Number(id)];if(s) nightMembers.push({person:s,time:t,isStar:(id===myNStar||Number(id)===myNStar),isJ:s.grade==='J'});}});
+              // カスタム夜枠（NIGHT_ORDERにない時間）も含める
+              Object.keys(day.night||{}).filter(t=>!NIGHT_ORDER.includes(t)).sort().forEach(t=>{const id=day.night[t];if(id!=null){const s=staffMap[id]||staffMap[Number(id)];if(s) nightMembers.push({person:s,time:t,isStar:false,isJ:s.grade==='J'});}});
               groups.push({label:"夜",color:"#3b82f6",night:true,members:nightMembers});
             }
             if(inAisani){const s=staffMap[day.aisani]||staffMap[Number(day.aisani)];groups.push({label:"アイサニ",color:"#10b981",members:s?[s]:[]});}
@@ -2147,9 +2149,9 @@ export default function App(){
                             <span style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,background:"rgba(39,103,73,0.06)",color:C.text,border:"1px solid #27674930"}}>{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}</span>
                           </div>
                         ):null;})()}
-                        {!closed&&nightEntries.map(([t,id])=>{const s=staffMap[id]||staffMap[Number(id)];return s?(
+                        {!closed&&nightEntries.map(([t,id])=>{const s=staffMap[id]||staffMap[Number(id)];const nc=NIGHT_TC[t]||"#64748b";return s?(
                           <div key={t} style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-                            <span style={{fontSize:10,fontWeight:700,color:NIGHT_TC[t],background:NIGHT_TC[t]+"18",borderRadius:999,padding:"3px 10px",border:`1px solid ${NIGHT_TC[t]}30`,minWidth:60,textAlign:"center",flexShrink:0}}>夜 {t}</span>
+                            <span style={{fontSize:10,fontWeight:700,color:nc,background:nc+"18",borderRadius:999,padding:"3px 10px",border:`1px solid ${nc}30`,minWidth:60,textAlign:"center",flexShrink:0}}>夜 {t}</span>
                             <span key={id} style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,background:"rgba(0,0,0,0.04)",color:C.text,border:"1px solid rgba(0,0,0,0.1)"}}>{(id===csNStar||Number(id)===csNStar)?'🌟':''}{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}</span>
                           </div>
                         ):null;})}
