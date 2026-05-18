@@ -1174,6 +1174,8 @@ export default function App(){
   // スタッフのシフト閲覧専用: allDataRefから対象月のconfirmedShiftを取得
   const staffShiftViewYm=`${staffShiftViewY}_${staffShiftViewM}`;
   const staffViewCS=deserializeConfirmedShift(allDataRef.current[`confirmedShift_${staffShiftViewYm}`])||null;
+  // コメントも表示月に合わせてallDataRef経由で取得（GMが別月に切り替えても消えないように）
+  const staffViewDayComments=allDataRef.current[`dayComments_${staffShiftViewYm}`]||loadCfgLS(`dayComments_${staffShiftViewYm}`)||{};
   const staffShiftViewPrev=()=>{const [y,m]=staffShiftViewM===0?[staffShiftViewY-1,11]:[staffShiftViewY,staffShiftViewM-1];setStaffShiftViewY(y);setStaffShiftViewM(m);};
   const staffShiftViewNext=()=>{const [y,m]=staffShiftViewM===11?[staffShiftViewY+1,0]:[staffShiftViewY,staffShiftViewM+1];setStaffShiftViewY(y);setStaffShiftViewM(m);};
   // JSTカレンダー月が変わった瞬間にシフト表示も切り替え（候補日入力の20日ルールとは独立）
@@ -2003,7 +2005,7 @@ export default function App(){
                         {closed&&<span style={{fontSize:9,padding:"3px 8px",borderRadius:999,background:"rgba(139,26,26,0.06)",color:C.muted,fontWeight:700,border:"1px solid rgba(139,26,26,0.12)"}}>定休日</span>}
                         {myDay&&<span style={{fontSize:9,padding:"3px 8px",borderRadius:999,background:"rgba(139,26,26,0.08)",color:C.accent,fontWeight:700,border:`1px solid ${C.accent}30`}}>出勤</span>}
                       </div>
-                      {dayComments[d]&&<div style={{marginTop:5,fontSize:13,color:"#7a5c00",background:"rgba(184,134,11,0.07)",border:"1px solid rgba(184,134,11,0.18)",borderRadius:8,padding:"5px 10px",fontWeight:600,lineHeight:1.5}}>{dayComments[d]}</div>}
+                      {staffViewDayComments[d]&&<div style={{marginTop:5,fontSize:13,color:"#7a5c00",background:"rgba(184,134,11,0.07)",border:"1px solid rgba(184,134,11,0.18)",borderRadius:8,padding:"5px 10px",fontWeight:600,lineHeight:1.5}}>{staffViewDayComments[d]}</div>}
                     </div>
                     {day&&(
                       <div style={{display:"flex",flexDirection:"column",gap:5}}>
@@ -2127,7 +2129,7 @@ export default function App(){
                         </span>
                         {closed&&<span style={{fontSize:9,padding:"3px 8px",borderRadius:999,background:"rgba(139,26,26,0.06)",color:C.muted,fontWeight:700,border:"1px solid rgba(139,26,26,0.12)"}}>定休日</span>}
                       </div>
-                      {dayComments[d]&&<div style={{marginTop:5,fontSize:13,color:"#7a5c00",background:"rgba(184,134,11,0.07)",border:"1px solid rgba(184,134,11,0.18)",borderRadius:8,padding:"5px 10px",fontWeight:600,lineHeight:1.5}}>{dayComments[d]}</div>}
+                      {staffViewDayComments[d]&&<div style={{marginTop:5,fontSize:13,color:"#7a5c00",background:"rgba(184,134,11,0.07)",border:"1px solid rgba(184,134,11,0.18)",borderRadius:8,padding:"5px 10px",fontWeight:600,lineHeight:1.5}}>{staffViewDayComments[d]}</div>}
                     </div>
                     {day&&(
                       <div style={{display:"flex",flexDirection:"column",gap:5}}>
