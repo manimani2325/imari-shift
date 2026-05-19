@@ -1689,8 +1689,8 @@ export default function App(){
                     <table style={{borderCollapse:"collapse",width:"100%",minWidth:540,background:"#fff"}}>
                       <thead>
                         <tr>
-                          <th className="sth" style={{fontSize:10,color:C.muted,fontWeight:600,padding:"9px 4px",textAlign:"center",width:30,background:"#fff"}}>日</th>
-                          <th className="sth" style={{fontSize:10,color:C.muted,fontWeight:600,width:22,textAlign:"center",background:"#fff"}}>曜</th>
+                          <th className="sth" style={{fontSize:10,color:C.muted,fontWeight:600,padding:"9px 4px",textAlign:"center",width:30,background:"#fff",position:"sticky",left:0,zIndex:6}}>日</th>
+                          <th className="sth" style={{fontSize:10,color:C.muted,fontWeight:600,width:22,textAlign:"center",background:"#fff",position:"sticky",left:38,zIndex:6}}>曜</th>
                           <th className="sth" style={{fontSize:10,color:"#b07d12",fontWeight:700,padding:"9px 8px",textAlign:"center",background:"#fff"}}>朝<br/><span style={{fontSize:8,opacity:.6}}>7:00〜</span></th>
                           <th className="sth" style={{fontSize:10,color:"#276749",fontWeight:700,padding:"9px 8px",textAlign:"center",background:"#fff"}}>朝仕込<br/><span style={{fontSize:8,opacity:.6}}>8:30〜</span></th>
                           <th className="sth" style={{fontSize:10,color:"#5b7fa6",fontWeight:700,padding:"9px 4px",textAlign:"center",background:"#fff"}}>仕込み</th>
@@ -1722,11 +1722,11 @@ export default function App(){
                           const rowBg=allClosed?"#f5f0eb":morningClosed?"rgba(251,146,60,0.04)":hol?"rgba(184,134,11,0.04)":dow===0?"rgba(192,57,43,0.03)":dow===6?"rgba(27,42,94,0.03)":"#fff";
                           return(
                             <tr key={d} className="avail-row" style={{borderBottom:"1px solid rgba(139,26,26,0.06)"}}>
-                              <td style={{background:rowBg,textAlign:"center",fontSize:12,fontWeight:800,padding:"5px 2px",opacity:allClosed?0.4:1,
+                              <td style={{background:rowBg,textAlign:"center",fontSize:12,fontWeight:800,padding:"5px 2px",opacity:allClosed?0.4:1,position:"sticky",left:0,zIndex:2,
                                 color:allClosed?"#b0a090":morningClosed?"#ea580c":hol?"#b8860b":dow===0?"#c0392b":dow===6?"#1b2a5e":C.text}}>
                                 {d}{hol?"🎌":""}{allClosed?"🔒":morningClosed?"☀":""}
                               </td>
-                              <td style={{background:rowBg,textAlign:"center",fontSize:10,opacity:allClosed?0.4:1,color:allClosed?"#b0a090":C.muted}}>{DOW_JP[dow]}</td>
+                              <td style={{background:rowBg,textAlign:"center",fontSize:10,opacity:allClosed?0.4:1,color:allClosed?"#b0a090":C.muted,position:"sticky",left:38,zIndex:2}}>{DOW_JP[dow]}</td>
                               {allClosed?(
                                 <>
                                   <td colSpan={3+NIGHT_TIMES.length} style={{background:rowBg,textAlign:"center",fontSize:10,color:"#b0a090",padding:"6px",opacity:0.4}}>{manualClosed?"休業日":"定休日"}</td>
