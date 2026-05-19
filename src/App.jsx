@@ -2029,7 +2029,7 @@ export default function App(){
                 const csMOv=(starOverrides[d]||{}).morning;
                 const csMStar=csMOv==="none"?null:(csMOv??csMAT?.id??null);
                 let csNStar=null;
-                for(const nt of NIGHT_ORDER){const pid=day?.night?.[nt];if(!pid)continue;const ps=staffMap[pid]||staffMap[Number(pid)];if(ps?.grade!=='J'){csNStar=pid;break;}}
+                {const nc=Object.values(day?.night||{}).filter(Boolean).map(id=>staffMap[id]||staffMap[Number(id)]).filter(s=>s&&s.grade!=='J');nc.sort((a,b)=>(GRADE_SORT[a.grade]??5)-(GRADE_SORT[b.grade]??5));csNStar=nc[0]?.id??null;}
                 const csNOv=(starOverrides[d]||{}).night;
                 if(csNOv==="none")csNStar=null;else if(csNOv)csNStar=csNOv;
                 return(
@@ -2154,7 +2154,7 @@ export default function App(){
                 const csMOv=(starOverrides[d]||{}).morning;
                 const csMStar=csMOv==="none"?null:(csMOv??csMAT?.id??null);
                 let csNStar=null;
-                for(const nt of NIGHT_ORDER){const pid=day?.night?.[nt];if(!pid)continue;const ps=staffMap[pid]||staffMap[Number(pid)];if(ps?.grade!=='J'){csNStar=pid;break;}}
+                {const nc=Object.values(day?.night||{}).filter(Boolean).map(id=>staffMap[id]||staffMap[Number(id)]).filter(s=>s&&s.grade!=='J');nc.sort((a,b)=>(GRADE_SORT[a.grade]??5)-(GRADE_SORT[b.grade]??5));csNStar=nc[0]?.id??null;}
                 const csNOv=(starOverrides[d]||{}).night;
                 if(csNOv==="none")csNStar=null;else if(csNOv)csNStar=csNOv;
                 return(
@@ -2347,14 +2347,9 @@ export default function App(){
                     const mOverride=(starOverrides[d]||{}).morning;
                     const mStarId=mOverride==="none"?null:mOverride??mAutoTop?.id??null;
                     const mTopIds=mStarId?new Set([mStarId]):null;
-                    // 夜: NIGHT_TIMES順で最も早い枠のJ以外の人に🌟、手動override対応
+                    // 夜: GM→SM優先でJ以外の最上位グレード者に🌟（手動override対応）
                     let nAutoTopId=null;
-                    for(const nt of NIGHT_TIMES){
-                      if(!(nightSlotConfig[d]||[]).includes(nt)) continue;
-                      const pid=(day.night||{})[nt];
-                      if(!pid) continue;
-                      if(staffMap[pid]?.grade!=='J'){nAutoTopId=pid;break;}
-                    }
+                    {const nc=Object.values(day.night||{}).filter(Boolean).map(id=>staffMap[id]).filter(s=>s&&s.grade!=='J');nc.sort((a,b)=>(GRADE_SORT[a.grade]??5)-(GRADE_SORT[b.grade]??5));nAutoTopId=nc[0]?.id??null;}
                     const nOverride=(starOverrides[d]||{}).night;
                     const nStarId=nOverride==="none"?null:nOverride??nAutoTopId;
                     const nTopIds=nStarId?new Set([nStarId]):null;
