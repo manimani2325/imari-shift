@@ -629,7 +629,7 @@ export default function App(){
   // 候補入力（GM: 任意のスタッフ, スタッフ: 自分のみ）
   const targetSid=gmMode?null:(loginStaff?.id);
 
-  const toggleAvail=(sid,key)=>updateAvail({...avail,[sid]:{...(avail[sid]||{}),[key]:!avail[sid]?.[key]}});
+  const toggleAvail=(sid,key)=>updateAvail({...avail,[sid]:{...(avail[sid]||{}),[key]:!avail[sid]?.[key]}},sid);
   // 朝・朝仕込み・仕込みは排他選択: 1つをONにすると他2つをOFF
   const MORNING_TYPES=['morning','prep','shimikomi'];
   const toggleMorningTypeAvail=(sid,d,type)=>{
@@ -641,7 +641,7 @@ export default function App(){
       if(type==="prep"){MORNING_TYPES.forEach(t=>{if(t!==type) next[`${d}_${t}`]=false;});}
       else{next[`${d}_prep`]=false;}
     }
-    updateAvail({...avail,[sid]:next});
+    updateAvail({...avail,[sid]:next},sid);
   };
   const setAllMorningTypeAvail=(sid,type)=>{
     const cur=avail[sid]||{};const next={...cur};
@@ -651,19 +651,19 @@ export default function App(){
       if(type==="prep"){MORNING_TYPES.forEach(t=>{if(t!==type) next[`${d}_${t}`]=false;});}
       else{next[`${d}_prep`]=false;}
     }
-    updateAvail({...avail,[sid]:next});
+    updateAvail({...avail,[sid]:next},sid);
   };
   const toggleNightAvail=(sid,d,time)=>{
     const cur=avail[sid]||{};
     const next={...cur};
     NIGHT_TIMES.forEach(t=>{next[`${d}_night_${t}`]=false;});
     if(!cur[`${d}_night_${time}`]) next[`${d}_night_${time}`]=true;
-    updateAvail({...avail,[sid]:next});
+    updateAvail({...avail,[sid]:next},sid);
   };
   const setAllAvail=(sid,type,val)=>{
     const cur=avail[sid]||{};const next={...cur};
     for(let d=1;d<=days;d++) if(!isClosed(year,month,d)) next[`${d}_${type}`]=val;
-    updateAvail({...avail,[sid]:next});
+    updateAvail({...avail,[sid]:next},sid);
   };
 
   const swapShiftAssignment=useCallback((d,slotType,slotTime,newId,removeId=null,force=false)=>{
@@ -1068,7 +1068,37 @@ export default function App(){
 
   // ── 状態変更 → localStorage即時保存 + Firebase保存（debounce）
   const updateStaff=val=>{const s=sortByGrade(val);setStaff(s);debounceSave('staff',s);};
-  const updateAvail=val=>{const ts=Date.now();setAvail(val);saveCfgLS(`avail_${ymRef.current}`,{...val,_ts:ts});debounceSave(`avail_${ymRef.current}`,{...val,_ts:ts});};
+  const updateAvail=(val,changedSid)=>{
+    const ts=Date.now();
+    setAvail(val);
+    const avKey=`avail_${ymRef.current}`;
+    // allDataRefの最新Firebaseスナップショットとマージしてローカルストレージに保存
+    // avail状態が空のうちに保存しても他スタッフのデータが消えない
+    const fbSnap=allDataRef.current[avKey];
+    const fbOthers=(fbSnap&&typeof fbSnap==='object')
+      ?Object.fromEntries(Object.entries(fbSnap).filter(([k])=>k!=='_ts'))
+      :{};
+    const toSave={...fbOthers,...val,_ts:ts};
+    saveCfgLS(avKey,toSave);
+    if(changedSid){
+      // 変更したスタッフのサブパスのみFirebaseに書き込む（他スタッフのエントリを絶対に上書きしない）
+      clearTimeout(saveTimers.current[avKey]);
+      setSyncing(true);
+      pendingKeys.current.add(avKey);
+      saveTimers.current[avKey]=setTimeout(async()=>{
+        try{
+          await Promise.all([
+            saveKey(`${avKey}/${changedSid}`,val[changedSid]||null),
+            saveKey(`${avKey}/_ts`,ts),
+          ]);
+        }catch(e){console.warn('save error',e);}
+        pendingKeys.current.delete(avKey);
+        setSyncing(pendingKeys.current.size>0);
+      },600);
+    } else {
+      debounceSave(avKey,toSave);
+    }
+  };
   const updateNightSlot=val=>{
     setNightSlotConfig(val);
     saveCfgLS(`nightSlotConfig_${ymRef.current}`,val);
