@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app'
-import { getDatabase, ref, set, remove, onValue, get } from 'firebase/database'
+import { getDatabase, ref, set, update, remove, onValue, get } from 'firebase/database'
 
 const firebaseConfig = {
   apiKey:            import.meta.env.VITE_FIREBASE_API_KEY,
@@ -33,6 +33,11 @@ export function subscribeAll(callback) {
 // ── キーに値を書き込む
 export async function saveKey(key, value) {
   await set(ref(db, `shiftmaster/${key}`), value)
+}
+
+// ── 複数パスをアトミックに更新（キー: shiftmaster直下の相対パス, 値: 書き込む値）
+export async function updateKeys(updates) {
+  await update(ref(db, 'shiftmaster'), updates)
 }
 
 // ── 初回取得（一度だけ）
