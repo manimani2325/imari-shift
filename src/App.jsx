@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
-import { subscribeAll, saveKey, cleanupStaleKeys } from './firebase.js'
+import { subscribeAll, saveKey, updateKeys, cleanupStaleKeys } from './firebase.js'
 
 // ── 祝日データ 2024〜2026
 const HOLIDAYS = new Set([
@@ -857,10 +857,14 @@ export default function App(){
           // Firebaseが新しい（GMの編集を反映）→ Firebaseを使用
           setAvail(fbData);saveCfgLS(avKey,data[avKey]);pendingKeys.current.delete(avKey);
         } else {
-          // ローカルが新しい（未送信の編集あり）→ ローカルをFirebaseに書き込む
+          // ローカルが新しい（未送信の編集あり）→ スタッフごとのサブパスでFirebaseに書き込む
           const localRaw=loadCfgLS(avKey);
-          if(localRaw) saveKey(avKey,localRaw).catch(()=>{}).finally(()=>pendingKeys.current.delete(avKey));
-          else pendingKeys.current.delete(avKey);
+          if(localRaw){
+            const {_ts:lts,...staffEntries}=localRaw;
+            const ups={[`${avKey}/_ts`]:lts||0};
+            Object.entries(staffEntries).forEach(([sid,d])=>{ups[`${avKey}/${sid}`]=d||null;});
+            updateKeys(ups).catch(()=>{}).finally(()=>pendingKeys.current.delete(avKey));
+          } else pendingKeys.current.delete(avKey);
         }
       } else if(!pendingKeys.current.has(avKey)&&data[avKey]){
         const {_ts:fbTs,...clean}=data[avKey];
@@ -938,6 +942,8 @@ export default function App(){
     prevAvailRef.current=avail;
 
     if(!initialLoadDone.current) return;
+    // スタッフモードではresult同期を行わない（GMのシフト結果をスタッフ側から上書きしない）
+    if(!gmModeRef.current) return;
 
     // 初回ロード（prevAvailが空）はスキップ：结果とavailは保存時点で整合済み
     if(Object.keys(prevAvail).length===0) return;
@@ -1081,16 +1087,17 @@ export default function App(){
     const toSave={...fbOthers,...val,_ts:ts};
     saveCfgLS(avKey,toSave);
     if(changedSid){
-      // 変更したスタッフのサブパスのみFirebaseに書き込む（他スタッフのエントリを絶対に上書きしない）
+      // Firebase updateKeys でスタッフIDサブパスと_tsをアトミックに書き込む
+      // Promise.allの非アトミックな2回書き込みと違い、onValueは1回のスナップショットで両方の変更を受け取る
       clearTimeout(saveTimers.current[avKey]);
       setSyncing(true);
       pendingKeys.current.add(avKey);
       saveTimers.current[avKey]=setTimeout(async()=>{
         try{
-          await Promise.all([
-            saveKey(`${avKey}/${changedSid}`,val[changedSid]||null),
-            saveKey(`${avKey}/_ts`,ts),
-          ]);
+          await updateKeys({
+            [`${avKey}/${changedSid}`]:val[changedSid]||null,
+            [`${avKey}/_ts`]:ts,
+          });
         }catch(e){console.warn('save error',e);}
         pendingKeys.current.delete(avKey);
         setSyncing(pendingKeys.current.size>0);
