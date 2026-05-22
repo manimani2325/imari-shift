@@ -62,8 +62,9 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
   const workedMorning = {}; // 朝/夜バランス用
   const workedNight   = {};
   const workedDays    = {}; // 日数ベース達成率用
+  const workedW       = {}; // 重み付き実績（達成率ソート用: 朝仕込み=2, 他=1）
   const candDays      = {}; // 候補数
-  staff.forEach(s=>{ worked[s.id]=0; workedMorning[s.id]=0; workedNight[s.id]=0; workedDays[s.id]=new Set(); candDays[s.id]=0; });
+  staff.forEach(s=>{ worked[s.id]=0; workedMorning[s.id]=0; workedNight[s.id]=0; workedDays[s.id]=new Set(); workedW[s.id]=0; candDays[s.id]=0; });
 
   const isAvail = (sid,key) => !!avail[sid]?.[key];
 
@@ -94,7 +95,10 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
   const pick = (candidates, count, opts={}) => {
     const { maxJunior=99, needSeniorIfJunior=false, balanceMode=null } = opts;
     const sorted = [...candidates].sort((a,b)=>{
-      const wd = worked[a.id]-worked[b.id]; if(wd!==0) return wd;
+      // 達成率（重み付き実績/候補数）が低い人を優先して60%に近づける
+      const ra=candDays[a.id]>0?workedW[a.id]/candDays[a.id]:0;
+      const rb=candDays[b.id]>0?workedW[b.id]/candDays[b.id]:0;
+      const rd=ra-rb; if(Math.abs(rd)>0.001) return rd;
       // 朝/夜バランス: 朝選出時は夜多め優先、夜選出時は朝多め優先
       if(balanceMode==='morning'){
         const da=(workedMorning[a.id]-workedNight[a.id]),db=(workedMorning[b.id]-workedNight[b.id]);
@@ -121,7 +125,15 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
     return res.slice(0,count);
   };
 
-  const addWorked=(s,d,type)=>{ worked[s.id]++; workedDays[s.id].add(d); if(type==='morning') workedMorning[s.id]++; else if(type==='night') workedNight[s.id]++; };
+  const addWorked=(s,d,type)=>{
+    worked[s.id]++;
+    workedDays[s.id].add(d);
+    if(type==='morning') workedMorning[s.id]++;
+    else if(type==='night') workedNight[s.id]++;
+    // 重み付き実績: 朝仕込み（_prep または 朝+仕込み両チェック）は2、それ以外は1
+    const w=type==='prep'&&(isAvail(s.id,`${d}_prep`)||(isAvail(s.id,`${d}_morning`)&&isAvail(s.id,`${d}_shimikomi`)))?2:1;
+    workedW[s.id]+=w;
+  };
 
   const shortage={}; const warnings={};
 
