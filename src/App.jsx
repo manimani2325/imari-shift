@@ -2322,7 +2322,7 @@ export default function App(){
 
                   {resultStaffFilter&&(
                     <div style={{marginBottom:10,padding:"8px 14px",borderRadius:10,background:"rgba(139,26,26,0.05)",border:"1px solid rgba(139,26,26,0.15)",fontSize:11,color:C.accent,fontWeight:700}}>
-                      {staff.find(s=>s.id===resultStaffFilter)?.name} のシフト一覧
+                      {staff.find(s=>s.id===resultStaffFilter)?.name} のシフト・候補一覧
                     </div>
                   )}
                   {Array.from({length:days},(_,i)=>i+1).map(d=>{
@@ -2365,12 +2365,14 @@ export default function App(){
                     const nOverride=(starOverrides[d]||{}).night;
                     const nStarId=nOverride==="none"?null:nOverride??nAutoTopId;
                     const nTopIds=nStarId?new Set([nStarId]):null;
-                    // 個別フィルター: 選択スタッフが入っている日のみ表示
+                    // 個別フィルター: 選択スタッフが入っている日 or 候補を出している日を表示
                     if(resultStaffFilter){
                       const sid=resultStaffFilter;
                       const inShift=day.morning.includes(sid)||day.prep.includes(sid)||
                         Object.values(day.night).includes(sid)||day.aisani===sid||day.kitchen===sid;
-                      if(!inShift) return null;
+                      const a=avail[sid]||{};
+                      const hasAvail=NIGHT_TIMES.some(t=>!!a[`${d}_night_${t}`])||!!a[`${d}_morning`]||!!a[`${d}_prep`]||!!a[`${d}_shimikomi`]||!!a[`${d}_aisani`]||!!a[`${d}_kitchen`];
+                      if(!inShift&&!hasAvail) return null;
                     }
                     const slots=nightSlotConfig[d]||[];
                     const customNightSlots=Object.keys(day.night||{}).filter(t=>!slots.includes(t)).sort((a,b)=>{const da=slotDisplayTime(a),db=slotDisplayTime(b);return da<db?-1:da>db?1:a<b?-1:1});
