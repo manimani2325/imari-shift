@@ -2285,7 +2285,7 @@ export default function App(){
                     <div style={{fontSize:22,fontWeight:900,color:C.text}}>{year}年{month+1}月 シフト表</div>
                   </div>
 
-                  <div style={{...card,marginBottom:16}}>
+                  <div style={{...card,marginBottom:16,position:"sticky",top:120,zIndex:20,backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",boxShadow:"0 4px 16px rgba(139,26,26,0.10)"}}>
                     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12,flexWrap:"wrap",gap:6}}>
                       <div style={{fontSize:11,fontWeight:700,color:C.accent}}>勤務実績 / 候補数（達成率）</div>
                       {resultStaffFilter&&<button onClick={()=>setResultStaffFilter(null)} style={{...btn(false),fontSize:10,padding:"4px 12px"}}>全員表示</button>}
