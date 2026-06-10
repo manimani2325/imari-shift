@@ -1205,7 +1205,7 @@ export default function App(){
 
   // ── スタイル（和風テーマ・シャープ）
   const C={
-    bg:"#fdfaf6",text:"#1a0a00",muted:"#8c7b6b",accent:"#8b1a1a",
+    bg:"#f7efe4",text:"#1a0a00",muted:"#8c7b6b",accent:"#8b1a1a",
     navy:"#1b2a5e",gold:"#b8860b",red:"#8b1a1a",cream:"#fdf6ec",
     ink:"#2b1014",headMuted:"#c7ada6",
   };
@@ -1254,7 +1254,7 @@ export default function App(){
       <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=Shippori+Mincho:wght@600;800&display=swap" rel="stylesheet"/>
       <style>{`
         *{box-sizing:border-box}
-        body{background:#fdfaf6;-webkit-font-smoothing:antialiased;letter-spacing:.01em}
+        body{background:#f7efe4;-webkit-font-smoothing:antialiased;letter-spacing:.01em}
         button{transition:all .25s ease;font-family:inherit}
         button:active{transform:scale(.97)!important}
         button:hover{filter:brightness(0.96)}
