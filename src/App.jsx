@@ -1202,18 +1202,24 @@ export default function App(){
     }
   };
 
-  // ── スタイル（和風テーマ）
+  // ── スタイル（和風テーマ・シャープ）
   const C={
     bg:"#fdfaf6",text:"#1a0a00",muted:"#8c7b6b",accent:"#8b1a1a",
     navy:"#1b2a5e",gold:"#b8860b",red:"#8b1a1a",cream:"#fdf6ec",
+    ink:"#201008",headMuted:"#c0ad9b",
   };
+  const serif="'Shippori Mincho','Zen Kaku Gothic New',serif";
   const btn=(on,c=C.accent)=>({
-    padding:"8px 16px",borderRadius:999,border:on?"none":`1px solid ${C.accent}30`,
-    cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,transition:"all .2s",
-    background:on?c:"rgba(139,26,26,0.05)",color:on?"#fff":C.muted,
-    boxShadow:on?`0 2px 12px ${c}44`:"none",
+    padding:"8px 16px",borderRadius:6,border:on?`1px solid ${typeof c==='string'&&c.startsWith('#')?c:C.accent}`:`1px solid ${C.accent}40`,
+    cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,transition:"all .12s",
+    background:on?c:"transparent",color:on?"#fff":C.muted,
   });
-  const card={background:"#fff",borderRadius:16,border:"1px solid rgba(139,26,26,0.1)",padding:18,boxShadow:"0 2px 16px rgba(139,26,26,0.06)"};
+  // ヘッダー（濃色背景）用ボタン
+  const hbtn=(on,c=C.accent)=>({
+    ...btn(on,c),
+    ...(on?{border:"1px solid transparent"}:{background:"rgba(255,255,255,0.05)",color:C.headMuted,border:"1px solid rgba(255,255,255,0.18)"}),
+  });
+  const card={background:"#fff",borderRadius:9,border:"1px solid rgba(139,26,26,0.18)",borderLeft:`3px solid ${C.accent}`,padding:18};
 
   const [selectedStaffTab,setSelectedStaffTab]=useState(null);
   const availViewStaff=gmMode
@@ -1245,13 +1251,13 @@ export default function App(){
 
   return(
     <div style={{fontFamily:"'Zen Kaku Gothic New',sans-serif",minHeight:"100vh",background:C.bg,color:C.text}}>
-      <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&display=swap" rel="stylesheet"/>
+      <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=Shippori+Mincho:wght@600;800&display=swap" rel="stylesheet"/>
       <style>{`
         *{box-sizing:border-box}
         body{background:#fdfaf6}
-        button{transition:all .2s;font-family:inherit}
-        button:active{transform:scale(.93)!important}
-        button:hover{filter:brightness(0.93)}
+        button{transition:all .12s;font-family:inherit}
+        button:active{transform:scale(.96)!important}
+        button:hover{filter:brightness(0.95)}
         .fi{animation:fi .28s cubic-bezier(.22,1,.36,1)}
         @keyframes fi{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
         @keyframes spin{to{transform:rotate(360deg)}}
@@ -1276,7 +1282,7 @@ export default function App(){
           <div style={{position:"absolute",inset:0,backgroundImage:"url(/imari.jpeg)",backgroundSize:"cover",backgroundPosition:"center top",backgroundRepeat:"no-repeat"}}/>
           <div style={{position:"absolute",inset:0,background:"rgba(255,255,255,0.18)"}}/>
           <div style={{position:"absolute",bottom:"12vh",left:0,right:0,zIndex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:10}}>
-            <div style={{background:"rgba(255,255,255,0.85)",borderRadius:999,padding:"10px 36px",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",boxShadow:"0 4px 24px rgba(139,26,26,0.12)"}}>
+            <div style={{background:"rgba(255,255,255,0.85)",borderRadius:6,padding:"10px 36px",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",boxShadow:"0 4px 24px rgba(139,26,26,0.12)"}}>
               <div style={{fontSize:13,letterSpacing:6,color:C.accent,fontWeight:700,fontFamily:"serif",textAlign:"center"}}>読み込み中...</div>
             </div>
             <div style={{fontSize:11,letterSpacing:4,color:"rgba(139,26,26,0.55)",fontFamily:"sans-serif",fontWeight:600}}>Loading...</div>
@@ -1290,7 +1296,7 @@ export default function App(){
           onClick={e=>{if(e.target===e.currentTarget){setPwModal(false);setPwInput("");setPwError(false);}}}>
           <div className="fi" style={{...card,padding:"32px 28px",width:320,boxShadow:"0 24px 64px rgba(0,0,0,0.18)"}}>
             <div style={{textAlign:"center",marginBottom:22}}>
-              <div style={{width:52,height:52,borderRadius:26,background:"linear-gradient(135deg,#8b1a1a,#b8860b)",display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:22,marginBottom:12,boxShadow:"0 0 20px rgba(139,26,26,0.3)"}}>🔐</div>
+              <div style={{width:52,height:52,borderRadius:9,background:"linear-gradient(135deg,#8b1a1a,#b8860b)",display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:22,marginBottom:12,boxShadow:"0 0 20px rgba(139,26,26,0.3)"}}>🔐</div>
               <div style={{fontSize:16,fontWeight:900,color:C.accent}}>GMモード</div>
               <div style={{fontSize:11,color:C.muted,marginTop:4}}>パスワードを入力してください</div>
             </div>
@@ -1298,14 +1304,14 @@ export default function App(){
               onChange={e=>{setPwInput(e.target.value);setPwError(false);}}
               onKeyDown={e=>e.key==="Enter"&&handleGmLogin()}
               placeholder="パスワード" autoFocus
-              style={{width:"100%",padding:"12px 16px",borderRadius:12,border:`1.5px solid ${pwError?"#ef4444":"rgba(139,26,26,0.15)"}`,
+              style={{width:"100%",padding:"12px 16px",borderRadius:7,border:`1.5px solid ${pwError?"#ef4444":"rgba(139,26,26,0.15)"}`,
                 background:"#fdfaf6",color:C.text,fontSize:14,marginBottom:8}}/>
             {pwError&&<div style={{fontSize:11,color:"#ef4444",marginBottom:10,textAlign:"center"}}>パスワードが違います</div>}
             <div style={{display:"flex",gap:8,marginTop:8}}>
               <button onClick={()=>{setPwModal(false);setPwInput("");setPwError(false);}}
-                style={{...btn(false),flex:1,padding:"11px",borderRadius:12,fontSize:13}}>キャンセル</button>
+                style={{...btn(false),flex:1,padding:"11px",borderRadius:7,fontSize:13}}>キャンセル</button>
               <button onClick={handleGmLogin}
-                style={{flex:1,padding:"11px",borderRadius:12,border:"none",background:"linear-gradient(135deg,#8b1a1a,#b8860b)",color:"#fff",cursor:"pointer",fontSize:13,fontWeight:800,boxShadow:"0 4px 16px rgba(139,26,26,0.3)"}}>
+                style={{flex:1,padding:"11px",borderRadius:7,border:"none",background:"linear-gradient(135deg,#8b1a1a,#b8860b)",color:"#fff",cursor:"pointer",fontSize:13,fontWeight:800,boxShadow:"0 4px 16px rgba(139,26,26,0.3)"}}>
                 ログイン
               </button>
             </div>
@@ -1319,7 +1325,7 @@ export default function App(){
           onClick={e=>{if(e.target===e.currentTarget){setStaffPwModal(null);setStaffPwInput("");setStaffPwError(false);}}}>
           <div className="fi" style={{...card,padding:"32px 28px",width:300,boxShadow:"0 24px 64px rgba(0,0,0,0.18)"}}>
             <div style={{textAlign:"center",marginBottom:20}}>
-              <div style={{width:52,height:52,borderRadius:26,background:"linear-gradient(135deg,#8b1a1a,#b8860b)",display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:22,marginBottom:12,boxShadow:"0 0 20px rgba(139,26,26,0.25)"}}>🔑</div>
+              <div style={{width:52,height:52,borderRadius:9,background:"linear-gradient(135deg,#8b1a1a,#b8860b)",display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:22,marginBottom:12,boxShadow:"0 0 20px rgba(139,26,26,0.25)"}}>🔑</div>
               <div style={{fontSize:15,fontWeight:900,color:C.text}}>{staffPwModal.name}</div>
               <div style={{fontSize:11,color:C.muted,marginTop:4}}>4桁のパスワードを入力</div>
             </div>
@@ -1327,14 +1333,14 @@ export default function App(){
               onChange={e=>{setStaffPwInput(e.target.value.replace(/\D/g,"").slice(0,4));setStaffPwError(false);}}
               onKeyDown={e=>e.key==="Enter"&&handleStaffPwLogin()}
               placeholder="••••" autoFocus
-              style={{width:"100%",padding:"14px 16px",borderRadius:12,border:`1.5px solid ${staffPwError?"#ef4444":"rgba(139,26,26,0.15)"}`,
+              style={{width:"100%",padding:"14px 16px",borderRadius:7,border:`1.5px solid ${staffPwError?"#ef4444":"rgba(139,26,26,0.15)"}`,
                 background:"#fdfaf6",color:C.text,fontSize:22,textAlign:"center",letterSpacing:8,marginBottom:8}}/>
             {staffPwError&&<div style={{fontSize:11,color:"#ef4444",marginBottom:10,textAlign:"center"}}>パスワードが違います</div>}
             <div style={{display:"flex",gap:8,marginTop:8}}>
               <button onClick={()=>{setStaffPwModal(null);setStaffPwInput("");setStaffPwError(false);}}
-                style={{...btn(false),flex:1,padding:"11px",borderRadius:12,fontSize:13}}>戻る</button>
+                style={{...btn(false),flex:1,padding:"11px",borderRadius:7,fontSize:13}}>戻る</button>
               <button onClick={handleStaffPwLogin}
-                style={{flex:1,padding:"11px",borderRadius:12,border:"none",background:"linear-gradient(135deg,#8b1a1a,#b8860b)",color:"#fff",cursor:"pointer",fontSize:13,fontWeight:800,boxShadow:"0 4px 16px rgba(139,26,26,0.3)"}}>
+                style={{flex:1,padding:"11px",borderRadius:7,border:"none",background:"linear-gradient(135deg,#8b1a1a,#b8860b)",color:"#fff",cursor:"pointer",fontSize:13,fontWeight:800,boxShadow:"0 4px 16px rgba(139,26,26,0.3)"}}>
                 確認
               </button>
             </div>
@@ -1348,7 +1354,7 @@ export default function App(){
           onClick={e=>{if(e.target===e.currentTarget){setShiftPreviewModal(false);setShiftPreviewPwInput("");setShiftPreviewPwError(false);}}}>
           <div className="fi" style={{...card,padding:"32px 28px",width:300,boxShadow:"0 24px 64px rgba(0,0,0,0.18)"}}>
             <div style={{textAlign:"center",marginBottom:20}}>
-              <div style={{width:52,height:52,borderRadius:26,background:"linear-gradient(135deg,#8b1a1a,#b8860b)",display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:22,marginBottom:12,boxShadow:"0 0 20px rgba(139,26,26,0.25)"}}>📆</div>
+              <div style={{width:52,height:52,borderRadius:9,background:"linear-gradient(135deg,#8b1a1a,#b8860b)",display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:22,marginBottom:12,boxShadow:"0 0 20px rgba(139,26,26,0.25)"}}>📆</div>
               <div style={{fontSize:15,fontWeight:900,color:C.text}}>全体シフト確認</div>
               <div style={{fontSize:11,color:C.muted,marginTop:4}}>パスワードを入力してください</div>
             </div>
@@ -1356,14 +1362,14 @@ export default function App(){
               onChange={e=>{setShiftPreviewPwInput(e.target.value.replace(/\D/g,"").slice(0,4));setShiftPreviewPwError(false);}}
               onKeyDown={e=>{if(e.key==="Enter"){if(shiftPreviewPwInput===SHIFT_PREVIEW_PASSWORD){setShiftPreviewOpen(true);setShiftPreviewModal(false);setShiftPreviewPwInput("");}else{setShiftPreviewPwError(true);setShiftPreviewPwInput("");}}}}
               placeholder="••••" autoFocus
-              style={{width:"100%",padding:"14px 16px",borderRadius:12,border:`1.5px solid ${shiftPreviewPwError?"#ef4444":"rgba(139,26,26,0.15)"}`,
+              style={{width:"100%",padding:"14px 16px",borderRadius:7,border:`1.5px solid ${shiftPreviewPwError?"#ef4444":"rgba(139,26,26,0.15)"}`,
                 background:"#fdfaf6",color:C.text,fontSize:22,textAlign:"center",letterSpacing:8,marginBottom:8}}/>
             {shiftPreviewPwError&&<div style={{fontSize:11,color:"#ef4444",marginBottom:10,textAlign:"center"}}>パスワードが違います</div>}
             <div style={{display:"flex",gap:8,marginTop:8}}>
               <button onClick={()=>{setShiftPreviewModal(false);setShiftPreviewPwInput("");setShiftPreviewPwError(false);}}
-                style={{...btn(false),flex:1,padding:"11px",borderRadius:12,fontSize:13}}>戻る</button>
+                style={{...btn(false),flex:1,padding:"11px",borderRadius:7,fontSize:13}}>戻る</button>
               <button onClick={()=>{if(shiftPreviewPwInput===SHIFT_PREVIEW_PASSWORD){setShiftPreviewOpen(true);setShiftPreviewModal(false);setShiftPreviewPwInput("");}else{setShiftPreviewPwError(true);setShiftPreviewPwInput("");}}}
-                style={{flex:1,padding:"11px",borderRadius:12,border:"none",background:"linear-gradient(135deg,#8b1a1a,#b8860b)",color:"#fff",cursor:"pointer",fontSize:13,fontWeight:800,boxShadow:"0 4px 16px rgba(139,26,26,0.3)"}}>
+                style={{flex:1,padding:"11px",borderRadius:7,border:"none",background:"linear-gradient(135deg,#8b1a1a,#b8860b)",color:"#fff",cursor:"pointer",fontSize:13,fontWeight:800,boxShadow:"0 4px 16px rgba(139,26,26,0.3)"}}>
                 確認
               </button>
             </div>
@@ -1372,26 +1378,26 @@ export default function App(){
       )}
 
       {/* ── ヘッダー */}
-      <div className="main-content" style={{background:"rgba(253,250,246,0.95)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",borderBottom:"1px solid rgba(139,26,26,0.12)",padding:"12px 16px",position:"sticky",top:0,zIndex:30}}>
+      <div className="main-content" style={{background:C.ink,borderBottom:`1px solid ${C.gold}66`,padding:"12px 16px",position:"sticky",top:0,zIndex:30}}>
         <div style={{maxWidth:900,margin:"0 auto"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:(gmMode||(!gmMode&&loginStaff)||(!gmMode&&!loginStaff))?10:0}}>
             <div style={{display:"flex",alignItems:"center",gap:10}}>
-              <div style={{width:38,height:38,borderRadius:11,background:"linear-gradient(135deg,#8b1a1a,#b8860b)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,boxShadow:"0 2px 12px rgba(139,26,26,0.25)",flexShrink:0}}>🍶</div>
+              <div style={{width:38,height:38,borderRadius:7,background:"linear-gradient(135deg,#8b1a1a,#b8860b)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,boxShadow:"0 2px 12px rgba(139,26,26,0.25)",flexShrink:0}}>🍶</div>
               <div>
                 <div style={{fontSize:8,letterSpacing:5,fontWeight:800,textTransform:"uppercase",color:C.gold}}>旬菜 いまり</div>
-                <div style={{fontSize:18,fontWeight:900,lineHeight:1.15,color:C.text}}>{year}年{month+1}月</div>
+                <div style={{fontSize:18,fontWeight:800,lineHeight:1.15,color:C.cream,fontFamily:serif}}>{year}年{month+1}月</div>
               </div>
               {gmMode&&<div style={{display:"flex",gap:3,marginLeft:2}}>
-                <button onClick={prevMonth} style={{...btn(false),padding:"5px 12px",fontSize:16,borderRadius:10}}>‹</button>
-                <button onClick={nextMonth} style={{...btn(false),padding:"5px 12px",fontSize:16,borderRadius:10}}>›</button>
+                <button onClick={prevMonth} style={{...hbtn(false),padding:"5px 12px",fontSize:16,borderRadius:6}}>‹</button>
+                <button onClick={nextMonth} style={{...hbtn(false),padding:"5px 12px",fontSize:16,borderRadius:6}}>›</button>
               </div>}
             </div>
             <div style={{display:"flex",gap:6,alignItems:"center"}}>
-              <div style={{display:"flex",background:"rgba(139,26,26,0.05)",borderRadius:999,padding:3,gap:2,border:"1px solid rgba(139,26,26,0.1)"}}>
-                <button onClick={()=>{if(gmMode)return;setPwModal(true);}} style={{...btn(gmMode,"linear-gradient(135deg,#8b1a1a,#b8860b)"),fontSize:11,padding:"5px 14px",borderRadius:999}}>管理者</button>
-                <button onClick={()=>{gmMonthRef.current={y:year,m:month};saveGMMonth(year,month);setGmMode(false);setView("avail");setLoginStaff(null);const a=getAutoMonth();setYear(a.y);setMonth(a.m);pendingYmRef.current=`${a.y}_${a.m}`;const sYm=`${a.y}_${a.m}`;setNightSlotConfig(loadCfgLS(`nightSlotConfig_${sYm}`)||{});setAisaniConfig(loadCfgLS(`aisaniConfig_${sYm}`)||{});setKitchenConfig(loadCfgLS(`kitchenConfig_${sYm}`)||{});setDayTypeConfig(loadCfgLS(`dayTypeConfig_${sYm}`)||{});prevAvailRef.current={};const{_ts:_,...staffAvail}=loadCfgLS(`avail_${sYm}`)||{};setAvail(staffAvail);}} style={{...btn(!gmMode,"linear-gradient(135deg,#1b2a5e,#2d4a9e)"),fontSize:11,padding:"5px 14px",borderRadius:999}}>スタッフ</button>
+              <div style={{display:"flex",background:"rgba(255,255,255,0.05)",borderRadius:6,padding:3,gap:2,border:"1px solid rgba(255,255,255,0.12)"}}>
+                <button onClick={()=>{if(gmMode)return;setPwModal(true);}} style={{...hbtn(gmMode,"linear-gradient(135deg,#8b1a1a,#b8860b)"),fontSize:11,padding:"5px 14px",borderRadius:6}}>管理者</button>
+                <button onClick={()=>{gmMonthRef.current={y:year,m:month};saveGMMonth(year,month);setGmMode(false);setView("avail");setLoginStaff(null);const a=getAutoMonth();setYear(a.y);setMonth(a.m);pendingYmRef.current=`${a.y}_${a.m}`;const sYm=`${a.y}_${a.m}`;setNightSlotConfig(loadCfgLS(`nightSlotConfig_${sYm}`)||{});setAisaniConfig(loadCfgLS(`aisaniConfig_${sYm}`)||{});setKitchenConfig(loadCfgLS(`kitchenConfig_${sYm}`)||{});setDayTypeConfig(loadCfgLS(`dayTypeConfig_${sYm}`)||{});prevAvailRef.current={};const{_ts:_,...staffAvail}=loadCfgLS(`avail_${sYm}`)||{};setAvail(staffAvail);}} style={{...hbtn(!gmMode,"linear-gradient(135deg,#1b2a5e,#2d4a9e)"),fontSize:11,padding:"5px 14px",borderRadius:6}}>スタッフ</button>
               </div>
-              {gmMode&&<button onClick={()=>setStaffPanelOpen(v=>!v)} style={{...btn(staffPanelOpen,"rgba(139,26,26,0.15)"),fontSize:11,padding:"7px 14px",border:staffPanelOpen?"none":`1px solid rgba(139,26,26,0.15)`}}>👥 スタッフ</button>}
+              {gmMode&&<button onClick={()=>setStaffPanelOpen(v=>!v)} style={{...hbtn(staffPanelOpen,"rgba(255,255,255,0.16)"),fontSize:11,padding:"7px 14px"}}>👥 スタッフ</button>}
             </div>
           </div>
 
@@ -1399,24 +1405,24 @@ export default function App(){
             <div style={{paddingBottom:6}}>
               {shiftPreviewOpen?(
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                  <div style={{fontSize:11,color:C.muted,fontWeight:700}}>📆 全体シフト確認中</div>
+                  <div style={{fontSize:11,color:C.headMuted,fontWeight:700}}>📆 全体シフト確認中</div>
                   <button onClick={()=>setShiftPreviewOpen(false)}
-                    style={{...btn(false),fontSize:10,padding:"4px 12px",borderRadius:999,border:"1px solid rgba(139,26,26,0.2)"}}>
+                    style={{...hbtn(false),fontSize:10,padding:"4px 12px",borderRadius:6}}>
                     ✕ 閉じる
                   </button>
                 </div>
               ):(
                 <>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-                    <div style={{fontSize:11,color:C.muted}}>名前を選んでください</div>
+                    <div style={{fontSize:11,color:C.headMuted}}>名前を選んでください</div>
                     <button onClick={()=>{setShiftPreviewModal(true);setShiftPreviewPwInput("");setShiftPreviewPwError(false);}}
-                      style={{...btn(false),fontSize:10,padding:"4px 12px",borderRadius:999,border:"1px solid rgba(139,26,26,0.2)"}}>
+                      style={{...hbtn(false),fontSize:10,padding:"4px 12px",borderRadius:6}}>
                       📆 シフト確認
                     </button>
                   </div>
                   <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                     {staffModeStaff.map(s=>(
-                      <button key={s.id} onClick={()=>handleStaffSelect(s)} style={{...btn(false),fontSize:12,padding:"8px 18px",borderRadius:999}}>
+                      <button key={s.id} onClick={()=>handleStaffSelect(s)} style={{...hbtn(false),fontSize:12,padding:"8px 18px",borderRadius:6}}>
                         {s.name}{s.password?<span style={{fontSize:9,marginLeft:4,opacity:.5}}>🔒</span>:""}
                       </button>
                     ))}
@@ -1428,18 +1434,18 @@ export default function App(){
           {!gmMode&&loginStaff&&(
             <div>
               <div style={{display:"flex",alignItems:"center",gap:8,paddingBottom:8}}>
-                <div style={{width:7,height:7,borderRadius:4,background:C.accent,boxShadow:`0 0 6px ${C.accent}`}}/>
-                <span style={{fontSize:11,color:C.muted}}>ログイン中：</span>
-                <span style={{fontWeight:800,fontSize:13}}>{loginStaff.name}</span>
-                <button onClick={()=>setLoginStaff(null)} style={{...btn(false),fontSize:10,padding:"3px 10px"}}>変更</button>
+                <div style={{width:7,height:7,borderRadius:4,background:C.gold,boxShadow:`0 0 6px ${C.gold}`}}/>
+                <span style={{fontSize:11,color:C.headMuted}}>ログイン中：</span>
+                <span style={{fontWeight:800,fontSize:13,color:C.cream}}>{loginStaff.name}</span>
+                <button onClick={()=>setLoginStaff(null)} style={{...hbtn(false),fontSize:10,padding:"3px 10px"}}>変更</button>
               </div>
-              <div style={{display:"flex",gap:3,background:"rgba(139,26,26,0.04)",borderRadius:13,padding:3,border:"1px solid rgba(139,26,26,0.08)"}}>
+              <div style={{display:"flex",gap:3,background:"rgba(255,255,255,0.05)",borderRadius:8,padding:3,border:"1px solid rgba(255,255,255,0.1)"}}>
                 {[["avail","📅 候補日入力"],["shift","📋 自分のシフト"],["full","📆 全体シフト"]].map(([v,l])=>(
                   <button key={v} onClick={()=>setStaffTab(v)}
-                    style={{flex:1,padding:"9px 4px",borderRadius:11,border:"none",cursor:"pointer",fontSize:12,fontWeight:700,transition:"all .2s",
+                    style={{flex:1,padding:"9px 4px",borderRadius:7,border:"none",cursor:"pointer",fontSize:12,fontWeight:700,transition:"all .12s",
                       background:staffTab===v?"linear-gradient(135deg,#8b1a1a,#b8860b)":"transparent",
-                      color:staffTab===v?"#fff":C.muted,
-                      boxShadow:staffTab===v?"0 2px 10px rgba(139,26,26,0.25)":"none"}}>
+                      color:staffTab===v?"#fff":C.headMuted,
+                      boxShadow:staffTab===v?`inset 0 -2px 0 ${C.gold}`:"none"}}>
                     {l}
                   </button>
                 ))}
@@ -1448,13 +1454,13 @@ export default function App(){
           )}
 
           {gmMode&&(
-            <div style={{display:"flex",gap:3,marginTop:8,background:"rgba(139,26,26,0.04)",borderRadius:13,padding:3,border:"1px solid rgba(139,26,26,0.08)"}}>
+            <div style={{display:"flex",gap:3,marginTop:8,background:"rgba(255,255,255,0.05)",borderRadius:8,padding:3,border:"1px solid rgba(255,255,255,0.1)"}}>
               {[["slots","① 夜枠設定"],["avail","② 候補日入力"],["result","③ シフト表"]].map(([v,l])=>(
                 <button key={v} onClick={()=>setView(v)}
-                  style={{flex:1,padding:"9px 4px",borderRadius:11,border:"none",cursor:"pointer",fontSize:11,fontWeight:700,transition:"all .2s",
+                  style={{flex:1,padding:"9px 4px",borderRadius:7,border:"none",cursor:"pointer",fontSize:11,fontWeight:700,transition:"all .12s",
                     background:view===v?"linear-gradient(135deg,#8b1a1a,#b8860b)":"transparent",
-                    color:view===v?"#fff":C.muted,
-                    boxShadow:view===v?"0 2px 10px rgba(139,26,26,0.25)":"none"}}>
+                    color:view===v?"#fff":C.headMuted,
+                    boxShadow:view===v?`inset 0 -2px 0 ${C.gold}`:"none"}}>
                   {l}
                 </button>
               ))}
@@ -1469,11 +1475,11 @@ export default function App(){
         {gmMode&&staffPanelOpen&&(
           <div className="fi" style={{...card,marginBottom:16}}>
             <div style={{fontSize:13,fontWeight:900,background:"linear-gradient(90deg,#6366f1,#8b5cf6)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",marginBottom:14}}>スタッフ管理</div>
-            <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12,padding:14,background:"rgba(99,102,241,0.04)",borderRadius:12,border:"1px solid rgba(99,102,241,0.1)"}}>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12,padding:14,background:"rgba(99,102,241,0.04)",borderRadius:7,border:"1px solid rgba(99,102,241,0.1)"}}>
               <input className="inp" placeholder="名前" value={newStaff.name} onChange={e=>setNewStaff(p=>({...p,name:e.target.value}))}
-                style={{flex:"1 1 130px",padding:"10px 14px",borderRadius:10,border:"1.5px solid rgba(139,26,26,0.15)",background:"#fdfaf6",color:C.text,fontSize:13}}/>
+                style={{flex:"1 1 130px",padding:"10px 14px",borderRadius:6,border:"1.5px solid rgba(139,26,26,0.15)",background:"#fdfaf6",color:C.text,fontSize:13}}/>
               <select value={newStaff.grade} onChange={e=>setNewStaff(p=>({...p,grade:e.target.value}))}
-                style={{padding:"10px 12px",borderRadius:10,border:"1.5px solid rgba(139,26,26,0.15)",background:"#fff",color:C.text,fontSize:13}}>
+                style={{padding:"10px 12px",borderRadius:6,border:"1.5px solid rgba(139,26,26,0.15)",background:"#fff",color:C.text,fontSize:13}}>
                 {GRADES.map(g=><option key={g} value={g}>{g}</option>)}
               </select>
               <label style={{display:"flex",alignItems:"center",gap:6,fontSize:12,color:C.muted,cursor:"pointer"}}>
@@ -1484,18 +1490,18 @@ export default function App(){
               </label>
               <input className="inp" placeholder="PW(4桁)" maxLength={4} value={newStaff.password||""}
                 onChange={e=>setNewStaff(p=>({...p,password:e.target.value.replace(/\D/g,"").slice(0,4)}))}
-                style={{width:80,padding:"10px 10px",borderRadius:10,border:"1.5px solid rgba(139,26,26,0.15)",background:"#fdfaf6",color:C.text,fontSize:13,textAlign:"center",letterSpacing:4}}/>
-              <button onClick={addStaff} style={{padding:"10px 20px",borderRadius:10,border:"none",background:"linear-gradient(135deg,#8b1a1a,#b8860b)",color:"#fff",cursor:"pointer",fontSize:13,fontWeight:800,boxShadow:"0 4px 14px rgba(139,26,26,0.3)"}}>追加</button>
+                style={{width:80,padding:"10px 10px",borderRadius:6,border:"1.5px solid rgba(139,26,26,0.15)",background:"#fdfaf6",color:C.text,fontSize:13,textAlign:"center",letterSpacing:4}}/>
+              <button onClick={addStaff} style={{padding:"10px 20px",borderRadius:6,border:"none",background:"linear-gradient(135deg,#8b1a1a,#b8860b)",color:"#fff",cursor:"pointer",fontSize:13,fontWeight:800,boxShadow:"0 4px 14px rgba(139,26,26,0.3)"}}>追加</button>
             </div>
             <div style={{display:"flex",flexDirection:"column",gap:6}}>
               {staff.map(s=>(
-                <div key={s.id} style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",background:"#fdfaf6",borderRadius:12,border:"1px solid rgba(139,26,26,0.08)",flexWrap:"wrap"}}>
+                <div key={s.id} style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",background:"#fdfaf6",borderRadius:7,border:"1px solid rgba(139,26,26,0.08)",flexWrap:"wrap"}}>
                   <span style={{flex:1,fontWeight:700,fontSize:13,minWidth:80}}>{s.name}</span>
-                  <span style={{fontSize:10,padding:"3px 10px",borderRadius:999,fontWeight:700,background:GRADE_COLOR[s.grade]+"22",color:GRADE_COLOR[s.grade],border:`1px solid ${GRADE_COLOR[s.grade]}40`}}>{s.grade}</span>
+                  <span style={{fontSize:10,padding:"3px 10px",borderRadius:6,fontWeight:700,background:GRADE_COLOR[s.grade]+"22",color:GRADE_COLOR[s.grade],border:`1px solid ${GRADE_COLOR[s.grade]}40`}}>{s.grade}</span>
                   <div style={{display:"flex",gap:3}}>
                     {GRADES.map(g=>(
                       <button key={g} onClick={()=>updateStaff(staff.map(x=>x.id===s.id?{...x,grade:g}:x))}
-                        style={{...btn(s.grade===g,GRADE_COLOR[g]),fontSize:10,padding:"3px 8px",borderRadius:999}}>{g}</button>
+                        style={{...btn(s.grade===g,GRADE_COLOR[g]),fontSize:10,padding:"3px 8px",borderRadius:6}}>{g}</button>
                     ))}
                   </div>
                   <label style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:s.aisaniOK?C.accent:C.muted,cursor:"pointer"}}>
@@ -1514,10 +1520,10 @@ export default function App(){
                     <input className="inp" type="text" inputMode="numeric" maxLength={4} value={s.password||""}
                       onChange={e=>updateStaff(staff.map(x=>x.id===s.id?{...x,password:e.target.value.replace(/\D/g,"").slice(0,4)}:x))}
                       placeholder="PW" title="4桁パスワード（空欄=なし）"
-                      style={{width:56,padding:"4px 6px",borderRadius:8,border:"1.5px solid rgba(139,26,26,0.15)",background:"#fff",color:C.text,fontSize:13,textAlign:"center",letterSpacing:3}}/>
+                      style={{width:56,padding:"4px 6px",borderRadius:5,border:"1.5px solid rgba(139,26,26,0.15)",background:"#fff",color:C.text,fontSize:13,textAlign:"center",letterSpacing:3}}/>
                   </div>
                   <button onClick={()=>updateStaff(staff.filter(x=>x.id!==s.id))}
-                    style={{padding:"4px 10px",borderRadius:999,border:"1px solid rgba(239,68,68,0.3)",background:"rgba(239,68,68,0.05)",color:"#ef4444",cursor:"pointer",fontSize:11,fontWeight:700}}>削除</button>
+                    style={{padding:"4px 10px",borderRadius:6,border:"1px solid rgba(239,68,68,0.3)",background:"rgba(239,68,68,0.05)",color:"#ef4444",cursor:"pointer",fontSize:11,fontWeight:700}}>削除</button>
                 </div>
               ))}
             </div>
@@ -1532,12 +1538,12 @@ export default function App(){
               <div style={{fontSize:11,color:C.muted,marginBottom:12}}>夜枠（複数可）とアイサニ（ヘルプ）を日ごとに設定</div>
               <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                 {NIGHT_TIMES.map(t=>(
-                  <span key={t} style={{fontSize:10,display:"flex",alignItems:"center",gap:5,padding:"3px 10px",borderRadius:999,background:NIGHT_TC[t]+"14",border:`1px solid ${NIGHT_TC[t]}30`}}>
+                  <span key={t} style={{fontSize:10,display:"flex",alignItems:"center",gap:5,padding:"3px 10px",borderRadius:6,background:NIGHT_TC[t]+"14",border:`1px solid ${NIGHT_TC[t]}30`}}>
                     <span style={{width:6,height:6,borderRadius:3,background:NIGHT_TC[t],display:"inline-block"}}/>
                     <span style={{color:NIGHT_TC[t],fontWeight:700}}>{t}</span>
                   </span>
                 ))}
-                <span style={{fontSize:10,display:"flex",alignItems:"center",gap:5,padding:"3px 10px",borderRadius:999,background:"rgba(139,26,26,0.08)",border:"1px solid rgba(139,26,26,0.2)"}}>
+                <span style={{fontSize:10,display:"flex",alignItems:"center",gap:5,padding:"3px 10px",borderRadius:6,background:"rgba(139,26,26,0.08)",border:"1px solid rgba(139,26,26,0.2)"}}>
                   <span style={{width:6,height:6,borderRadius:3,background:C.accent,display:"inline-block"}}/>
                   <span style={{color:C.accent,fontWeight:700}}>アイサニ</span>
                 </span>
@@ -1560,7 +1566,7 @@ export default function App(){
                 const allClosed=closed||manualClosed;
                 const active=slots.length>0||aiOn||kitOn||morningClosed;
                 return(
-                  <div key={d} style={{borderRadius:12,padding:"5px 3px",transition:"all .2s",
+                  <div key={d} style={{borderRadius:7,padding:"5px 3px",transition:"all .2s",
                     background:allClosed?(aiOn?"rgba(139,26,26,0.05)":"#f5f0eb"):morningClosed?"rgba(251,146,60,0.06)":active?"rgba(139,26,26,0.05)":"#fff",
                     border:`1px solid ${allClosed?(aiOn?"rgba(139,26,26,0.25)":"rgba(139,26,26,0.06)"):morningClosed?"rgba(251,146,60,0.4)":active?"rgba(139,26,26,0.25)":hol?"rgba(184,134,11,0.2)":dow===0?"rgba(192,57,43,0.18)":dow===6?"rgba(27,42,94,0.15)":"rgba(139,26,26,0.08)"}`,
                     minHeight:80,opacity:allClosed&&!aiOn?0.35:1,
@@ -1651,7 +1657,7 @@ export default function App(){
                       next[d]=cur.includes(t)?cur.filter(x=>x!==t):[...cur,t].sort();
                     }
                     updateNightSlot(next);
-                  }} style={{fontSize:10,padding:"6px 12px",borderRadius:999,border:`1px solid ${NIGHT_TC[t]}40`,background:NIGHT_TC[t]+"12",color:NIGHT_TC[t],cursor:"pointer",fontWeight:700}}>
+                  }} style={{fontSize:10,padding:"6px 12px",borderRadius:6,border:`1px solid ${NIGHT_TC[t]}40`,background:NIGHT_TC[t]+"12",color:NIGHT_TC[t],cursor:"pointer",fontWeight:700}}>
                     {t} 全日切替
                   </button>
                 ))}
@@ -1659,7 +1665,7 @@ export default function App(){
               </div>
             </div>
 
-            <button onClick={()=>setView("avail")} style={{width:"100%",padding:"15px",borderRadius:14,border:"none",cursor:"pointer",fontSize:14,fontWeight:900,background:"linear-gradient(135deg,#8b1a1a,#b8860b)",color:"#fff",boxShadow:"0 6px 22px rgba(139,26,26,0.3)"}}>
+            <button onClick={()=>setView("avail")} style={{width:"100%",padding:"15px",borderRadius:8,border:"none",cursor:"pointer",fontSize:14,fontWeight:900,background:"linear-gradient(135deg,#8b1a1a,#b8860b)",color:"#fff",boxShadow:"0 6px 22px rgba(139,26,26,0.3)"}}>
               次へ：候補日入力 →
             </button>
           </div>
@@ -1675,7 +1681,7 @@ export default function App(){
                   const hasAvail=Object.values(avail[s.id]||{}).some(Boolean);
                   return(
                     <button key={s.id} onClick={()=>setSelectedStaffTab(s.id)}
-                      style={{...btn(isSelected,GRADE_COLOR[s.grade]),fontSize:12,padding:"7px 16px",borderRadius:999,
+                      style={{...btn(isSelected,GRADE_COLOR[s.grade]),fontSize:12,padding:"7px 16px",borderRadius:6,
                         color:isSelected?"#fff":hasAvail?C.muted:"#ef4444",
                         border:isSelected?"none":hasAvail?`1px solid ${GRADE_COLOR[s.grade]}30`:"1px solid #ef444440",
                       }}>
@@ -1694,10 +1700,10 @@ export default function App(){
                 <div>
                   <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,flexWrap:"wrap"}}>
                     <span style={{fontWeight:900,fontSize:16}}>{availViewStaff.name}</span>
-                    {gmMode&&<span style={{fontSize:10,padding:"3px 10px",borderRadius:999,fontWeight:700,background:GRADE_COLOR[availViewStaff.grade]+"20",color:GRADE_COLOR[availViewStaff.grade],border:`1px solid ${GRADE_COLOR[availViewStaff.grade]}40`}}>{availViewStaff.grade}</span>}
-                    {isJ&&<span style={{fontSize:10,color:"#f87171",background:"rgba(248,113,113,0.08)",borderRadius:999,padding:"3px 10px",border:"1px solid rgba(248,113,113,0.2)"}}>金土日祝の夜は原則NG</span>}
+                    {gmMode&&<span style={{fontSize:10,padding:"3px 10px",borderRadius:6,fontWeight:700,background:GRADE_COLOR[availViewStaff.grade]+"20",color:GRADE_COLOR[availViewStaff.grade],border:`1px solid ${GRADE_COLOR[availViewStaff.grade]}40`}}>{availViewStaff.grade}</span>}
+                    {isJ&&<span style={{fontSize:10,color:"#f87171",background:"rgba(248,113,113,0.08)",borderRadius:6,padding:"3px 10px",border:"1px solid rgba(248,113,113,0.2)"}}>金土日祝の夜は原則NG</span>}
                   </div>
-                  <div style={{overflowX:"auto",overflowY:"auto",maxHeight:"58vh",borderRadius:14,border:"1px solid rgba(139,26,26,0.1)"}}>
+                  <div style={{overflowX:"auto",overflowY:"auto",maxHeight:"58vh",borderRadius:8,border:"1px solid rgba(139,26,26,0.1)"}}>
                     <table style={{borderCollapse:"collapse",width:"100%",minWidth:540,background:"#fff"}}>
                       <thead>
                         <tr>
@@ -1746,14 +1752,14 @@ export default function App(){
                                     <td style={{background:rowBg,textAlign:"center",padding:"3px 3px"}}>
                                       {aisaniConfig[d]?.enabled?(
                                         <button onClick={()=>toggleAvail(sid,`${d}_aisani`)}
-                                          style={{width:34,height:28,borderRadius:8,border:!!a[`${d}_aisani`]?"none":`1px solid ${C.accent}90`,cursor:"pointer",fontSize:13,fontWeight:800,transition:"all .15s",
+                                          style={{width:34,height:28,borderRadius:5,border:!!a[`${d}_aisani`]?"none":`1px solid ${C.accent}90`,cursor:"pointer",fontSize:13,fontWeight:800,transition:"all .15s",
                                             background:!!a[`${d}_aisani`]?C.accent:"rgba(139,26,26,0.03)",
                                             color:!!a[`${d}_aisani`]?"#fff":C.accent+"99",
                                             boxShadow:!!a[`${d}_aisani`]?`0 2px 8px ${C.accent}44`:"none"}}>
                                           {!!a[`${d}_aisani`]?"✓":""}
                                         </button>
                                       ):(
-                                        <div style={{width:34,height:28,borderRadius:8,background:"rgba(139,26,26,0.02)",margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                                        <div style={{width:34,height:28,borderRadius:5,background:"rgba(139,26,26,0.02)",margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"center"}}>
                                           <span style={{fontSize:9,color:"rgba(139,26,26,0.15)"}}>—</span>
                                         </div>
                                       )}
@@ -1761,7 +1767,7 @@ export default function App(){
                                   )}
                                   {availViewStaff.kitchenOK&&(
                                     <td style={{background:rowBg,textAlign:"center",padding:"3px 3px"}}>
-                                      <div style={{width:34,height:28,borderRadius:8,background:"rgba(139,26,26,0.02)",margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                                      <div style={{width:34,height:28,borderRadius:5,background:"rgba(139,26,26,0.02)",margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"center"}}>
                                         <span style={{fontSize:9,color:"rgba(139,26,26,0.15)"}}>—</span>
                                       </div>
                                     </td>
@@ -1781,7 +1787,7 @@ export default function App(){
                                       return(
                                         <td key={type} style={{background:rowBg,textAlign:"center",padding:"3px 5px"}}>
                                           <button onClick={()=>!locked&&toggleMorningTypeAvail(sid,d,type)}
-                                            style={{width:34,height:28,borderRadius:8,
+                                            style={{width:34,height:28,borderRadius:5,
                                               border:on?"none":`1px solid ${col}90`,
                                               cursor:locked?"not-allowed":"pointer",fontSize:13,fontWeight:800,
                                               background:on?col:"rgba(139,26,26,0.03)",
@@ -1804,7 +1810,7 @@ export default function App(){
                                       <td key={t} style={{background:rowBg,textAlign:"center",padding:"3px 3px"}}>
                                         {slotExists?(
                                           <button onClick={()=>!dis&&toggleNightAvail(sid,d,t)}
-                                            style={{width:34,height:28,borderRadius:8,border:on?"none":`1px solid ${NIGHT_TC[t]}90`,cursor:dis?"not-allowed":"pointer",
+                                            style={{width:34,height:28,borderRadius:5,border:on?"none":`1px solid ${NIGHT_TC[t]}90`,cursor:dis?"not-allowed":"pointer",
                                               fontSize:13,fontWeight:800,transition:"all .15s",
                                               background:on?NIGHT_TC[t]:dis?"rgba(139,26,26,0.02)":"rgba(139,26,26,0.03)",
                                               color:on?"#fff":dis?"rgba(0,0,0,0.1)":NIGHT_TC[t]+"99",
@@ -1812,7 +1818,7 @@ export default function App(){
                                             {on?"✓":""}
                                           </button>
                                         ):(
-                                          <div style={{width:34,height:28,borderRadius:8,background:"rgba(139,26,26,0.02)",margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                                          <div style={{width:34,height:28,borderRadius:5,background:"rgba(139,26,26,0.02)",margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"center"}}>
                                             <span style={{fontSize:9,color:"rgba(139,26,26,0.15)"}}>—</span>
                                           </div>
                                         )}
@@ -1823,14 +1829,14 @@ export default function App(){
                                     <td style={{background:rowBg,textAlign:"center",padding:"3px 3px"}}>
                                       {aisaniConfig[d]?.enabled?(
                                         <button onClick={()=>toggleAvail(sid,`${d}_aisani`)}
-                                          style={{width:34,height:28,borderRadius:8,border:!!a[`${d}_aisani`]?"none":`1px solid ${C.accent}90`,cursor:"pointer",fontSize:13,fontWeight:800,transition:"all .15s",
+                                          style={{width:34,height:28,borderRadius:5,border:!!a[`${d}_aisani`]?"none":`1px solid ${C.accent}90`,cursor:"pointer",fontSize:13,fontWeight:800,transition:"all .15s",
                                             background:!!a[`${d}_aisani`]?C.accent:"rgba(139,26,26,0.03)",
                                             color:!!a[`${d}_aisani`]?"#fff":C.accent+"99",
                                             boxShadow:!!a[`${d}_aisani`]?`0 2px 8px ${C.accent}44`:"none"}}>
                                           {!!a[`${d}_aisani`]?"✓":""}
                                         </button>
                                       ):(
-                                        <div style={{width:34,height:28,borderRadius:8,background:"rgba(139,26,26,0.02)",margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                                        <div style={{width:34,height:28,borderRadius:5,background:"rgba(139,26,26,0.02)",margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"center"}}>
                                           <span style={{fontSize:9,color:"rgba(139,26,26,0.15)"}}>—</span>
                                         </div>
                                       )}
@@ -1840,14 +1846,14 @@ export default function App(){
                                     <td style={{background:rowBg,textAlign:"center",padding:"3px 3px"}}>
                                       {kitchenConfig[d]?.enabled?(
                                         <button onClick={()=>toggleAvail(sid,`${d}_kitchen`)}
-                                          style={{width:34,height:28,borderRadius:8,border:!!a[`${d}_kitchen`]?"none":"1px solid #27674990",cursor:"pointer",fontSize:13,fontWeight:800,transition:"all .15s",
+                                          style={{width:34,height:28,borderRadius:5,border:!!a[`${d}_kitchen`]?"none":"1px solid #27674990",cursor:"pointer",fontSize:13,fontWeight:800,transition:"all .15s",
                                             background:!!a[`${d}_kitchen`]?"#276749":"rgba(39,103,73,0.04)",
                                             color:!!a[`${d}_kitchen`]?"#fff":"#27674999",
                                             boxShadow:!!a[`${d}_kitchen`]?"0 2px 8px #27674944":"none"}}>
                                           {!!a[`${d}_kitchen`]?"✓":""}
                                         </button>
                                       ):(
-                                        <div style={{width:34,height:28,borderRadius:8,background:"rgba(39,103,73,0.02)",margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                                        <div style={{width:34,height:28,borderRadius:5,background:"rgba(39,103,73,0.02)",margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"center"}}>
                                           <span style={{fontSize:9,color:"rgba(39,103,73,0.15)"}}>—</span>
                                         </div>
                                       )}
@@ -1868,7 +1874,7 @@ export default function App(){
 
             {gmMode&&(
               <button onClick={handleGenerate} disabled={generating}
-                style={{width:"100%",marginTop:20,padding:"16px",borderRadius:14,border:"none",cursor:generating?"not-allowed":"pointer",
+                style={{width:"100%",marginTop:20,padding:"16px",borderRadius:8,border:"none",cursor:generating?"not-allowed":"pointer",
                   fontSize:15,fontWeight:900,transition:"all .3s",
                   background:generating?"#f5f0eb":"linear-gradient(135deg,#8b1a1a,#b8860b)",
                   color:generating?"#b0a090":"#fff",boxShadow:generating?"none":"0 6px 22px rgba(139,26,26,0.3)"}}>
@@ -1876,7 +1882,7 @@ export default function App(){
               </button>
             )}
             {!gmMode&&loginStaff&&(
-              <div style={{marginTop:14,padding:"13px 16px",borderRadius:12,background:"rgba(139,26,26,0.04)",border:"1px solid rgba(139,26,26,0.15)",fontSize:12,color:C.accent,textAlign:"center",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+              <div style={{marginTop:14,padding:"13px 16px",borderRadius:7,background:"rgba(139,26,26,0.04)",border:"1px solid rgba(139,26,26,0.15)",fontSize:12,color:C.accent,textAlign:"center",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
                 <div style={{width:7,height:7,borderRadius:4,background:C.accent}}/>
                 入力内容は自動で保存されます
               </div>
@@ -1888,9 +1894,9 @@ export default function App(){
         {!gmMode&&loginStaff&&staffTab==="shift"&&(()=>{
           const shiftNavHeader=(
             <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,marginTop:16,marginBottom:4}}>
-              <button onClick={staffShiftViewPrev} style={{...btn(false),padding:"4px 14px",fontSize:16,borderRadius:10}}>‹</button>
+              <button onClick={staffShiftViewPrev} style={{...btn(false),padding:"4px 14px",fontSize:16,borderRadius:6}}>‹</button>
               <span style={{fontWeight:900,fontSize:16}}>{staffShiftViewY}年{staffShiftViewM+1}月</span>
-              <button onClick={staffShiftViewNext} style={{...btn(false),padding:"4px 14px",fontSize:16,borderRadius:10}}>›</button>
+              <button onClick={staffShiftViewNext} style={{...btn(false),padding:"4px 14px",fontSize:16,borderRadius:6}}>›</button>
             </div>
           );
           if(!staffViewCS) return(
@@ -1953,7 +1959,7 @@ export default function App(){
               ):(
                 <div style={{display:"flex",flexDirection:"column",gap:10}}>
                   {myDays.map(({d,dow,groups})=>(
-                    <div key={d} style={{borderRadius:12,background:"#fdfaf6",border:"1px solid rgba(39,103,73,0.12)",overflow:"hidden"}}>
+                    <div key={d} style={{borderRadius:7,background:"#fdfaf6",border:"1px solid rgba(39,103,73,0.12)",overflow:"hidden"}}>
                       <div style={{padding:"8px 14px",background:"rgba(39,103,73,0.06)",borderBottom:"1px solid rgba(39,103,73,0.1)",fontWeight:900,fontSize:14,color:dow===0?"#c0392b":dow===6?"#1b2a5e":C.text}}>
                         {d}日<span style={{fontSize:11,marginLeft:4,fontWeight:600,color:C.muted}}>({DOW_JP[dow]})</span>
                       </div>
@@ -1964,7 +1970,7 @@ export default function App(){
                             <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
                               {g.night
                                 ? g.members.map(({person,time,isStar,isJ},i)=>(
-                                    <span key={i} style={{fontSize:12,fontWeight:700,padding:"4px 11px",borderRadius:999,
+                                    <span key={i} style={{fontSize:12,fontWeight:700,padding:"4px 11px",borderRadius:6,
                                       background:(person.id===sid||Number(person.id)===sid)?g.color:"rgba(59,130,246,0.08)",
                                       color:(person.id===sid||Number(person.id)===sid)?"#fff":C.text,
                                       border:`1px solid ${g.color}${(person.id===sid||Number(person.id)===sid)?"":"30"}`}}>
@@ -1972,7 +1978,7 @@ export default function App(){
                                     </span>
                                   ))
                                 : g.members.map((person,i)=>(
-                                    <span key={i} style={{fontSize:12,fontWeight:700,padding:"4px 11px",borderRadius:999,
+                                    <span key={i} style={{fontSize:12,fontWeight:700,padding:"4px 11px",borderRadius:6,
                                       background:(person.id===sid||Number(person.id)===sid)?g.color:"rgba(0,0,0,0.04)",
                                       color:(person.id===sid||Number(person.id)===sid)?"#fff":C.text,
                                       border:`1px solid ${g.color}${(person.id===sid||Number(person.id)===sid)?"":"20"}`}}>
@@ -1997,9 +2003,9 @@ export default function App(){
         {!gmMode&&loginStaff&&staffTab==="full"&&(()=>{
           const shiftNavHeader=(
             <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,marginTop:16,marginBottom:4}}>
-              <button onClick={staffShiftViewPrev} style={{...btn(false),padding:"4px 14px",fontSize:16,borderRadius:10}}>‹</button>
+              <button onClick={staffShiftViewPrev} style={{...btn(false),padding:"4px 14px",fontSize:16,borderRadius:6}}>‹</button>
               <span style={{fontWeight:900,fontSize:16}}>{staffShiftViewY}年{staffShiftViewM+1}月</span>
-              <button onClick={staffShiftViewNext} style={{...btn(false),padding:"4px 14px",fontSize:16,borderRadius:10}}>›</button>
+              <button onClick={staffShiftViewNext} style={{...btn(false),padding:"4px 14px",fontSize:16,borderRadius:6}}>›</button>
             </div>
           );
           if(!staffViewCS) return(
@@ -2019,7 +2025,7 @@ export default function App(){
             <div style={{marginTop:8}}>
               <div style={{textAlign:"center",marginBottom:14}}>
                 <div style={{fontSize:10,letterSpacing:6,fontWeight:700,color:C.gold,marginBottom:4}}>🍶 旬菜いまり</div>
-                <div style={{fontSize:20,fontWeight:900,color:C.text}}>{csYear}年{csMonth+1}月 シフト表</div>
+                <div style={{fontSize:20,fontWeight:800,color:C.text,fontFamily:serif}}>{csYear}年{csMonth+1}月 シフト表</div>
               </div>
               {Array.from({length:csdays},(_,i)=>i+1).map(d=>{
                 const dow=getDow(csYear,csMonth,d),hol=isHol(csYear,csMonth,d);
@@ -2045,26 +2051,26 @@ export default function App(){
                 const csNOv=(starOverrides[d]||{}).night;
                 if(csNOv==="none")csNStar=null;else if(csNOv)csNStar=csNOv;
                 return(
-                  <div key={d} style={{background:"#fff",borderRadius:14,border:`1.5px solid ${borderCol}`,padding:"12px 14px",marginBottom:8,boxShadow:myDay?"0 2px 10px rgba(139,26,26,0.1)":"0 1px 4px rgba(0,0,0,0.03)"}}>
+                  <div key={d} style={{background:"#fff",borderRadius:8,border:`1.5px solid ${borderCol}`,padding:"12px 14px",marginBottom:8,boxShadow:myDay?"0 2px 10px rgba(139,26,26,0.1)":"0 1px 4px rgba(0,0,0,0.03)"}}>
                     <div style={{marginBottom:(hasAisani||hasKitchen||!closed)?10:0}}>
                       <div style={{display:"flex",alignItems:"center",gap:7,flexWrap:"wrap"}}>
                         <span style={{fontWeight:900,fontSize:15,color:hol?"#b8860b":dow===0?"#c0392b":dow===6?"#1b2a5e":C.text}}>
                           {csMonth+1}/{d}（{DOW_JP[dow]}）{hol?"🎌":""}
                         </span>
-                        {closed&&<span style={{fontSize:9,padding:"3px 8px",borderRadius:999,background:"rgba(139,26,26,0.06)",color:C.muted,fontWeight:700,border:"1px solid rgba(139,26,26,0.12)"}}>定休日</span>}
-                        {myDay&&<span style={{fontSize:9,padding:"3px 8px",borderRadius:999,background:"rgba(139,26,26,0.08)",color:C.accent,fontWeight:700,border:`1px solid ${C.accent}30`}}>出勤</span>}
+                        {closed&&<span style={{fontSize:9,padding:"3px 8px",borderRadius:6,background:"rgba(139,26,26,0.06)",color:C.muted,fontWeight:700,border:"1px solid rgba(139,26,26,0.12)"}}>定休日</span>}
+                        {myDay&&<span style={{fontSize:9,padding:"3px 8px",borderRadius:6,background:"rgba(139,26,26,0.08)",color:C.accent,fontWeight:700,border:`1px solid ${C.accent}30`}}>出勤</span>}
                       </div>
-                      {staffViewDayComments[d]&&<div style={{marginTop:5,fontSize:13,color:"#7a5c00",background:"rgba(184,134,11,0.07)",border:"1px solid rgba(184,134,11,0.18)",borderRadius:8,padding:"5px 10px",fontWeight:600,lineHeight:1.5}}>{staffViewDayComments[d]}</div>}
+                      {staffViewDayComments[d]&&<div style={{marginTop:5,fontSize:13,color:"#7a5c00",background:"rgba(184,134,11,0.07)",border:"1px solid rgba(184,134,11,0.18)",borderRadius:5,padding:"5px 10px",fontWeight:600,lineHeight:1.5}}>{staffViewDayComments[d]}</div>}
                     </div>
                     {day&&(
                       <div style={{display:"flex",flexDirection:"column",gap:5}}>
                         {!closed&&(day.morning||[]).length>0&&(
                           <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-                            <span style={{fontSize:10,fontWeight:700,color:"#b07d12",background:"#b07d1218",borderRadius:999,padding:"3px 10px",border:"1px solid #b07d1230",minWidth:60,textAlign:"center",flexShrink:0}}>朝</span>
+                            <span style={{fontSize:10,fontWeight:700,color:"#b07d12",background:"#b07d1218",borderRadius:6,padding:"3px 10px",border:"1px solid #b07d1230",minWidth:60,textAlign:"center",flexShrink:0}}>朝</span>
                             <span style={{fontSize:9,color:C.muted,flexShrink:0}}>7:00〜11:00</span>
                             <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
                               {(day.morning||[]).map(id=>{const s=staffMap[id]||staffMap[Number(id)];return s?(
-                                <span key={id} style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,
+                                <span key={id} style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:6,
                                   background:(id===sid||Number(id)===sid)?C.accent:"rgba(176,125,18,0.08)",
                                   color:(id===sid||Number(id)===sid)?"#fff":"#b07d12",
                                   border:`1px solid ${(id===sid||Number(id)===sid)?C.accent:"#b07d1230"}`}}>{(id===csMStar||Number(id)===csMStar)?'🌟':''}{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}</span>
@@ -2074,11 +2080,11 @@ export default function App(){
                         )}
                         {!closed&&(day.prep||[]).length>0&&(
                           <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-                            <span style={{fontSize:10,fontWeight:700,color:"#276749",background:"#27674918",borderRadius:999,padding:"3px 10px",border:"1px solid #27674930",minWidth:60,textAlign:"center",flexShrink:0}}>朝仕込み</span>
+                            <span style={{fontSize:10,fontWeight:700,color:"#276749",background:"#27674918",borderRadius:6,padding:"3px 10px",border:"1px solid #27674930",minWidth:60,textAlign:"center",flexShrink:0}}>朝仕込み</span>
                             <span style={{fontSize:9,color:C.muted,flexShrink:0}}>8:30〜16:00</span>
                             <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
                               {(day.prep||[]).map(id=>{const s=staffMap[id]||staffMap[Number(id)];return s?(
-                                <span key={id} style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,
+                                <span key={id} style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:6,
                                   background:(id===sid||Number(id)===sid)?C.accent:"rgba(39,103,73,0.08)",
                                   color:(id===sid||Number(id)===sid)?"#fff":"#276749",
                                   border:`1px solid ${(id===sid||Number(id)===sid)?C.accent:"#27674930"}`}}>{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}</span>
@@ -2088,8 +2094,8 @@ export default function App(){
                         )}
                         {hasKitchen&&(()=>{const s=staffMap[day.kitchen]||staffMap[Number(day.kitchen)];return s?(
                           <div style={{display:"flex",alignItems:"center",gap:6}}>
-                            <span style={{fontSize:10,fontWeight:700,color:"#276749",background:"#27674918",borderRadius:999,padding:"3px 10px",border:"1px solid #27674930",minWidth:60,textAlign:"center",flexShrink:0}}>キッチン</span>
-                            <span style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,
+                            <span style={{fontSize:10,fontWeight:700,color:"#276749",background:"#27674918",borderRadius:6,padding:"3px 10px",border:"1px solid #27674930",minWidth:60,textAlign:"center",flexShrink:0}}>キッチン</span>
+                            <span style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:6,
                               background:(day.kitchen===sid||Number(day.kitchen)===sid)?"#276749":"rgba(39,103,73,0.06)",
                               color:(day.kitchen===sid||Number(day.kitchen)===sid)?"#fff":C.text,
                               border:`1px solid ${(day.kitchen===sid||Number(day.kitchen)===sid)?"#276749":"#27674930"}`}}>{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}</span>
@@ -2097,8 +2103,8 @@ export default function App(){
                         ):null;})()}
                         {!closed&&nightEntries.map(([t,id])=>{const s=staffMap[id]||staffMap[Number(id)];const dt=slotDisplayTime(t);const nc=NIGHT_TC[dt]||"#64748b";return s?(
                           <div key={t} style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-                            <span style={{fontSize:10,fontWeight:700,color:nc,background:nc+"18",borderRadius:999,padding:"3px 10px",border:`1px solid ${nc}30`,minWidth:60,textAlign:"center",flexShrink:0}}>夜 {dt}</span>
-                            <span key={id} style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,
+                            <span style={{fontSize:10,fontWeight:700,color:nc,background:nc+"18",borderRadius:6,padding:"3px 10px",border:`1px solid ${nc}30`,minWidth:60,textAlign:"center",flexShrink:0}}>夜 {dt}</span>
+                            <span key={id} style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:6,
                               background:(id===sid||Number(id)===sid)?nc:"rgba(0,0,0,0.04)",
                               color:(id===sid||Number(id)===sid)?"#fff":C.text,
                               border:`1px solid ${(id===sid||Number(id)===sid)?nc:"rgba(0,0,0,0.1)"}`}}>{(id===csNStar||Number(id)===csNStar)?'🌟':''}{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}</span>
@@ -2106,8 +2112,8 @@ export default function App(){
                         ):null;})}
                         {hasAisani&&(()=>{const s=staffMap[day.aisani]||staffMap[Number(day.aisani)];return s?(
                           <div style={{display:"flex",alignItems:"center",gap:6}}>
-                            <span style={{fontSize:10,fontWeight:700,color:C.accent,background:C.accent+"18",borderRadius:999,padding:"3px 10px",border:`1px solid ${C.accent}30`,minWidth:60,textAlign:"center",flexShrink:0}}>アイサニ</span>
-                            <span style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,
+                            <span style={{fontSize:10,fontWeight:700,color:C.accent,background:C.accent+"18",borderRadius:6,padding:"3px 10px",border:`1px solid ${C.accent}30`,minWidth:60,textAlign:"center",flexShrink:0}}>アイサニ</span>
+                            <span style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:6,
                               background:(day.aisani===sid||Number(day.aisani)===sid)?C.accent:"rgba(139,26,26,0.06)",
                               color:(day.aisani===sid||Number(day.aisani)===sid)?"#fff":C.text,
                               border:`1px solid ${(day.aisani===sid||Number(day.aisani)===sid)?C.accent:"rgba(139,26,26,0.15)"}`}}>{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}</span>
@@ -2127,9 +2133,9 @@ export default function App(){
         {!gmMode&&!loginStaff&&shiftPreviewOpen&&(()=>{
           const shiftNavHeader=(
             <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,marginTop:16,marginBottom:4}}>
-              <button onClick={staffShiftViewPrev} style={{...btn(false),padding:"4px 14px",fontSize:16,borderRadius:10}}>‹</button>
+              <button onClick={staffShiftViewPrev} style={{...btn(false),padding:"4px 14px",fontSize:16,borderRadius:6}}>‹</button>
               <span style={{fontWeight:900,fontSize:16}}>{staffShiftViewY}年{staffShiftViewM+1}月</span>
-              <button onClick={staffShiftViewNext} style={{...btn(false),padding:"4px 14px",fontSize:16,borderRadius:10}}>›</button>
+              <button onClick={staffShiftViewNext} style={{...btn(false),padding:"4px 14px",fontSize:16,borderRadius:6}}>›</button>
             </div>
           );
           if(!staffViewCS) return(
@@ -2148,7 +2154,7 @@ export default function App(){
             <div style={{marginTop:8}}>
               <div style={{textAlign:"center",marginBottom:14}}>
                 <div style={{fontSize:10,letterSpacing:6,fontWeight:700,color:C.gold,marginBottom:4}}>🍶 旬菜いまり</div>
-                <div style={{fontSize:20,fontWeight:900,color:C.text}}>{csYear}年{csMonth+1}月 シフト表</div>
+                <div style={{fontSize:20,fontWeight:800,color:C.text,fontFamily:serif}}>{csYear}年{csMonth+1}月 シフト表</div>
               </div>
               {Array.from({length:csdays},(_,i)=>i+1).map(d=>{
                 const dow=getDow(csYear,csMonth,d),hol=isHol(csYear,csMonth,d);
@@ -2170,56 +2176,56 @@ export default function App(){
                 const csNOv=(starOverrides[d]||{}).night;
                 if(csNOv==="none")csNStar=null;else if(csNOv)csNStar=csNOv;
                 return(
-                  <div key={d} style={{background:"#fff",borderRadius:14,border:`1.5px solid ${borderCol}`,padding:"12px 14px",marginBottom:8,boxShadow:"0 1px 4px rgba(0,0,0,0.03)"}}>
+                  <div key={d} style={{background:"#fff",borderRadius:8,border:`1.5px solid ${borderCol}`,padding:"12px 14px",marginBottom:8,boxShadow:"0 1px 4px rgba(0,0,0,0.03)"}}>
                     <div style={{marginBottom:(hasAisani||hasKitchen||!closed)?10:0}}>
                       <div style={{display:"flex",alignItems:"center",gap:7,flexWrap:"wrap"}}>
                         <span style={{fontWeight:900,fontSize:15,color:hol?"#b8860b":dow===0?"#c0392b":dow===6?"#1b2a5e":C.text}}>
                           {csMonth+1}/{d}（{DOW_JP[dow]}）{hol?"🎌":""}
                         </span>
-                        {closed&&<span style={{fontSize:9,padding:"3px 8px",borderRadius:999,background:"rgba(139,26,26,0.06)",color:C.muted,fontWeight:700,border:"1px solid rgba(139,26,26,0.12)"}}>定休日</span>}
+                        {closed&&<span style={{fontSize:9,padding:"3px 8px",borderRadius:6,background:"rgba(139,26,26,0.06)",color:C.muted,fontWeight:700,border:"1px solid rgba(139,26,26,0.12)"}}>定休日</span>}
                       </div>
-                      {staffViewDayComments[d]&&<div style={{marginTop:5,fontSize:13,color:"#7a5c00",background:"rgba(184,134,11,0.07)",border:"1px solid rgba(184,134,11,0.18)",borderRadius:8,padding:"5px 10px",fontWeight:600,lineHeight:1.5}}>{staffViewDayComments[d]}</div>}
+                      {staffViewDayComments[d]&&<div style={{marginTop:5,fontSize:13,color:"#7a5c00",background:"rgba(184,134,11,0.07)",border:"1px solid rgba(184,134,11,0.18)",borderRadius:5,padding:"5px 10px",fontWeight:600,lineHeight:1.5}}>{staffViewDayComments[d]}</div>}
                     </div>
                     {day&&(
                       <div style={{display:"flex",flexDirection:"column",gap:5}}>
                         {!closed&&(day.morning||[]).length>0&&(
                           <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-                            <span style={{fontSize:10,fontWeight:700,color:"#b07d12",background:"#b07d1218",borderRadius:999,padding:"3px 10px",border:"1px solid #b07d1230",minWidth:60,textAlign:"center",flexShrink:0}}>朝</span>
+                            <span style={{fontSize:10,fontWeight:700,color:"#b07d12",background:"#b07d1218",borderRadius:6,padding:"3px 10px",border:"1px solid #b07d1230",minWidth:60,textAlign:"center",flexShrink:0}}>朝</span>
                             <span style={{fontSize:9,color:C.muted,flexShrink:0}}>7:00〜11:00</span>
                             <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
                               {(day.morning||[]).map(id=>{const s=staffMap[id]||staffMap[Number(id)];return s?(
-                                <span key={id} style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,background:"rgba(176,125,18,0.08)",color:"#b07d12",border:"1px solid #b07d1230"}}>{(id===csMStar||Number(id)===csMStar)?'🌟':''}{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}</span>
+                                <span key={id} style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:6,background:"rgba(176,125,18,0.08)",color:"#b07d12",border:"1px solid #b07d1230"}}>{(id===csMStar||Number(id)===csMStar)?'🌟':''}{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}</span>
                               ):null;})}
                             </div>
                           </div>
                         )}
                         {!closed&&(day.prep||[]).length>0&&(
                           <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-                            <span style={{fontSize:10,fontWeight:700,color:"#276749",background:"#27674918",borderRadius:999,padding:"3px 10px",border:"1px solid #27674930",minWidth:60,textAlign:"center",flexShrink:0}}>朝仕込み</span>
+                            <span style={{fontSize:10,fontWeight:700,color:"#276749",background:"#27674918",borderRadius:6,padding:"3px 10px",border:"1px solid #27674930",minWidth:60,textAlign:"center",flexShrink:0}}>朝仕込み</span>
                             <span style={{fontSize:9,color:C.muted,flexShrink:0}}>8:30〜16:00</span>
                             <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
                               {(day.prep||[]).map(id=>{const s=staffMap[id]||staffMap[Number(id)];return s?(
-                                <span key={id} style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,background:"rgba(39,103,73,0.08)",color:"#276749",border:"1px solid #27674930"}}>{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}</span>
+                                <span key={id} style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:6,background:"rgba(39,103,73,0.08)",color:"#276749",border:"1px solid #27674930"}}>{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}</span>
                               ):null;})}
                             </div>
                           </div>
                         )}
                         {hasKitchen&&(()=>{const s=staffMap[day.kitchen]||staffMap[Number(day.kitchen)];return s?(
                           <div style={{display:"flex",alignItems:"center",gap:6}}>
-                            <span style={{fontSize:10,fontWeight:700,color:"#276749",background:"#27674918",borderRadius:999,padding:"3px 10px",border:"1px solid #27674930",minWidth:60,textAlign:"center",flexShrink:0}}>キッチン</span>
-                            <span style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,background:"rgba(39,103,73,0.06)",color:C.text,border:"1px solid #27674930"}}>{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}</span>
+                            <span style={{fontSize:10,fontWeight:700,color:"#276749",background:"#27674918",borderRadius:6,padding:"3px 10px",border:"1px solid #27674930",minWidth:60,textAlign:"center",flexShrink:0}}>キッチン</span>
+                            <span style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:6,background:"rgba(39,103,73,0.06)",color:C.text,border:"1px solid #27674930"}}>{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}</span>
                           </div>
                         ):null;})()}
                         {!closed&&nightEntries.map(([t,id])=>{const s=staffMap[id]||staffMap[Number(id)];const dt=slotDisplayTime(t);const nc=NIGHT_TC[dt]||"#64748b";return s?(
                           <div key={t} style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-                            <span style={{fontSize:10,fontWeight:700,color:nc,background:nc+"18",borderRadius:999,padding:"3px 10px",border:`1px solid ${nc}30`,minWidth:60,textAlign:"center",flexShrink:0}}>夜 {dt}</span>
-                            <span key={id} style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,background:"rgba(0,0,0,0.04)",color:C.text,border:"1px solid rgba(0,0,0,0.1)"}}>{(id===csNStar||Number(id)===csNStar)?'🌟':''}{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}</span>
+                            <span style={{fontSize:10,fontWeight:700,color:nc,background:nc+"18",borderRadius:6,padding:"3px 10px",border:`1px solid ${nc}30`,minWidth:60,textAlign:"center",flexShrink:0}}>夜 {dt}</span>
+                            <span key={id} style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:6,background:"rgba(0,0,0,0.04)",color:C.text,border:"1px solid rgba(0,0,0,0.1)"}}>{(id===csNStar||Number(id)===csNStar)?'🌟':''}{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}</span>
                           </div>
                         ):null;})}
                         {hasAisani&&(()=>{const s=staffMap[day.aisani]||staffMap[Number(day.aisani)];return s?(
                           <div style={{display:"flex",alignItems:"center",gap:6}}>
-                            <span style={{fontSize:10,fontWeight:700,color:C.accent,background:C.accent+"18",borderRadius:999,padding:"3px 10px",border:`1px solid ${C.accent}30`,minWidth:60,textAlign:"center",flexShrink:0}}>アイサニ</span>
-                            <span style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:999,background:"rgba(139,26,26,0.06)",color:C.text,border:"1px solid rgba(139,26,26,0.15)"}}>{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}</span>
+                            <span style={{fontSize:10,fontWeight:700,color:C.accent,background:C.accent+"18",borderRadius:6,padding:"3px 10px",border:`1px solid ${C.accent}30`,minWidth:60,textAlign:"center",flexShrink:0}}>アイサニ</span>
+                            <span style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:6,background:"rgba(139,26,26,0.06)",color:C.text,border:"1px solid rgba(139,26,26,0.15)"}}>{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}</span>
                           </div>
                         ):null;})()}
                       </div>
@@ -2234,7 +2240,7 @@ export default function App(){
 
         {!gmMode&&!loginStaff&&!shiftPreviewOpen&&(
           <div style={{textAlign:"center",padding:"80px 20px",color:C.muted}}>
-            <div style={{width:80,height:80,borderRadius:40,background:"rgba(139,26,26,0.05)",display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:34,marginBottom:18,border:"1px solid rgba(139,26,26,0.1)"}}>👤</div>
+            <div style={{width:80,height:80,borderRadius:12,background:"rgba(139,26,26,0.05)",display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:34,marginBottom:18,border:"1px solid rgba(139,26,26,0.1)"}}>👤</div>
             <div style={{fontSize:14}}>上のリストから名前を選んでください</div>
           </div>
         )}
@@ -2244,18 +2250,18 @@ export default function App(){
           <div className="fi">
             {!result?(
               <div style={{textAlign:"center",padding:"80px 20px",color:C.muted}}>
-                <div style={{width:80,height:80,borderRadius:40,background:"rgba(139,26,26,0.05)",display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:34,marginBottom:18,border:"1px solid rgba(139,26,26,0.1)"}}>📋</div>
+                <div style={{width:80,height:80,borderRadius:12,background:"rgba(139,26,26,0.05)",display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:34,marginBottom:18,border:"1px solid rgba(139,26,26,0.1)"}}>📋</div>
                 <div style={{marginBottom:20,fontSize:14}}>シフトがまだ生成されていません</div>
-                <button onClick={()=>setView("slots")} style={{padding:"11px 28px",borderRadius:999,border:"none",background:"linear-gradient(135deg,#8b1a1a,#b8860b)",color:"#fff",cursor:"pointer",fontSize:13,fontWeight:800,boxShadow:"0 4px 14px rgba(139,26,26,0.3)"}}>夜枠を設定する</button>
+                <button onClick={()=>setView("slots")} style={{padding:"11px 28px",borderRadius:6,border:"none",background:"linear-gradient(135deg,#8b1a1a,#b8860b)",color:"#fff",cursor:"pointer",fontSize:13,fontWeight:800,boxShadow:"0 4px 14px rgba(139,26,26,0.3)"}}>夜枠を設定する</button>
               </div>
             ):(
               <div>
                 <div style={{display:"flex",gap:8,marginBottom:16}}>
-                  <button onClick={handleGenerate} style={{flex:1,padding:"12px",borderRadius:12,border:"1px solid rgba(139,26,26,0.2)",background:"rgba(139,26,26,0.04)",color:C.accent,cursor:"pointer",fontSize:13,fontWeight:700}}>
+                  <button onClick={handleGenerate} style={{flex:1,padding:"12px",borderRadius:7,border:"1px solid rgba(139,26,26,0.2)",background:"rgba(139,26,26,0.04)",color:C.accent,cursor:"pointer",fontSize:13,fontWeight:700}}>
                     🔄 再生成
                   </button>
                   <button onClick={handleExport} disabled={exporting}
-                    style={{flex:1,padding:"12px",borderRadius:12,border:"none",cursor:exporting?"wait":"pointer",fontSize:13,fontWeight:700,
+                    style={{flex:1,padding:"12px",borderRadius:7,border:"none",cursor:exporting?"wait":"pointer",fontSize:13,fontWeight:700,
                       background:exporting?"#f5f0eb":"linear-gradient(135deg,#1b2a5e,#8b1a1a)",
                       color:exporting?"#b0a090":"#fff",boxShadow:exporting?"none":"0 4px 14px rgba(27,42,94,0.3)"}}>
                     {exporting?"⏳ 出力中...":"📷 画像で保存"}
@@ -2265,7 +2271,7 @@ export default function App(){
                   <button onClick={()=>{
                     const cs=serializeConfirmedShift(result,year,month,aisaniConfig,kitchenConfig,nightSlotConfig,dayTypeConfig);
                     if(cs){const csKey=`confirmedShift_${ymRef.current}`;saveKey(csKey,cs);saveCfgLS(csKey,cs);setConfirmedShift(deserializeConfirmedShift(cs));alert(`${year}年${month+1}月のシフトを公開しました`);}
-                  }} style={{flex:1,padding:"13px",borderRadius:12,border:"none",cursor:"pointer",fontSize:13,fontWeight:900,background:"linear-gradient(135deg,#276749,#1a4731)",color:"#fff",boxShadow:"0 4px 14px rgba(39,103,73,0.3)"}}>
+                  }} style={{flex:1,padding:"13px",borderRadius:7,border:"none",cursor:"pointer",fontSize:13,fontWeight:900,background:"linear-gradient(135deg,#276749,#1a4731)",color:"#fff",boxShadow:"0 4px 14px rgba(39,103,73,0.3)"}}>
                     ✅ シフトを公開
                   </button>
                   {confirmedShift&&(
@@ -2273,16 +2279,16 @@ export default function App(){
                       if(window.confirm("公開中のシフトを取り消しますか？スタッフ側から非表示になります。")){
                         const csKey=`confirmedShift_${ymRef.current}`;saveKey(csKey,null);saveCfgLS(csKey,null);setConfirmedShift(null);
                       }
-                    }} style={{flex:1,padding:"13px",borderRadius:12,border:"1px solid rgba(192,57,43,0.3)",cursor:"pointer",fontSize:13,fontWeight:900,background:"rgba(192,57,43,0.06)",color:"#c0392b"}}>
+                    }} style={{flex:1,padding:"13px",borderRadius:7,border:"1px solid rgba(192,57,43,0.3)",cursor:"pointer",fontSize:13,fontWeight:900,background:"rgba(192,57,43,0.06)",color:"#c0392b"}}>
                       ✕ 公開を取り消す
                     </button>
                   )}
                 </div>
 
-                <div ref={shiftRef} style={{background:C.bg,padding:16,borderRadius:18}}>
+                <div ref={shiftRef} style={{background:C.bg,padding:16,borderRadius:10}}>
                   <div style={{textAlign:"center",marginBottom:18}}>
                     <div style={{fontSize:10,letterSpacing:6,fontWeight:700,color:C.gold,marginBottom:4}}>🍶 旬菜いまり</div>
-                    <div style={{fontSize:22,fontWeight:900,color:C.text}}>{year}年{month+1}月 シフト表</div>
+                    <div style={{fontSize:22,fontWeight:800,color:C.text,fontFamily:serif}}>{year}年{month+1}月 シフト表</div>
                   </div>
 
                   <div style={{...card,marginBottom:16}}>
@@ -2303,7 +2309,7 @@ export default function App(){
                         const sel=resultStaffFilter===s.id;
                         return(
                           <div key={s.id} onClick={()=>setResultStaffFilter(sel?null:s.id)}
-                            style={{background:sel?"rgba(139,26,26,0.08)":"#fdfaf6",borderRadius:12,padding:"10px 14px",textAlign:"center",
+                            style={{background:sel?"rgba(139,26,26,0.08)":"#fdfaf6",borderRadius:7,padding:"10px 14px",textAlign:"center",
                               border:`1.5px solid ${sel?C.accent:GRADE_COLOR[s.grade]+"22"}`,minWidth:84,cursor:"pointer",transition:"all .15s",
                               boxShadow:sel?"0 2px 12px rgba(139,26,26,0.18)":"none"}}>
                             <div style={{fontSize:10,fontWeight:700,color:GRADE_COLOR[s.grade]}}>{s.name}</div>
@@ -2321,7 +2327,7 @@ export default function App(){
                   </div>
 
                   {resultStaffFilter&&(
-                    <div style={{marginBottom:10,padding:"8px 14px",borderRadius:10,background:"rgba(139,26,26,0.05)",border:"1px solid rgba(139,26,26,0.15)",fontSize:11,color:C.accent,fontWeight:700}}>
+                    <div style={{marginBottom:10,padding:"8px 14px",borderRadius:6,background:"rgba(139,26,26,0.05)",border:"1px solid rgba(139,26,26,0.15)",fontSize:11,color:C.accent,fontWeight:700}}>
                       {staff.find(s=>s.id===resultStaffFilter)?.name} のシフト・候補一覧
                     </div>
                   )}
@@ -2336,17 +2342,17 @@ export default function App(){
                       if(resultStaffFilter) return null;
                       const bc2=dow===0?"rgba(192,57,43,0.06)":dow===6?"rgba(27,42,94,0.06)":"rgba(139,26,26,0.04)";
                       return(
-                        <div key={d} style={{background:"#fdfaf6",borderRadius:14,border:`1px solid ${bc2}`,padding:"10px 14px",marginBottom:8}}>
+                        <div key={d} style={{background:"#fdfaf6",borderRadius:8,border:`1px solid ${bc2}`,padding:"10px 14px",marginBottom:8}}>
                           <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:8,opacity:0.55}}>
                             <span style={{fontWeight:900,fontSize:15,color:hol?"#b8860b":dow===0?"#c0392b":dow===6?"#1b2a5e":C.text}}>
                               {month+1}/{d}（{DOW_JP[dow]}）{hol?"🎌":""}
                             </span>
-                            <span style={{fontSize:9,padding:"3px 8px",borderRadius:999,background:"rgba(139,26,26,0.06)",color:"#8c7b6b",fontWeight:700,border:"1px solid rgba(139,26,26,0.12)"}}>{manualClosed?"休業日":"定休日"}</span>
+                            <span style={{fontSize:9,padding:"3px 8px",borderRadius:6,background:"rgba(139,26,26,0.06)",color:"#8c7b6b",fontWeight:700,border:"1px solid rgba(139,26,26,0.12)"}}>{manualClosed?"休業日":"定休日"}</span>
                           </div>
                           <input type="text" placeholder="📝 この日のコメントを追加（任意）"
                             value={dayComments[d]||""}
                             onChange={e=>updateDayComments({...dayComments,[d]:e.target.value})}
-                            style={{width:"100%",boxSizing:"border-box",padding:"7px 12px",borderRadius:8,border:"1px solid rgba(139,26,26,0.15)",background:"rgba(139,26,26,0.02)",fontSize:11,color:"#1a0a00",outline:"none",fontFamily:"inherit"}}
+                            style={{width:"100%",boxSizing:"border-box",padding:"7px 12px",borderRadius:5,border:"1px solid rgba(139,26,26,0.15)",background:"rgba(139,26,26,0.02)",fontSize:11,color:"#1a0a00",outline:"none",fontFamily:"inherit"}}
                           />
                         </div>
                       );
@@ -2382,19 +2388,19 @@ export default function App(){
                     const totalS=(morningClosed?0:(sh.morning||0))+(sh.prep||0)+slots.reduce((s,t)=>s+(sh.night?.[t]||0),0)+customNightSlots.reduce((s,t)=>s+(sh.night?.[t]||0),0)+(aiOn?sh.aisani||0:0)+(kitOn?sh.kitchen||0:0);
                     const bc=totalS>0?"rgba(192,57,43,0.2)":warns.length?"rgba(184,134,11,0.2)":hol?"rgba(184,134,11,0.12)":dow===0?"rgba(192,57,43,0.1)":dow===6?"rgba(27,42,94,0.1)":"rgba(139,26,26,0.06)";
                     return(
-                      <div key={d} style={{background:"#fff",borderRadius:14,border:`1px solid ${bc}`,padding:14,marginBottom:8,boxShadow:"0 1px 6px rgba(0,0,0,0.04)"}}>
+                      <div key={d} style={{background:"#fff",borderRadius:8,border:`1px solid ${bc}`,padding:14,marginBottom:8}}>
                         <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:8,flexWrap:"wrap"}}>
                           <span style={{fontWeight:900,fontSize:15,color:hol?"#b8860b":dow===0?"#c0392b":dow===6?"#1b2a5e":C.text}}>
                             {month+1}/{d}（{DOW_JP[dow]}）{hol?"🎌":""}
                           </span>
-                          {allClosed&&<span style={{fontSize:9,padding:"3px 8px",borderRadius:999,background:"rgba(139,26,26,0.06)",color:"#8c7b6b",fontWeight:700,border:"1px solid rgba(139,26,26,0.12)"}}>{manualClosed?"休業日":"定休日"}</span>}
-                          {morningClosed&&<span style={{fontSize:9,padding:"3px 8px",borderRadius:999,background:"rgba(234,88,12,0.08)",color:"#ea580c",fontWeight:700,border:"1px solid rgba(234,88,12,0.2)"}}>朝営業休み</span>}
-                          {!allClosed&&!morningClosed&&isSpec(year,month,d)&&<span style={{fontSize:9,padding:"3px 8px",borderRadius:999,background:"rgba(184,134,11,0.08)",color:"#b8860b",fontWeight:700,border:"1px solid rgba(184,134,11,0.2)"}}>特別夜</span>}
-                          {totalS>0&&<span style={{fontSize:9,padding:"3px 8px",borderRadius:999,background:"rgba(192,57,43,0.08)",color:"#c0392b",fontWeight:700,border:"1px solid rgba(192,57,43,0.2)"}}>⚠ 不足{totalS}名</span>}
-                          {warns.length>0&&<span style={{fontSize:9,padding:"3px 8px",borderRadius:999,background:"rgba(184,134,11,0.06)",color:"#b8860b",fontWeight:700,border:"1px solid rgba(184,134,11,0.18)"}}>⚡ 例外あり</span>}
+                          {allClosed&&<span style={{fontSize:9,padding:"3px 8px",borderRadius:6,background:"rgba(139,26,26,0.06)",color:"#8c7b6b",fontWeight:700,border:"1px solid rgba(139,26,26,0.12)"}}>{manualClosed?"休業日":"定休日"}</span>}
+                          {morningClosed&&<span style={{fontSize:9,padding:"3px 8px",borderRadius:6,background:"rgba(234,88,12,0.08)",color:"#ea580c",fontWeight:700,border:"1px solid rgba(234,88,12,0.2)"}}>朝営業休み</span>}
+                          {!allClosed&&!morningClosed&&isSpec(year,month,d)&&<span style={{fontSize:9,padding:"3px 8px",borderRadius:6,background:"rgba(184,134,11,0.08)",color:"#b8860b",fontWeight:700,border:"1px solid rgba(184,134,11,0.2)"}}>特別夜</span>}
+                          {totalS>0&&<span style={{fontSize:9,padding:"3px 8px",borderRadius:6,background:"rgba(192,57,43,0.08)",color:"#c0392b",fontWeight:700,border:"1px solid rgba(192,57,43,0.2)"}}>⚠ 不足{totalS}名</span>}
+                          {warns.length>0&&<span style={{fontSize:9,padding:"3px 8px",borderRadius:6,background:"rgba(184,134,11,0.06)",color:"#b8860b",fontWeight:700,border:"1px solid rgba(184,134,11,0.18)"}}>⚡ 例外あり</span>}
                         </div>
                         {warns.length>0&&(
-                          <div style={{marginBottom:8,padding:"8px 12px",background:"rgba(184,134,11,0.04)",borderRadius:10,border:"1px solid rgba(184,134,11,0.12)"}}>
+                          <div style={{marginBottom:8,padding:"8px 12px",background:"rgba(184,134,11,0.04)",borderRadius:6,border:"1px solid rgba(184,134,11,0.12)"}}>
                             {warns.map((w,i)=><div key={i} style={{fontSize:10,color:"#b8860b"}}>⚡ {w}</div>)}
                           </div>
                         )}
@@ -2442,7 +2448,7 @@ export default function App(){
                               <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
                                 <input type="time" value={addSlotState.time}
                                   onChange={e=>setAddSlotState(s=>({...s,time:e.target.value,error:null}))}
-                                  style={{padding:"5px 8px",borderRadius:8,border:`1px solid ${addSlotState.error?"#c0392b":"rgba(139,26,26,0.25)"}`,fontSize:12,fontFamily:"inherit",outline:"none",color:C.text}}
+                                  style={{padding:"5px 8px",borderRadius:5,border:`1px solid ${addSlotState.error?"#c0392b":"rgba(139,26,26,0.25)"}`,fontSize:12,fontFamily:"inherit",outline:"none",color:C.text}}
                                 />
                                 <button onClick={()=>{
                                   const t=addSlotState.time;
@@ -2451,13 +2457,13 @@ export default function App(){
                                   let key=t;if(existing.includes(key)){let i=2;while(existing.includes(`${t}_${i}`))i++;key=`${t}_${i}`;}
                                   swapShiftAssignment(d,'night',key,null,null,true);
                                   setAddSlotState(null);
-                                }} style={{padding:"5px 14px",borderRadius:8,border:"none",background:"linear-gradient(135deg,#8b1a1a,#b8860b)",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>追加</button>
-                                <button onClick={()=>setAddSlotState(null)} style={{padding:"5px 10px",borderRadius:8,border:"1px solid rgba(139,26,26,0.2)",background:"transparent",fontSize:11,cursor:"pointer",color:C.muted,fontWeight:600}}>キャンセル</button>
+                                }} style={{padding:"5px 14px",borderRadius:5,border:"none",background:"linear-gradient(135deg,#8b1a1a,#b8860b)",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>追加</button>
+                                <button onClick={()=>setAddSlotState(null)} style={{padding:"5px 10px",borderRadius:5,border:"1px solid rgba(139,26,26,0.2)",background:"transparent",fontSize:11,cursor:"pointer",color:C.muted,fontWeight:600}}>キャンセル</button>
                               </div>
                               {addSlotState.error&&<div style={{fontSize:10,color:"#c0392b",paddingLeft:2}}>{addSlotState.error}</div>}
                             </div>
                           ):(
-                            <button onClick={()=>setAddSlotState({d,time:"",error:null})} style={{padding:"4px 12px",borderRadius:8,border:"1px dashed rgba(100,116,139,0.4)",background:"rgba(100,116,139,0.04)",fontSize:11,cursor:"pointer",color:"#64748b",fontWeight:600}}>＋ 夜枠追加</button>
+                            <button onClick={()=>setAddSlotState({d,time:"",error:null})} style={{padding:"4px 12px",borderRadius:5,border:"1px dashed rgba(100,116,139,0.4)",background:"rgba(100,116,139,0.04)",fontSize:11,cursor:"pointer",color:"#64748b",fontWeight:600}}>＋ 夜枠追加</button>
                           ))}
                           {aiOn&&<SRow label="アイサニ" time="ヘルプ" color={C.accent}
                             people={day.aisani?[staffMap[day.aisani]].filter(Boolean):[]} shortage={sh.aisani||0}
@@ -2469,7 +2475,7 @@ export default function App(){
                         <input type="text" placeholder="📝 この日のコメントを追加（任意）"
                           value={dayComments[d]||""}
                           onChange={e=>updateDayComments({...dayComments,[d]:e.target.value})}
-                          style={{marginTop:8,width:"100%",boxSizing:"border-box",padding:"7px 12px",borderRadius:8,border:"1px solid rgba(139,26,26,0.15)",background:"rgba(139,26,26,0.02)",fontSize:11,color:"#1a0a00",outline:"none",fontFamily:"inherit"}}
+                          style={{marginTop:8,width:"100%",boxSizing:"border-box",padding:"7px 12px",borderRadius:5,border:"1px solid rgba(139,26,26,0.15)",background:"rgba(139,26,26,0.02)",fontSize:11,color:"#1a0a00",outline:"none",fontFamily:"inherit"}}
                         />
                       </div>
                     );
@@ -2488,17 +2494,17 @@ function SRow({label,time,color,people,shortage=0,candidates=[],onSwap=null,onRe
   return(
     <div style={{display:"flex",flexDirection:"column",gap:3}}>
       <div style={{display:"flex",alignItems:"center",gap:7,flexWrap:"wrap"}}>
-        <div style={{minWidth:70,fontSize:10,fontWeight:700,color,background:color+"18",borderRadius:999,padding:"3px 10px",textAlign:"center",flexShrink:0,border:`1px solid ${color}30`}}>{label}</div>
+        <div style={{minWidth:70,fontSize:10,fontWeight:700,color,background:color+"18",borderRadius:6,padding:"3px 10px",textAlign:"center",flexShrink:0,border:`1px solid ${color}30`}}>{label}</div>
         {onDeleteSlot&&<button onClick={onDeleteSlot} title="この枠を削除" style={{background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontWeight:900,fontSize:13,padding:"0 2px",lineHeight:1}}>×</button>}
         {time&&<div style={{fontSize:9,color:"#8c7b6b",minWidth:76,flexShrink:0}}>{time}</div>}
         <div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}>
           {people.map(s=>{
             const isTop=topIds?.has(s.id);
             const nameEl=onRemove
-              ? <button key={s.id} onClick={()=>onRemove(s.id)} title="タップで削除" style={{fontSize:12,padding:"4px 12px",borderRadius:999,background:"rgba(139,26,26,0.05)",color:"#1a0a00",fontWeight:700,border:"1px solid rgba(139,26,26,0.12)",cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:4}}>
+              ? <button key={s.id} onClick={()=>onRemove(s.id)} title="タップで削除" style={{fontSize:12,padding:"4px 12px",borderRadius:6,background:"rgba(139,26,26,0.05)",color:"#1a0a00",fontWeight:700,border:"1px solid rgba(139,26,26,0.12)",cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:4}}>
                   {!onStarToggle&&isTop?'🌟':''}{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}<span style={{fontSize:9,color:"#c0392b",fontWeight:900}}>×</span>
                 </button>
-              : <span key={s.id} style={{fontSize:12,padding:"4px 14px",borderRadius:999,background:"rgba(139,26,26,0.05)",color:"#1a0a00",fontWeight:700,border:"1px solid rgba(139,26,26,0.12)"}}>
+              : <span key={s.id} style={{fontSize:12,padding:"4px 14px",borderRadius:6,background:"rgba(139,26,26,0.05)",color:"#1a0a00",fontWeight:700,border:"1px solid rgba(139,26,26,0.12)"}}>
                   {!onStarToggle&&isTop?'🌟':''}{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}
                 </span>;
             return onStarToggle?(
@@ -2511,7 +2517,7 @@ function SRow({label,time,color,people,shortage=0,candidates=[],onSwap=null,onRe
             ):nameEl;
           })}
           {shortage>0&&(
-            <span style={{display:"flex",alignItems:"center",gap:4,fontSize:10,padding:"3px 10px",borderRadius:999,background:"rgba(192,57,43,0.08)",color:"#c0392b",fontWeight:700,border:"1px solid rgba(192,57,43,0.2)"}}>
+            <span style={{display:"flex",alignItems:"center",gap:4,fontSize:10,padding:"3px 10px",borderRadius:6,background:"rgba(192,57,43,0.08)",color:"#c0392b",fontWeight:700,border:"1px solid rgba(192,57,43,0.2)"}}>
               あと{shortage}名不足
               {onDismissShortage&&<button onClick={onDismissShortage} style={{background:"none",border:"none",cursor:"pointer",color:"#c0392b",fontWeight:900,fontSize:11,padding:"0 2px",lineHeight:1,fontFamily:"inherit"}}>×</button>}
             </span>
@@ -2524,10 +2530,10 @@ function SRow({label,time,color,people,shortage=0,candidates=[],onSwap=null,onRe
           <span style={{fontSize:9,color:"#b0a090",flexShrink:0}}>候補：</span>
           {candidates.map(s=>(
             onSwap
-              ? <button key={s.id} onClick={()=>onSwap(s.id)} style={{fontSize:10,padding:"2px 10px",borderRadius:999,background:"rgba(37,99,235,0.07)",color:"#1d4ed8",border:"1px dashed rgba(37,99,235,0.35)",cursor:"pointer",fontFamily:"inherit",fontWeight:600}}>
+              ? <button key={s.id} onClick={()=>onSwap(s.id)} style={{fontSize:10,padding:"2px 10px",borderRadius:6,background:"rgba(37,99,235,0.07)",color:"#1d4ed8",border:"1px dashed rgba(37,99,235,0.35)",cursor:"pointer",fontFamily:"inherit",fontWeight:600}}>
                   {s.name}
                 </button>
-              : <span key={s.id} style={{fontSize:10,padding:"2px 10px",borderRadius:999,background:"rgba(139,26,26,0.03)",color:"#8c7b6b",border:"1px dashed rgba(139,26,26,0.15)"}}>
+              : <span key={s.id} style={{fontSize:10,padding:"2px 10px",borderRadius:6,background:"rgba(139,26,26,0.03)",color:"#8c7b6b",border:"1px dashed rgba(139,26,26,0.15)"}}>
                   {s.name}
                 </span>
           ))}
