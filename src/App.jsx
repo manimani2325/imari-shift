@@ -1207,7 +1207,7 @@ export default function App(){
   const C={
     bg:"#fdfaf6",text:"#1a0a00",muted:"#8c7b6b",accent:"#8b1a1a",
     navy:"#1b2a5e",gold:"#b8860b",red:"#8b1a1a",cream:"#fdf6ec",
-    ink:"#201008",headMuted:"#c0ad9b",
+    ink:"#2b1014",headMuted:"#c7ada6",
   };
   const btn=(on,c=C.accent)=>({
     padding:"8px 16px",borderRadius:4,border:on?"1px solid transparent":`1px solid ${C.accent}45`,
