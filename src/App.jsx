@@ -19,6 +19,8 @@ const HOLIDAYS = new Set([
 // J=新人相当, L=中堅, M=中堅〜ベテラン間, SM=ベテラン相当, GM=管理者
 const GRADES = ["J","L","M","SM","GM"];
 const GRADE_SORT = {GM:0,SM:1,M:2,L:3,J:4};
+// 等級別の目標達成率: SM/GM=70%, L/M=60%, J=50%
+const TARGET_RATE = {GM:0.7,SM:0.7,M:0.6,L:0.6,J:0.5};
 const sortByGrade = arr=>[...arr].sort((a,b)=>(GRADE_SORT[a.grade]??5)-(GRADE_SORT[b.grade]??5));
 const GRADE_COLOR = { J:"#34d399", L:"#60a5fa", M:"#facc15", SM:"#f97316", GM:"#e879f9" };
 const serif="'Shippori Mincho','Zen Kaku Gothic New',serif";
@@ -97,9 +99,9 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
     const { maxJunior=99, needSeniorIfJunior=false, balanceMode=null, maxFlagged=99, needSeniorIfFlagged=false, lateBias=false } = opts;
     const isFlagged = s => (s.lateAbsentCount||0)>0;
     const sorted = [...candidates].sort((a,b)=>{
-      // 達成率（重み付き実績/候補数）が低い人を優先して60%に近づける
-      const ra=candDays[a.id]>0?workedW[a.id]/candDays[a.id]:0;
-      const rb=candDays[b.id]>0?workedW[b.id]/candDays[b.id]:0;
+      // 達成率（重み付き実績/候補数）が等級別目標に対して低い人を優先（SM/GM=70%, L/M=60%, J=50%）
+      const ra=candDays[a.id]>0?(workedW[a.id]/candDays[a.id])/(TARGET_RATE[a.grade]??0.6):0;
+      const rb=candDays[b.id]>0?(workedW[b.id]/candDays[b.id])/(TARGET_RATE[b.grade]??0.6):0;
       const rd=ra-rb; if(Math.abs(rd)>0.001) return rd;
       // 大幅遅刻・当日欠勤の回数が多いほど朝シフトの優先度を下げる
       if(lateBias){
@@ -2337,7 +2339,8 @@ export default function App(){
                         const w=calcWorkedCount(s.id,result.shifts,avail);
                         const c=calcCandCount(s,avail,year,month);
                         const pct=c>0?Math.round(w/c*100):0;
-                        const dc=pct>=70?"#1a6bbf":pct>=60?"#276749":pct>=40?"#b07d12":"#c0392b";
+                        const target=Math.round((TARGET_RATE[s.grade]??0.6)*100);
+                        const dc=pct>=target+10?"#1a6bbf":pct>=target?"#276749":pct>=target-20?"#b07d12":"#c0392b";
                         const sel=resultStaffFilter===s.id;
                         return(
                           <div key={s.id} onClick={()=>setResultStaffFilter(sel?null:s.id)}
