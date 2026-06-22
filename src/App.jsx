@@ -94,12 +94,18 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
   });
 
   const pick = (candidates, count, opts={}) => {
-    const { maxJunior=99, needSeniorIfJunior=false, balanceMode=null } = opts;
+    const { maxJunior=99, needSeniorIfJunior=false, balanceMode=null, maxFlagged=99, needSeniorIfFlagged=false, lateBias=false } = opts;
+    const isFlagged = s => (s.lateAbsentCount||0)>0;
     const sorted = [...candidates].sort((a,b)=>{
       // 達成率（重み付き実績/候補数）が低い人を優先して60%に近づける
       const ra=candDays[a.id]>0?workedW[a.id]/candDays[a.id]:0;
       const rb=candDays[b.id]>0?workedW[b.id]/candDays[b.id]:0;
       const rd=ra-rb; if(Math.abs(rd)>0.001) return rd;
+      // 大幅遅刻・当日欠勤の回数が多いほど朝シフトの優先度を下げる
+      if(lateBias){
+        const la=a.lateAbsentCount||0, lb=b.lateAbsentCount||0;
+        if(la!==lb) return la-lb;
+      }
       // 朝/夜バランス: 朝選出時は夜多め優先、夜選出時は朝多め優先
       if(balanceMode==='morning'){
         const da=(workedMorning[a.id]-workedNight[a.id]),db=(workedMorning[b.id]-workedNight[b.id]);
@@ -112,16 +118,34 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
       const lo = balanceMode==='night' ? {GM:0,SM:1,M:2,L:3,J:4} : {J:3,L:2,M:1,SM:0,GM:0};
       return (lo[a.grade]??5)-(lo[b.grade]??5);
     });
-    const res=[]; let nb=0;
-    for(const s of sorted){
-      if(res.length>=count) break;
-      if(isJunior(s.grade)&&nb>=maxJunior) continue;
-      res.push(s); if(isJunior(s.grade)) nb++;
-    }
+    const buildRes = relaxFlagged => {
+      const res=[]; let nb=0, nf=0;
+      for(const s of sorted){
+        if(res.length>=count) break;
+        if(isJunior(s.grade)&&nb>=maxJunior) continue;
+        if(isFlagged(s)&&!relaxFlagged&&nf>=maxFlagged) continue;
+        res.push(s); if(isJunior(s.grade)) nb++; if(isFlagged(s)) nf++;
+      }
+      return res;
+    };
+    let res=buildRes(false);
+    // スタッフ不足で枠が埋まらない場合は大幅遅刻/当日欠勤の人数制限を無効化
+    if(res.length<count) res=buildRes(true);
     if(needSeniorIfJunior&&res.some(s=>isJunior(s.grade))&&!res.some(s=>isSenior(s.grade))){
       // GM優先、次にSM
       const vet=candidates.find(s=>s.grade==='GM'&&!res.includes(s))||candidates.find(s=>s.grade==='SM'&&!res.includes(s));
       if(vet){ const ri=res.findLastIndex(s=>isMid(s.grade)); if(ri>=0) res[ri]=vet; else{ res.pop(); res.push(vet); } }
+    }
+    if(needSeniorIfFlagged){
+      // 大幅遅刻/当日欠勤履歴のあるJ/L/M等級が入っている日はSM/GM等級を別途1人入れる
+      const flaggedMidJr=res.find(s=>isFlagged(s)&&!isSenior(s.grade));
+      if(flaggedMidJr&&!res.some(s=>isSenior(s.grade))){
+        const vet=candidates.find(s=>s.grade==='GM'&&!res.includes(s))||candidates.find(s=>s.grade==='SM'&&!res.includes(s));
+        if(vet){
+          const ri=res.findLastIndex(s=>s.id!==flaggedMidJr.id&&!isSenior(s.grade));
+          if(ri>=0) res[ri]=vet; else{ res.pop(); res.push(vet); }
+        }
+      }
     }
     return res.slice(0,count);
   };
@@ -254,7 +278,7 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
     );
     const mAll=staff.filter(s=>isAvail(s.id,`${d}_morning`)&&!dayR.prep.includes(s.id));
     const mCands=mStrict.length>=morningTarget?mStrict:mAll;
-    const mPick=pick(mCands,morningTarget,{maxJunior:1,balanceMode:'morning'});
+    const mPick=pick(mCands,morningTarget,{maxJunior:1,balanceMode:'morning',maxFlagged:1,needSeniorIfFlagged:true,lateBias:true});
     mPick.forEach(s=>{ if(prevNight.has(s.id)) dayW.push(`${s.name}：前日夜→朝（人手不足）`); });
     dayR.morning=mPick.map(s=>s.id);
     mPick.forEach(s=>addWorked(s,d,'morning'));
@@ -1515,6 +1539,14 @@ export default function App(){
                       <input type="checkbox" checked={s.showClover!==false} onChange={e=>updateStaff(staff.map(x=>x.id===s.id?{...x,showClover:e.target.checked}:x))}/>🍀表示
                     </label>
                   )}
+                  <div style={{display:"flex",alignItems:"center",gap:4}}>
+                    <span style={{fontSize:11,color:(s.lateAbsentCount||0)>0?"#ef4444":C.muted}}>大幅遅刻・当日欠勤</span>
+                    <select value={s.lateAbsentCount||0}
+                      onChange={e=>updateStaff(staff.map(x=>x.id===s.id?{...x,lateAbsentCount:Number(e.target.value)}:x))}
+                      style={{padding:"3px 6px",borderRadius:5,border:"1.5px solid rgba(139,26,26,0.15)",background:(s.lateAbsentCount||0)>0?"#fff1f1":"#fff",color:C.text,fontSize:12,fontWeight:700}}>
+                      {Array.from({length:11},(_,i)=>i).map(n=><option key={n} value={n}>{n}</option>)}
+                    </select>
+                  </div>
                   <div style={{display:"flex",alignItems:"center",gap:4}}>
                     <span style={{fontSize:10,color:C.muted}}>🔒</span>
                     <input className="inp" type="text" inputMode="numeric" maxLength={4} value={s.password||""}
