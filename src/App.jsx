@@ -297,11 +297,27 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
       dayS.kitchen=kitPick[0]?0:1;
     }
 
+    // ── アイサニ（夜より先に確定・夜より優先）
+    const aiConf=aisaniConfig[d];
+    let aisaniAssignedId=null;
+    if(aiConf&&aiConf.enabled){
+      const aiCands=staff.filter(s=>
+        s.aisaniOK&&
+        (isAvail(s.id,`${d}_aisani`)||NIGHT_TIMES.some(t=>isAvail(s.id,`${d}_night_${t}`)))&&
+        !dayR.morning.includes(s.id)&&!dayR.prep.includes(s.id)&&dayR.kitchen!==s.id
+      );
+      const aiPick=pick(aiCands,1);
+      dayR.aisani=aiPick[0]?.id||null;
+      if(aiPick[0]){ addWorked(aiPick[0],d,'aisani'); aisaniAssignedId=aiPick[0].id; }
+      dayS.aisani=aiPick[0]?0:1;
+    }
+
     // ── 夜
     const shimikomiCanDoNight=prepMode==="shimikomiOnly"&&pPick[0]&&NIGHT_TIMES.some(t=>isAvail(pPick[0].id,`${d}_night_${t}`))&&mCands.length>=3;
     const prepW=shimikomiCanDoNight?new Set():new Set(dayR.prep);
     const morningW=new Set(dayR.morning);
     const kitchenW=new Set(dayR.kitchen?[dayR.kitchen]:[]);
+    const aisaniW=new Set(aisaniAssignedId?[aisaniAssignedId]:[]);
     const assignedNight=new Set();
     const nightPickResults=[];
 
@@ -318,6 +334,7 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
       const baseCands=(relaxJunior,relaxMorning)=>staff.filter(s=>{
         if(prepW.has(s.id)) return false;
         if(kitchenW.has(s.id)) return false;
+        if(aisaniW.has(s.id)) return false;
         if(assignedNight.has(s.id)) return false;
         // SM/GMは翌日保護対象外（人手不足でも入れる）
         if(tomorrowMorningConfirmed.has(s.id)&&nextDayRisk&&!isSenior(s.grade)) return false;
@@ -363,21 +380,6 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
         if(r.length) dayW.push(`${person.name}：${r.join("・")}（人手不足）`);
       }
     });
-
-    // ── アイサニ
-    const aiConf=aisaniConfig[d];
-    if(aiConf&&aiConf.enabled){
-      const alreadyInNight=new Set(Object.values(dayR.night).filter(Boolean));
-      const aiCands=staff.filter(s=>
-        s.aisaniOK&&
-        (isAvail(s.id,`${d}_aisani`)||NIGHT_TIMES.some(t=>isAvail(s.id,`${d}_night_${t}`)))&&
-        !dayR.morning.includes(s.id)&&!dayR.prep.includes(s.id)&&!alreadyInNight.has(s.id)
-      );
-      const aiPick=pick(aiCands,1);
-      dayR.aisani=aiPick[0]?.id||null;
-      if(aiPick[0]) addWorked(aiPick[0],d,'aisani');
-      dayS.aisani=aiPick[0]?0:1;
-    }
 
     result[d]=dayR;
     shortage[d]=dayS;
