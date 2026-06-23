@@ -57,6 +57,9 @@ const extraSlotCategory=t=>{
   return 'night';
 };
 const byTimeStr=(a,b)=>{const da=slotDisplayTime(a),db=slotDisplayTime(b);return da<db?-1:da>db?1:a<b?-1:1;};
+// 追加枠の名称・終了時間メタ情報を表示用に整形
+const slotTimeRange=(t,meta)=>{const start=slotDisplayTime(t);return meta?.end?`${start}〜${meta.end}`:`${start}〜`;};
+const slotNameTag=meta=>meta?.name?.trim()?` (${meta.name.trim()})`:'';
 
 // ── 候補ウェイト計算（1日単位ではなく重み付き）
 // 朝:1, 朝仕込:2, 夜:1, 朝+夜:1, 朝仕込+夜:2
@@ -492,6 +495,7 @@ function serializeResult(r){
       morning:(day.morning&&day.morning.length)?day.morning:['_EMPTY_'],
       prep:(day.prep&&day.prep.length)?day.prep:['_EMPTY_'],
       night:nightSer,
+      nightMeta:day.nightMeta||{},
     };
   });
   const {workedDays,warnings,...rest}=r;
@@ -511,6 +515,7 @@ function deserializeResult(r){
         morning:Array.isArray(day.morning)?day.morning.filter(x=>x!=='_EMPTY_'):[],
         prep:Array.isArray(day.prep)?day.prep.filter(x=>x!=='_EMPTY_'):[],
         night:nightDeser,
+        nightMeta:(day.nightMeta&&typeof day.nightMeta==='object')?day.nightMeta:{},
         aisani:day.aisani||null,
         kitchen:day.kitchen||null,
       };
@@ -545,10 +550,15 @@ function serializeConfirmedShift(result, year, month, aisaniConfig={}, kitchenCo
       // 設定済みスロット + カスタム追加スロット（両方を確定シフトに含める）
       if (configuredSlots.includes(t) || effectiveId != null) filteredNight[t] = effectiveId;
     });
+    const filteredNightMeta = {};
+    Object.entries(day.nightMeta || {}).forEach(([t, meta]) => {
+      if (Object.prototype.hasOwnProperty.call(filteredNight, t)) filteredNightMeta[t] = meta;
+    });
     shifts[d] = {
       morning: morningClosed ? ['_EMPTY_'] : ((day.morning && day.morning.length) ? day.morning : ['_EMPTY_']),
       prep:    (day.prep    && day.prep.length)    ? day.prep    : ['_EMPTY_'],
       night:   filteredNight,
+      nightMeta: filteredNightMeta,
       aisani:  aisaniConfig[dn]?.enabled  ? (day.aisani  ?? null) : null,
       kitchen: kitchenConfig[dn]?.enabled ? (day.kitchen ?? null) : null,
     };
@@ -565,6 +575,7 @@ function deserializeConfirmedShift(cs) {
         morning: Array.isArray(day.morning) ? day.morning.filter(x => x !== '_EMPTY_') : [],
         prep:    Array.isArray(day.prep)    ? day.prep.filter(x => x !== '_EMPTY_')    : [],
         night:   (day.night && typeof day.night === 'object') ? day.night : {},
+        nightMeta: (day.nightMeta && typeof day.nightMeta === 'object') ? day.nightMeta : {},
         aisani:  day.aisani  ?? null,
         kitchen: day.kitchen ?? null,
       };
@@ -652,7 +663,7 @@ export default function App(){
   const [shiftPreviewPwInput,setShiftPreviewPwInput]=useState("");
   const [shiftPreviewPwError,setShiftPreviewPwError]=useState(false);
   const [shiftPreviewOpen,setShiftPreviewOpen]=useState(false);
-  const [addSlotState,setAddSlotState]=useState(null); // {d, time} | null
+  const [addSlotState,setAddSlotState]=useState(null); // {d, time, endTime, name} | null
   const [generating,setGenerating]=useState(false);
   const [resultStaffFilter,setResultStaffFilter]=useState(null);
   const [exporting,setExporting]=useState(false);
@@ -720,11 +731,12 @@ export default function App(){
     updateAvail({...avail,[sid]:next},sid);
   };
 
-  const swapShiftAssignment=useCallback((d,slotType,slotTime,newId,removeId=null,force=false)=>{
+  const swapShiftAssignment=useCallback((d,slotType,slotTime,newId,removeId=null,force=false,meta=null)=>{
     const prev=resultRef.current;
     if(!prev) return;
     const newShifts={...prev.shifts};
     const dayShift={...newShifts[d],night:{...(newShifts[d]?.night||{})}};
+    if(meta) dayShift.nightMeta={...(newShifts[d]?.nightMeta||{}),[slotTime]:meta};
     let oldId=null;
     if(slotType==='night'){
       oldId=dayShift.night[slotTime]||null;
@@ -784,8 +796,9 @@ export default function App(){
 
   const removeCustomNightSlot=useCallback((d,t)=>{
     const prev=resultRef.current;if(!prev)return;
-    const newShifts={...prev.shifts,[d]:{...prev.shifts[d],night:{...(prev.shifts[d]?.night||{})}}};
+    const newShifts={...prev.shifts,[d]:{...prev.shifts[d],night:{...(prev.shifts[d]?.night||{})},nightMeta:{...(prev.shifts[d]?.nightMeta||{})}}};
     delete newShifts[d].night[t];
+    delete newShifts[d].nightMeta[t];
     const wd={};staff.forEach(s=>{wd[s.id]=new Set();});
     Object.entries(newShifts).forEach(([ds,sh])=>{const dd=Number(ds);[...(sh.morning||[]),...(sh.prep||[])].forEach(id=>{if(wd[id])wd[id].add(dd);});Object.values(sh.night||{}).filter(Boolean).forEach(id=>{if(wd[id])wd[id].add(dd);});if(sh.aisani&&wd[sh.aisani])wd[sh.aisani].add(dd);if(sh.kitchen&&wd[sh.kitchen])wd[sh.kitchen].add(dd);});
     const newWorked={};staff.forEach(s=>{newWorked[s.id]=wd[s.id].size;});
@@ -1032,7 +1045,7 @@ export default function App(){
       const dayShortage={...(prev.shortage[d]||{morning:0,prep:0,night:{},aisani:0,kitchen:0})};
       dayShortage.night={...(dayShortage.night||{})};
       let dayChanged=false;
-      let newDay={...day,night:{...(day.night||{})}};
+      let newDay={...day,night:{...(day.night||{})},nightMeta:{...(day.nightMeta||{})}};
 
       // 朝: availがなくなった人を除去
       const validMorning=(day.morning||[]).filter(id=>!!avail[id]?.[`${d}_morning`]);
@@ -1050,6 +1063,7 @@ export default function App(){
           const hasCompatNight=NIGHT_TIMES.some(nt=>!!avail[id]?.[`${d}_night_${nt}`]&&nightCompat(nt,t));
           if(!hasCompatNight){
             delete newDay.night[t];
+            if(newDay.nightMeta) delete newDay.nightMeta[t];
             dayShortage.night[t]=(dayShortage.night[t]||0)+1;
             dayChanged=true;
           }
@@ -2004,16 +2018,16 @@ export default function App(){
             if(inMorning||inPrep){
               const morningMembers=[];
               (day.morning||[]).forEach(id=>{const s=staffMap[id]||staffMap[Number(id)];if(s) morningMembers.push({person:s,time:"朝（7:00〜11:00）",isStar:(id===myMStar||Number(id)===myMStar),isJ:s.grade==='J'&&s.showClover!==false,isKimono:isKimonoId(id)});});
-              [...extraMorningEntries].sort(byTimeEntry).forEach(([t,id])=>{const s=staffMap[id]||staffMap[Number(id)];if(s) morningMembers.push({person:s,time:`追加 ${slotDisplayTime(t)}〜`,isStar:false,isJ:s.grade==='J'&&s.showClover!==false,isKimono:isKimonoId(id)});});
+              [...extraMorningEntries].sort(byTimeEntry).forEach(([t,id])=>{const s=staffMap[id]||staffMap[Number(id)];const meta=(day.nightMeta||{})[t];if(s) morningMembers.push({person:s,time:`追加 ${slotTimeRange(t,meta)}${slotNameTag(meta)}`,isStar:false,isJ:s.grade==='J'&&s.showClover!==false,isKimono:isKimonoId(id)});});
               (day.prep||[]).forEach(id=>{const s=staffMap[id]||staffMap[Number(id)];if(s) morningMembers.push({person:s,time:"朝仕込み（8:30〜16:00）",isStar:false,isJ:s.grade==='J'&&s.showClover!==false,isKimono:isKimonoId(id)});});
-              [...extraPrepEntries].sort(byTimeEntry).forEach(([t,id])=>{const s=staffMap[id]||staffMap[Number(id)];if(s) morningMembers.push({person:s,time:`追加 ${slotDisplayTime(t)}〜`,isStar:false,isJ:s.grade==='J'&&s.showClover!==false,isKimono:isKimonoId(id)});});
+              [...extraPrepEntries].sort(byTimeEntry).forEach(([t,id])=>{const s=staffMap[id]||staffMap[Number(id)];const meta=(day.nightMeta||{})[t];if(s) morningMembers.push({person:s,time:`追加 ${slotTimeRange(t,meta)}${slotNameTag(meta)}`,isStar:false,isJ:s.grade==='J'&&s.showClover!==false,isKimono:isKimonoId(id)});});
               groups.push({label:"朝・朝仕込み",color:"#f97316",night:true,members:morningMembers});
             }
             if(inNight){
               const nightMembers=[];
               NIGHT_ORDER.forEach(t=>{const id=day.night[t];if(id!=null){const s=staffMap[id]||staffMap[Number(id)];if(s) nightMembers.push({person:s,time:t,isStar:(id===myNStar||Number(id)===myNStar),isJ:s.grade==='J',isKimono:isKimonoId(id)});}});
               // カスタム夜枠（17時以降）も含める
-              [...extraNightEntries].sort(byTimeEntry).forEach(([t,id])=>{const s=staffMap[id]||staffMap[Number(id)];if(s) nightMembers.push({person:s,time:slotDisplayTime(t),isStar:false,isJ:s.grade==='J',isKimono:isKimonoId(id)});});
+              [...extraNightEntries].sort(byTimeEntry).forEach(([t,id])=>{const s=staffMap[id]||staffMap[Number(id)];const meta=(day.nightMeta||{})[t];if(s) nightMembers.push({person:s,time:`${slotDisplayTime(t)}${meta?.end?`〜${meta.end}`:''}${slotNameTag(meta)}`,isStar:false,isJ:s.grade==='J',isKimono:isKimonoId(id)});});
               groups.push({label:"夜",color:"#3b82f6",night:true,members:nightMembers});
             }
             if(inAisani){const s=staffMap[day.aisani]||staffMap[Number(day.aisani)];groups.push({label:"アイサニ",color:"#10b981",members:s?[s]:[]});}
@@ -2155,9 +2169,9 @@ export default function App(){
                             </div>
                           </div>
                         )}
-                        {!closed&&extraMorningEntries.map(([t,id])=>{const s=staffMap[id]||staffMap[Number(id)];return s?(
+                        {!closed&&extraMorningEntries.map(([t,id])=>{const s=staffMap[id]||staffMap[Number(id)];const meta=(day.nightMeta||{})[t];return s?(
                           <div key={t} style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-                            <span style={{fontSize:10,fontWeight:700,color:"#b07d12",background:"#b07d1218",borderRadius:6,padding:"3px 10px",border:"1px solid #b07d1230",minWidth:60,textAlign:"center",flexShrink:0}}>追加 {slotDisplayTime(t)}</span>
+                            <span style={{fontSize:10,fontWeight:700,color:"#b07d12",background:"#b07d1218",borderRadius:6,padding:"3px 10px",border:"1px solid #b07d1230",minWidth:60,textAlign:"center",flexShrink:0}}>追加 {slotTimeRange(t,meta)}{slotNameTag(meta)}</span>
                             <span style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:6,
                               background:(id===sid||Number(id)===sid)?C.accent:"rgba(176,125,18,0.08)",
                               color:(id===sid||Number(id)===sid)?"#fff":"#b07d12",
@@ -2178,9 +2192,9 @@ export default function App(){
                             </div>
                           </div>
                         )}
-                        {!closed&&extraPrepEntries.map(([t,id])=>{const s=staffMap[id]||staffMap[Number(id)];return s?(
+                        {!closed&&extraPrepEntries.map(([t,id])=>{const s=staffMap[id]||staffMap[Number(id)];const meta=(day.nightMeta||{})[t];return s?(
                           <div key={t} style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-                            <span style={{fontSize:10,fontWeight:700,color:"#276749",background:"#27674918",borderRadius:6,padding:"3px 10px",border:"1px solid #27674930",minWidth:60,textAlign:"center",flexShrink:0}}>追加 {slotDisplayTime(t)}</span>
+                            <span style={{fontSize:10,fontWeight:700,color:"#276749",background:"#27674918",borderRadius:6,padding:"3px 10px",border:"1px solid #27674930",minWidth:60,textAlign:"center",flexShrink:0}}>追加 {slotTimeRange(t,meta)}{slotNameTag(meta)}</span>
                             <span style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:6,
                               background:(id===sid||Number(id)===sid)?C.accent:"rgba(39,103,73,0.08)",
                               color:(id===sid||Number(id)===sid)?"#fff":"#276749",
@@ -2196,9 +2210,9 @@ export default function App(){
                               border:`1px solid ${(day.kitchen===sid||Number(day.kitchen)===sid)?"#276749":"#27674930"}`}}>{isKm(day.kitchen)?'👘':''}{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}</span>
                           </div>
                         ):null;})()}
-                        {!closed&&nightEntries.map(([t,id])=>{const s=staffMap[id]||staffMap[Number(id)];const dt=slotDisplayTime(t);const nc=NIGHT_TC[dt]||"#64748b";return s?(
+                        {!closed&&nightEntries.map(([t,id])=>{const s=staffMap[id]||staffMap[Number(id)];const dt=slotDisplayTime(t);const nc=NIGHT_TC[dt]||"#64748b";const meta=(day.nightMeta||{})[t];const dtLabel=meta?`${slotTimeRange(t,meta)}${slotNameTag(meta)}`:dt;return s?(
                           <div key={t} style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-                            <span style={{fontSize:10,fontWeight:700,color:nc,background:nc+"18",borderRadius:6,padding:"3px 10px",border:`1px solid ${nc}30`,minWidth:60,textAlign:"center",flexShrink:0}}>夜 {dt}</span>
+                            <span style={{fontSize:10,fontWeight:700,color:nc,background:nc+"18",borderRadius:6,padding:"3px 10px",border:`1px solid ${nc}30`,minWidth:60,textAlign:"center",flexShrink:0}}>夜 {dtLabel}</span>
                             <span key={id} style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:6,
                               background:(id===sid||Number(id)===sid)?nc:"rgba(0,0,0,0.04)",
                               color:(id===sid||Number(id)===sid)?"#fff":C.text,
@@ -2310,9 +2324,9 @@ export default function App(){
                             </div>
                           </div>
                         )}
-                        {!closed&&extraPrepEntries.map(([t,id])=>{const s=staffMap[id]||staffMap[Number(id)];return s?(
+                        {!closed&&extraPrepEntries.map(([t,id])=>{const s=staffMap[id]||staffMap[Number(id)];const meta=(day.nightMeta||{})[t];return s?(
                           <div key={t} style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-                            <span style={{fontSize:10,fontWeight:700,color:"#276749",background:"#27674918",borderRadius:6,padding:"3px 10px",border:"1px solid #27674930",minWidth:60,textAlign:"center",flexShrink:0}}>追加 {slotDisplayTime(t)}</span>
+                            <span style={{fontSize:10,fontWeight:700,color:"#276749",background:"#27674918",borderRadius:6,padding:"3px 10px",border:"1px solid #27674930",minWidth:60,textAlign:"center",flexShrink:0}}>追加 {slotTimeRange(t,meta)}{slotNameTag(meta)}</span>
                             <span style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:6,
                               background:(id===sid||Number(id)===sid)?C.accent:"rgba(39,103,73,0.08)",
                               color:(id===sid||Number(id)===sid)?"#fff":"#276749",
@@ -2325,9 +2339,9 @@ export default function App(){
                             <span style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:6,background:"rgba(39,103,73,0.06)",color:C.text,border:"1px solid #27674930"}}>{isKm(day.kitchen)?'👘':''}{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}</span>
                           </div>
                         ):null;})()}
-                        {!closed&&nightEntries.map(([t,id])=>{const s=staffMap[id]||staffMap[Number(id)];const dt=slotDisplayTime(t);const nc=NIGHT_TC[dt]||"#64748b";return s?(
+                        {!closed&&nightEntries.map(([t,id])=>{const s=staffMap[id]||staffMap[Number(id)];const dt=slotDisplayTime(t);const nc=NIGHT_TC[dt]||"#64748b";const meta=(day.nightMeta||{})[t];const dtLabel=meta?`${slotTimeRange(t,meta)}${slotNameTag(meta)}`:dt;return s?(
                           <div key={t} style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-                            <span style={{fontSize:10,fontWeight:700,color:nc,background:nc+"18",borderRadius:6,padding:"3px 10px",border:`1px solid ${nc}30`,minWidth:60,textAlign:"center",flexShrink:0}}>夜 {dt}</span>
+                            <span style={{fontSize:10,fontWeight:700,color:nc,background:nc+"18",borderRadius:6,padding:"3px 10px",border:`1px solid ${nc}30`,minWidth:60,textAlign:"center",flexShrink:0}}>夜 {dtLabel}</span>
                             <span key={id} style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:6,background:"rgba(0,0,0,0.04)",color:C.text,border:"1px solid rgba(0,0,0,0.1)"}}>{(id===csNStar||Number(id)===csNStar)?'🌟':''}{isKm(id)?'👘':''}{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}</span>
                           </div>
                         ):null;})}
@@ -2532,8 +2546,9 @@ export default function App(){
                             kimonoIds={kimonoIds} onKimonoToggle={onKimonoToggle}/>}
                           {!allClosed&&extraMorningSlots.map(t=>{
                             const p=(day.night||{})[t];
+                            const meta=(day.nightMeta||{})[t];
                             const cands=staff.filter(s=>s.id!==p&&avail[s.id]?.[`${d}_morning`]);
-                            return <SRow key={`extra_${t}`} label={`追加 ${slotDisplayTime(t)}〜`} time="" color="#b07d12" people={p?[staffMap[p]].filter(Boolean):[]} shortage={sh.night?.[t]||0} candidates={cands}
+                            return <SRow key={`extra_${t}`} label={`追加 ${slotTimeRange(t,meta)}${slotNameTag(meta)}`} time="" color="#b07d12" people={p?[staffMap[p]].filter(Boolean):[]} shortage={sh.night?.[t]||0} candidates={cands}
                               onSwap={newId=>swapShiftAssignment(d,'night',t,newId)}
                               onRemove={p?()=>swapShiftAssignment(d,'night',t,null):null}
                               onDeleteSlot={()=>removeCustomNightSlot(d,t)}
@@ -2549,8 +2564,9 @@ export default function App(){
                             kimonoIds={kimonoIds} onKimonoToggle={onKimonoToggle}/>}
                           {!allClosed&&extraPrepSlots.map(t=>{
                             const p=(day.night||{})[t];
+                            const meta=(day.nightMeta||{})[t];
                             const cands=staff.filter(s=>s.id!==p&&(avail[s.id]?.[`${d}_prep`]||avail[s.id]?.[`${d}_shimikomi`]));
-                            return <SRow key={`extra_${t}`} label={`追加 ${slotDisplayTime(t)}〜`} time="" color="#276749" people={p?[staffMap[p]].filter(Boolean):[]} shortage={sh.night?.[t]||0} candidates={cands}
+                            return <SRow key={`extra_${t}`} label={`追加 ${slotTimeRange(t,meta)}${slotNameTag(meta)}`} time="" color="#276749" people={p?[staffMap[p]].filter(Boolean):[]} shortage={sh.night?.[t]||0} candidates={cands}
                               onSwap={newId=>swapShiftAssignment(d,'night',t,newId)}
                               onRemove={p?()=>swapShiftAssignment(d,'night',t,null):null}
                               onDeleteSlot={()=>removeCustomNightSlot(d,t)}
@@ -2577,8 +2593,9 @@ export default function App(){
                           })}
                           {!allClosed&&customNightSlots.map(t=>{
                             const p=(day.night||{})[t];
+                            const meta=(day.nightMeta||{})[t];
                             const nightCands=staff.filter(s=>s.id!==p&&NIGHT_TIMES.some(nt=>avail[s.id]?.[`${d}_night_${nt}`]&&nightCompat(nt,t)));
-                            return <SRow key={`custom_${t}`} label={`夜 ${slotDisplayTime(t)}〜`} time="追加" color="#64748b" people={p?[staffMap[p]].filter(Boolean):[]} shortage={sh.night?.[t]||0} candidates={nightCands}
+                            return <SRow key={`custom_${t}`} label={`夜 ${slotTimeRange(t,meta)}${slotNameTag(meta)}`} time="追加" color="#64748b" people={p?[staffMap[p]].filter(Boolean):[]} shortage={sh.night?.[t]||0} candidates={nightCands}
                               onSwap={newId=>swapShiftAssignment(d,'night',t,newId)}
                               onRemove={p?()=>swapShiftAssignment(d,'night',t,null):null}
                               onDeleteSlot={()=>removeCustomNightSlot(d,t)}
@@ -2588,16 +2605,28 @@ export default function App(){
                           {!allClosed&&(addSlotState?.d===d?(
                             <div style={{display:"flex",flexDirection:"column",gap:4,padding:"4px 0"}}>
                               <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                                <input type="text" placeholder="名称（任意）" value={addSlotState.name}
+                                  onChange={e=>setAddSlotState(s=>({...s,name:e.target.value}))}
+                                  style={{padding:"5px 8px",borderRadius:5,border:"1px solid rgba(139,26,26,0.25)",fontSize:12,fontFamily:"inherit",outline:"none",color:C.text,width:100}}
+                                />
                                 <input type="time" value={addSlotState.time}
                                   onChange={e=>setAddSlotState(s=>({...s,time:e.target.value,error:null}))}
                                   style={{padding:"5px 8px",borderRadius:5,border:`1px solid ${addSlotState.error?"#c0392b":"rgba(139,26,26,0.25)"}`,fontSize:12,fontFamily:"inherit",outline:"none",color:C.text}}
+                                />
+                                <span style={{fontSize:11,color:C.muted}}>〜</span>
+                                <input type="time" placeholder="終了（任意）" value={addSlotState.endTime}
+                                  onChange={e=>setAddSlotState(s=>({...s,endTime:e.target.value}))}
+                                  style={{padding:"5px 8px",borderRadius:5,border:"1px solid rgba(139,26,26,0.25)",fontSize:12,fontFamily:"inherit",outline:"none",color:C.text}}
                                 />
                                 <button onClick={()=>{
                                   const t=addSlotState.time;
                                   if(!t){setAddSlotState(s=>({...s,error:"時間を選択してください"}));return;}
                                   const existing=Object.keys(resultRef.current?.shifts?.[d]?.night||{});
                                   let key=t;if(existing.includes(key)){let i=2;while(existing.includes(`${t}_${i}`))i++;key=`${t}_${i}`;}
-                                  swapShiftAssignment(d,'night',key,null,null,true);
+                                  const name=addSlotState.name.trim();
+                                  const endTime=addSlotState.endTime;
+                                  const meta=(name||endTime)?{name:name||null,end:endTime||null}:null;
+                                  swapShiftAssignment(d,'night',key,null,null,true,meta);
                                   setAddSlotState(null);
                                 }} style={{padding:"5px 14px",borderRadius:5,border:"none",background:"linear-gradient(135deg,#5c0f0f,#8b1a1a)",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>追加</button>
                                 <button onClick={()=>setAddSlotState(null)} style={{padding:"5px 10px",borderRadius:5,border:"1px solid rgba(139,26,26,0.2)",background:"transparent",fontSize:11,cursor:"pointer",color:C.muted,fontWeight:600}}>キャンセル</button>
@@ -2605,7 +2634,7 @@ export default function App(){
                               {addSlotState.error&&<div style={{fontSize:10,color:"#c0392b",paddingLeft:2}}>{addSlotState.error}</div>}
                             </div>
                           ):(
-                            <button onClick={()=>setAddSlotState({d,time:"",error:null})} style={{padding:"4px 12px",borderRadius:5,border:"1px dashed rgba(100,116,139,0.4)",background:"rgba(100,116,139,0.04)",fontSize:11,cursor:"pointer",color:"#64748b",fontWeight:600}}>＋ 追加枠</button>
+                            <button onClick={()=>setAddSlotState({d,time:"",endTime:"",name:"",error:null})} style={{padding:"4px 12px",borderRadius:5,border:"1px dashed rgba(100,116,139,0.4)",background:"rgba(100,116,139,0.04)",fontSize:11,cursor:"pointer",color:"#64748b",fontWeight:600}}>＋ 追加枠</button>
                           ))}
                           {aiOn&&<SRow label="アイサニ" time="ヘルプ" color={C.accent}
                             people={day.aisani?[staffMap[day.aisani]].filter(Boolean):[]} shortage={sh.aisani||0}
