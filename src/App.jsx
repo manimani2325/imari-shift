@@ -2351,9 +2351,9 @@ export default function App(){
                           <div key={t} style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
                             <span style={{fontSize:10,fontWeight:700,color:"#276749",background:"#27674918",borderRadius:6,padding:"3px 10px",border:"1px solid #27674930",minWidth:60,textAlign:"center",flexShrink:0}}>追加 {slotTimeRange(t,meta)}{slotNameTag(meta)}</span>
                             <span style={{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:6,
-                              background:(id===sid||Number(id)===sid)?C.accent:"rgba(39,103,73,0.08)",
-                              color:(id===sid||Number(id)===sid)?"#fff":"#276749",
-                              border:`1px solid ${(id===sid||Number(id)===sid)?C.accent:"#27674930"}`}}>{isKm(id)?'👘':''}{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}</span>
+                              background:"rgba(39,103,73,0.08)",
+                              color:"#276749",
+                              border:"1px solid #27674930"}}>{isKm(id)?'👘':''}{s.grade==='J'&&s.showClover!==false?'🍀':''}{s.name}</span>
                           </div>
                         ):null;})}
                         {hasKitchen&&(()=>{const s=staffMap[day.kitchen]||staffMap[Number(day.kitchen)];return s?(
