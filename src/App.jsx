@@ -547,8 +547,9 @@ function serializeConfirmedShift(result, year, month, aisaniConfig={}, kitchenCo
     const filteredNight = {};
     Object.entries(day.night || {}).forEach(([t, id]) => {
       const effectiveId=(id==='_NULL_')?null:id;
-      // 設定済みスロット + カスタム追加スロット（両方を確定シフトに含める）
-      if (configuredSlots.includes(t) || effectiveId != null) filteredNight[t] = effectiveId;
+      // 設定済みスロット + カスタム追加スロット + 名称/終了時間が設定された未割当スロット（すべて確定シフトに含める）
+      const hasMeta=day.nightMeta&&Object.prototype.hasOwnProperty.call(day.nightMeta,t);
+      if (configuredSlots.includes(t) || effectiveId != null || hasMeta) filteredNight[t] = effectiveId;
     });
     const filteredNightMeta = {};
     Object.entries(day.nightMeta || {}).forEach(([t, meta]) => {
@@ -811,9 +812,31 @@ export default function App(){
 
   const handleGenerate=()=>{
     const genYm=`${year}_${month}`;
+    const prevResult=resultRef.current;
     setGenerating(true);
     setTimeout(()=>{
       const r={...generateShifts(staff,year,month,avail,nightSlotConfig,aisaniConfig,kitchenConfig,dayTypeConfig),year,month,savedAt:Date.now()};
+      // 再生成は自動割当のみを対象とするため、手動追加した「追加枠」（nightSlotConfig外のスロット）とその名称・終了時間は引き継ぐ
+      if(prevResult&&prevResult.year===year&&prevResult.month===month){
+        Object.entries(prevResult.shifts||{}).forEach(([dStr,prevDay])=>{
+          if(!prevDay) return;
+          const d=parseInt(dStr);
+          const configuredSlots=nightSlotConfig[d]||[];
+          const extraEntries=Object.entries(prevDay.night||{}).filter(([t])=>!configuredSlots.includes(t));
+          if(extraEntries.length===0) return;
+          const day=r.shifts[d]||{morning:[],prep:[],night:{},nightMeta:{},aisani:null,kitchen:null};
+          const night={...day.night};
+          const nightMeta={...day.nightMeta};
+          const shortage={...(r.shortage[d]||{}),night:{...(r.shortage[d]?.night||{})}};
+          extraEntries.forEach(([t,id])=>{
+            night[t]=id;
+            if(prevDay.nightMeta&&Object.prototype.hasOwnProperty.call(prevDay.nightMeta,t)) nightMeta[t]=prevDay.nightMeta[t];
+            shortage.night[t]=id?0:(prevResult.shortage?.[d]?.night?.[t]??1);
+          });
+          r.shifts[d]={...day,night,nightMeta};
+          r.shortage[d]=shortage;
+        });
+      }
       setResult(r);saveResultLS(r,genYm);setView("result");setGenerating(false);
       const rbKey=`resultBackup_${genYm}`;
       pendingKeys.current.add(rbKey);
