@@ -1081,12 +1081,19 @@ export default function App(){
       if(removedP>0){dayShortage.prep=(dayShortage.prep||0)+removedP;newDay.prep=validPrep;dayChanged=true;}
 
       // 夜: availがなくなった人を除去（nightCompatで割り当てられた可能性があるため互換性チェック）
+      // 追加枠（nightSlotConfig外）は候補選出時の区分（朝/仕込み/夜）に応じたavailで判定し、
+      // 枠自体は残して未割当に戻す（枠ごと消さない）
       Object.entries(day.night||{}).forEach(([t,id])=>{
         if(id){
-          const hasCompatNight=NIGHT_TIMES.some(nt=>!!avail[id]?.[`${d}_night_${nt}`]&&nightCompat(nt,t));
-          if(!hasCompatNight){
-            delete newDay.night[t];
-            if(newDay.nightMeta) delete newDay.nightMeta[t];
+          const isConfigured=(nightSlotConfig[d]||[]).includes(t);
+          const cat=isConfigured?'night':extraSlotCategory(t);
+          let hasAvail;
+          if(cat==='morning') hasAvail=!!avail[id]?.[`${d}_morning`];
+          else if(cat==='prep') hasAvail=!!avail[id]?.[`${d}_prep`]||!!avail[id]?.[`${d}_shimikomi`];
+          else hasAvail=NIGHT_TIMES.some(nt=>!!avail[id]?.[`${d}_night_${nt}`]&&nightCompat(nt,t));
+          if(!hasAvail){
+            if(isConfigured) delete newDay.night[t];
+            else newDay.night[t]=null;
             dayShortage.night[t]=(dayShortage.night[t]||0)+1;
             dayChanged=true;
           }
