@@ -1307,6 +1307,12 @@ export default function App(){
     navy:"#1b2a5e",gold:"#b8860b",red:"#8b1a1a",cream:"#fdf6ec",
     ink:"#2b1014",headMuted:"#c7ada6",
   };
+  // 和柄背景に重ねるクリーム膜の不透明度（1に近いほど柄が薄くなる / 0で画像そのままの発色）
+  const BG_VEIL=0.72;
+  // 和柄タイル1枚の表示幅(px)。タイルは元絵2枚分なので、実際の丸紋はこの約1/5.4の大きさになる
+  const BG_TILE=1500;
+  // タイルの中央と端は鏡像の対称軸になるため、軸が画面中央に来ないよう1/4だけずらす
+  const BG_POS="25% 25%";
   const btn=(on,c=C.accent)=>({
     padding:"8px 16px",borderRadius:4,border:on?"1px solid transparent":`1px solid ${C.accent}45`,
     cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,letterSpacing:.5,transition:"all .25s ease",
@@ -1348,7 +1354,13 @@ export default function App(){
 
 
   return(
-    <div style={{fontFamily:"'Zen Kaku Gothic New',sans-serif",minHeight:"100vh",background:C.bg,color:C.text}}>
+    <div style={{fontFamily:"'Zen Kaku Gothic New',sans-serif",minHeight:"100vh",background:"transparent",color:C.text}}>
+      {/* ── 和柄背景（アプリ全体・スクロールに追従しない固定レイヤー）
+          画像は元絵を2x2で鏡像配置したシームレスタイルなので、端末幅によらず柄の大きさを一定に保てる */}
+      <div aria-hidden="true" style={{position:"fixed",inset:0,zIndex:-1,pointerEvents:"none",
+        backgroundColor:C.bg,
+        backgroundImage:`linear-gradient(rgba(247,239,228,${BG_VEIL}),rgba(247,239,228,${BG_VEIL})),url(/wagara-bg.jpg)`,
+        backgroundSize:`auto,${BG_TILE}px auto`,backgroundPosition:`center,${BG_POS}`,backgroundRepeat:"no-repeat,repeat"}}/>
       <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=Shippori+Mincho:wght@600;800&display=swap" rel="stylesheet"/>
       <style>{`
         *{box-sizing:border-box}
