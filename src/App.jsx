@@ -1365,7 +1365,7 @@ export default function App(){
 
 
   return(
-    <div style={{fontFamily:"'Zen Kaku Gothic New',sans-serif",minHeight:"100vh",background:"transparent",color:C.text}}>
+    <div style={{fontFamily:"'Zen Kaku Gothic New',sans-serif",minHeight:"100vh",background:"transparent",color:C.text,display:"flex",flexDirection:"column"}}>
       {/* ── 和柄背景（アプリ全体・スクロールに追従しない固定レイヤー）
           画像は元絵を2x2で鏡像配置したシームレスタイルなので、端末幅によらず柄の大きさを一定に保てる */}
       <div aria-hidden="true" style={{position:"fixed",inset:0,zIndex:-1,pointerEvents:"none",
@@ -1540,22 +1540,13 @@ export default function App(){
                   </button>
                 </div>
               ):(
-                <>
-                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-                    <div style={{fontSize:11,color:C.headMuted}}>名前を選んでください</div>
-                    <button onClick={()=>{setShiftPreviewModal(true);setShiftPreviewPwInput("");setShiftPreviewPwError(false);}}
-                      style={{...hbtn(false),fontSize:10,padding:"4px 12px",borderRadius:6}}>
-                      📆 シフト確認
-                    </button>
-                  </div>
-                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                    {staffModeStaff.map(s=>(
-                      <button key={s.id} onClick={()=>handleStaffSelect(s)} style={{...hbtn(false),fontSize:12,padding:"8px 18px",borderRadius:6}}>
-                        {s.name}{s.password?<span style={{fontSize:9,marginLeft:4,opacity:.5}}>🔒</span>:""}
-                      </button>
-                    ))}
-                  </div>
-                </>
+                // 名前の一覧はヘッダーではなく画面中央に置く（下の名前選択ブロック）
+                <div style={{display:"flex",alignItems:"center",justifyContent:"flex-end"}}>
+                  <button onClick={()=>{setShiftPreviewModal(true);setShiftPreviewPwInput("");setShiftPreviewPwError(false);}}
+                    style={{...hbtn(false),fontSize:10,padding:"4px 12px",borderRadius:6}}>
+                    📆 シフト確認
+                  </button>
+                </div>
               )}
             </div>
           )}
@@ -1597,7 +1588,7 @@ export default function App(){
         </div>
       </div>
 
-      <div style={{maxWidth:900,margin:"0 auto",padding:"16px 12px"}}>
+      <div style={{maxWidth:900,width:"100%",margin:"0 auto",padding:"16px 12px",flex:1,display:"flex",flexDirection:"column"}}>
 
         {/* ── スタッフ管理パネル */}
         {gmMode&&staffPanelOpen&&(
@@ -2424,7 +2415,19 @@ export default function App(){
           );
         })()}
 
-        {/* 名前未選択時は案内文もアイコンも置かず、和柄をそのまま見せる */}
+        {/* 名前選択: ヘッダーに寄せず、残りの画面高いっぱいを使って上下中央に置く */}
+        {!gmMode&&!loginStaff&&!shiftPreviewOpen&&(
+          <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:18,paddingBottom:24}}>
+            <div style={{fontSize:12,color:C.headMuted,letterSpacing:2}}>名前を選んでください</div>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:"center"}}>
+              {staffModeStaff.map(s=>(
+                <button key={s.id} onClick={()=>handleStaffSelect(s)} style={{...hbtn(false),fontSize:13,padding:"10px 22px",borderRadius:6}}>
+                  {s.name}{s.password?<span style={{fontSize:9,marginLeft:4,opacity:.5}}>🔒</span>:""}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* ── ③ シフト表 */}
         {gmMode&&view==="result"&&(
