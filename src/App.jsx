@@ -1321,10 +1321,10 @@ export default function App(){
     cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,letterSpacing:.5,transition:"all .25s ease",
     background:on?c:"transparent",color:on?"#fff":C.accent,
   });
-  // ヘッダー（和柄の明るい面）用ボタン。柄の上でも輪郭が出るよう白を薄く敷く
+  // ヘッダー用ボタン。未選択時は塗りを持たず和柄を透かし、枠線と文字色だけで示す
   const hbtn=(on,c=C.accent)=>({
     ...btn(on,c),
-    ...(on?{border:"1px solid transparent"}:{background:"rgba(255,255,255,0.55)",color:C.accent,border:`1px solid ${C.accent}33`}),
+    ...(on?{border:"1px solid transparent"}:{background:"transparent",color:C.accent,border:`1px solid ${C.accent}4d`}),
   });
   // カード面の不透明度。下げるほど下の和柄が透ける（文字色は変えないので可読性は保たれる）
   const CARD_ALPHA=0.42;
@@ -1521,7 +1521,7 @@ export default function App(){
               </div>}
             </div>
             <div style={{display:"flex",gap:6,alignItems:"center"}}>
-              <div style={{display:"flex",background:"rgba(255,255,255,0.5)",borderRadius:6,padding:3,gap:2,border:`1px solid ${C.accent}22`}}>
+              <div style={{display:"flex",background:"transparent",borderRadius:6,padding:3,gap:2,border:`1px solid ${C.accent}22`}}>
                 <button onClick={()=>{if(gmMode)return;setPwModal(true);}} style={{...hbtn(gmMode,"linear-gradient(135deg,#5c0f0f,#8b1a1a)"),fontSize:11,padding:"5px 14px",borderRadius:6}}>管理者</button>
                 <button onClick={()=>{gmMonthRef.current={y:year,m:month};saveGMMonth(year,month);setGmMode(false);setView("avail");setLoginStaff(null);const a=getAutoMonth();setYear(a.y);setMonth(a.m);pendingYmRef.current=`${a.y}_${a.m}`;const sYm=`${a.y}_${a.m}`;setNightSlotConfig(loadCfgLS(`nightSlotConfig_${sYm}`)||{});setAisaniConfig(loadCfgLS(`aisaniConfig_${sYm}`)||{});setKitchenConfig(loadCfgLS(`kitchenConfig_${sYm}`)||{});setDayTypeConfig(loadCfgLS(`dayTypeConfig_${sYm}`)||{});prevAvailRef.current={};const{_ts:_,...staffAvail}=loadCfgLS(`avail_${sYm}`)||{};setAvail(staffAvail);}} style={{...hbtn(!gmMode,"linear-gradient(135deg,#14204a,#1b2a5e)"),fontSize:11,padding:"5px 14px",borderRadius:6}}>スタッフ</button>
               </div>
@@ -1567,7 +1567,7 @@ export default function App(){
                 <span style={{fontWeight:800,fontSize:13,color:C.ink}}>{loginStaff.name}</span>
                 <button onClick={()=>setLoginStaff(null)} style={{...hbtn(false),fontSize:10,padding:"3px 10px"}}>変更</button>
               </div>
-              <div style={{display:"flex",gap:3,background:"rgba(255,255,255,0.5)",borderRadius:8,padding:3,border:`1px solid ${C.accent}22`}}>
+              <div style={{display:"flex",gap:3,background:"transparent",borderRadius:8,padding:3,border:`1px solid ${C.accent}22`}}>
                 {[["avail","📅 候補日入力"],["shift","📋 自分のシフト"],["full","📆 全体シフト"]].map(([v,l])=>(
                   <button key={v} onClick={()=>setStaffTab(v)}
                     style={{flex:1,padding:"9px 4px",borderRadius:7,border:"none",cursor:"pointer",fontSize:12,fontWeight:700,transition:"all .12s",
@@ -1582,7 +1582,7 @@ export default function App(){
           )}
 
           {gmMode&&(
-            <div style={{display:"flex",gap:3,marginTop:8,background:"rgba(255,255,255,0.5)",borderRadius:8,padding:3,border:`1px solid ${C.accent}22`}}>
+            <div style={{display:"flex",gap:3,marginTop:8,background:"transparent",borderRadius:8,padding:3,border:`1px solid ${C.accent}22`}}>
               {[["slots","① 夜枠設定"],["avail","② 候補日入力"],["result","③ シフト表"]].map(([v,l])=>(
                 <button key={v} onClick={()=>setView(v)}
                   style={{flex:1,padding:"9px 4px",borderRadius:7,border:"none",cursor:"pointer",fontSize:11,fontWeight:700,transition:"all .12s",
