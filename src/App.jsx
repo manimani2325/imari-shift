@@ -1326,7 +1326,14 @@ export default function App(){
     ...btn(on,c),
     ...(on?{border:"1px solid transparent"}:{background:"rgba(255,255,255,0.55)",color:C.accent,border:`1px solid ${C.accent}33`}),
   });
-  const card={background:"#fff",borderRadius:6,border:"1px solid rgba(139,26,26,0.13)",borderTop:`2px solid ${C.gold}77`,padding:20};
+  // カード面の不透明度。下げるほど下の和柄が透ける（文字色は変えないので可読性は保たれる）
+  const CARD_ALPHA=0.62;
+  const surfaceBg=`rgba(255,255,255,${CARD_ALPHA})`;
+  const surfaceBg2=`rgba(253,250,246,${CARD_ALPHA})`;
+  // 横スクロールで固定される表のヘッダー・日/曜列は透かせない（下の行が透けてしまう）ため、
+  // 透過カードと同じ見えになる不透明色を使って違和感が出ないようにする
+  const solidBg="#fbf7f2";
+  const card={background:surfaceBg,borderRadius:6,border:"1px solid rgba(139,26,26,0.13)",borderTop:`2px solid ${C.gold}77`,padding:20};
 
   const [selectedStaffTab,setSelectedStaffTab]=useState(null);
   const availViewStaff=gmMode
@@ -1695,7 +1702,7 @@ export default function App(){
                 const active=slots.length>0||aiOn||kitOn||morningClosed;
                 return(
                   <div key={d} style={{borderRadius:7,padding:"5px 3px",transition:"all .2s",
-                    background:allClosed?(aiOn?"rgba(139,26,26,0.05)":"#f5f0eb"):morningClosed?"rgba(251,146,60,0.06)":active?"rgba(139,26,26,0.05)":"#fff",
+                    background:allClosed?(aiOn?"rgba(139,26,26,0.05)":"rgba(245,240,235,0.5)"):morningClosed?"rgba(251,146,60,0.06)":active?"rgba(139,26,26,0.05)":surfaceBg,
                     border:`1px solid ${allClosed?(aiOn?"rgba(139,26,26,0.25)":"rgba(139,26,26,0.06)"):morningClosed?"rgba(251,146,60,0.4)":active?"rgba(139,26,26,0.25)":hol?"rgba(184,134,11,0.2)":dow===0?"rgba(192,57,43,0.18)":dow===6?"rgba(27,42,94,0.15)":"rgba(139,26,26,0.08)"}`,
                     minHeight:80,opacity:allClosed&&!aiOn?0.35:1,
                     boxShadow:active||aiOn?"0 2px 10px rgba(139,26,26,0.1)":"0 1px 4px rgba(0,0,0,0.04)"}}>
@@ -1832,26 +1839,26 @@ export default function App(){
                     {isJ&&<span style={{fontSize:10,color:"#f87171",background:"rgba(248,113,113,0.08)",borderRadius:6,padding:"3px 10px",border:"1px solid rgba(248,113,113,0.2)"}}>金土日祝の夜は原則NG</span>}
                   </div>
                   <div style={{overflowX:"auto",overflowY:"auto",maxHeight:"58vh",borderRadius:8,border:"1px solid rgba(139,26,26,0.1)"}}>
-                    <table style={{borderCollapse:"collapse",width:"100%",minWidth:540,background:"#fff"}}>
+                    <table style={{borderCollapse:"collapse",width:"100%",minWidth:540,background:solidBg}}>
                       <thead>
                         <tr>
-                          <th className="sth" style={{fontSize:10,color:C.muted,fontWeight:600,padding:"9px 4px",textAlign:"center",width:30,background:"#fff",position:"sticky",left:0,zIndex:6}}>日</th>
-                          <th className="sth" style={{fontSize:10,color:C.muted,fontWeight:600,width:22,textAlign:"center",background:"#fff",position:"sticky",left:38,zIndex:6}}>曜</th>
-                          <th className="sth" style={{fontSize:10,color:"#b07d12",fontWeight:700,padding:"9px 8px",textAlign:"center",background:"#fff"}}>朝<br/><span style={{fontSize:8,opacity:.6}}>7:00〜</span></th>
-                          <th className="sth" style={{fontSize:10,color:"#276749",fontWeight:700,padding:"9px 8px",textAlign:"center",background:"#fff"}}>朝仕込<br/><span style={{fontSize:8,opacity:.6}}>8:30〜</span></th>
-                          <th className="sth" style={{fontSize:10,color:"#5b7fa6",fontWeight:700,padding:"9px 4px",textAlign:"center",background:"#fff"}}>仕込み</th>
+                          <th className="sth" style={{fontSize:10,color:C.muted,fontWeight:600,padding:"9px 4px",textAlign:"center",width:30,background:solidBg,position:"sticky",left:0,zIndex:6}}>日</th>
+                          <th className="sth" style={{fontSize:10,color:C.muted,fontWeight:600,width:22,textAlign:"center",background:solidBg,position:"sticky",left:38,zIndex:6}}>曜</th>
+                          <th className="sth" style={{fontSize:10,color:"#b07d12",fontWeight:700,padding:"9px 8px",textAlign:"center",background:solidBg}}>朝<br/><span style={{fontSize:8,opacity:.6}}>7:00〜</span></th>
+                          <th className="sth" style={{fontSize:10,color:"#276749",fontWeight:700,padding:"9px 8px",textAlign:"center",background:solidBg}}>朝仕込<br/><span style={{fontSize:8,opacity:.6}}>8:30〜</span></th>
+                          <th className="sth" style={{fontSize:10,color:"#5b7fa6",fontWeight:700,padding:"9px 4px",textAlign:"center",background:solidBg}}>仕込み</th>
                           {NIGHT_TIMES.map(t=>(
-                            <th key={t} className="sth" style={{fontSize:10,color:NIGHT_TC[t],fontWeight:700,padding:"9px 4px",textAlign:"center",background:"#fff"}}>
+                            <th key={t} className="sth" style={{fontSize:10,color:NIGHT_TC[t],fontWeight:700,padding:"9px 4px",textAlign:"center",background:solidBg}}>
                               {t}〜<br/><span style={{fontSize:8,opacity:.6}}>夜</span>
                             </th>
                           ))}
                           {availViewStaff.aisaniOK&&(
-                            <th className="sth" style={{fontSize:10,color:C.accent,fontWeight:700,padding:"9px 4px",textAlign:"center",background:"#fff"}}>
+                            <th className="sth" style={{fontSize:10,color:C.accent,fontWeight:700,padding:"9px 4px",textAlign:"center",background:solidBg}}>
                               アイサニ<br/><span style={{fontSize:8,opacity:.6}}>ヘルプ</span>
                             </th>
                           )}
                           {availViewStaff.kitchenOK&&(
-                            <th className="sth" style={{fontSize:10,color:"#276749",fontWeight:700,padding:"9px 4px",textAlign:"center",background:"#fff"}}>
+                            <th className="sth" style={{fontSize:10,color:"#276749",fontWeight:700,padding:"9px 4px",textAlign:"center",background:solidBg}}>
                               キッチン
                             </th>
                           )}
@@ -1865,7 +1872,7 @@ export default function App(){
                           const morningClosed=dayTypeConfig[d]==="morning_closed";
                           const allClosed=closed||manualClosed;
                           const slots=nightSlotConfig[d]||[];
-                          const rowBg=allClosed?"#f5f0eb":morningClosed?"rgba(251,146,60,0.04)":hol?"rgba(184,134,11,0.04)":dow===0?"rgba(192,57,43,0.03)":dow===6?"rgba(27,42,94,0.03)":"#fff";
+                          const rowBg=allClosed?"#f5f0eb":morningClosed?"rgba(251,146,60,0.04)":hol?"rgba(184,134,11,0.04)":dow===0?"rgba(192,57,43,0.03)":dow===6?"rgba(27,42,94,0.03)":solidBg;
                           return(
                             <tr key={d} className="avail-row" style={{borderBottom:"1px solid rgba(139,26,26,0.06)"}}>
                               <td style={{background:rowBg,textAlign:"center",fontSize:12,fontWeight:800,padding:"5px 2px",opacity:allClosed?0.4:1,position:"sticky",left:0,zIndex:2,
@@ -2097,7 +2104,7 @@ export default function App(){
               ):(
                 <div style={{display:"flex",flexDirection:"column",gap:10}}>
                   {myDays.map(({d,dow,groups})=>(
-                    <div key={d} style={{borderRadius:7,background:"#fdfaf6",border:"1px solid rgba(39,103,73,0.12)",overflow:"hidden"}}>
+                    <div key={d} style={{borderRadius:7,background:surfaceBg2,border:"1px solid rgba(39,103,73,0.12)",overflow:"hidden"}}>
                       <div style={{padding:"8px 14px",background:"rgba(39,103,73,0.06)",borderBottom:"1px solid rgba(39,103,73,0.1)",fontWeight:800,fontFamily:serif,fontSize:14,color:dow===0?"#c0392b":dow===6?"#1b2a5e":C.text}}>
                         {d}日<span style={{fontSize:11,marginLeft:4,fontWeight:600,color:C.muted}}>({DOW_JP[dow]})</span>
                       </div>
@@ -2194,7 +2201,7 @@ export default function App(){
                 const kd=isKimonoDay(csYear,csMonth,d);
                 const isKm=id=>kd&&!!(kimonoOverrides[d]||{})[id];
                 return(
-                  <div key={d} style={{background:"#fff",borderRadius:8,border:`1.5px solid ${borderCol}`,padding:"12px 14px",marginBottom:8,boxShadow:myDay?"0 2px 10px rgba(139,26,26,0.1)":"0 1px 4px rgba(0,0,0,0.03)"}}>
+                  <div key={d} style={{background:surfaceBg,borderRadius:8,border:`1.5px solid ${borderCol}`,padding:"12px 14px",marginBottom:8,boxShadow:myDay?"0 2px 10px rgba(139,26,26,0.1)":"0 1px 4px rgba(0,0,0,0.03)"}}>
                     <div style={{marginBottom:(hasAisani||hasKitchen||!closed)?10:0}}>
                       <div style={{display:"flex",alignItems:"center",gap:7,flexWrap:"wrap"}}>
                         <span style={{fontWeight:800,fontFamily:serif,fontSize:15,color:hol?"#b8860b":dow===0?"#c0392b":dow===6?"#1b2a5e":C.text}}>
@@ -2342,7 +2349,7 @@ export default function App(){
                 const kd=isKimonoDay(csYear,csMonth,d);
                 const isKm=id=>kd&&!!(kimonoOverrides[d]||{})[id];
                 return(
-                  <div key={d} style={{background:"#fff",borderRadius:8,border:`1.5px solid ${borderCol}`,padding:"12px 14px",marginBottom:8,boxShadow:"0 1px 4px rgba(0,0,0,0.03)"}}>
+                  <div key={d} style={{background:surfaceBg,borderRadius:8,border:`1.5px solid ${borderCol}`,padding:"12px 14px",marginBottom:8,boxShadow:"0 1px 4px rgba(0,0,0,0.03)"}}>
                     <div style={{marginBottom:(hasAisani||hasKitchen||!closed)?10:0}}>
                       <div style={{display:"flex",alignItems:"center",gap:7,flexWrap:"wrap"}}>
                         <span style={{fontWeight:800,fontFamily:serif,fontSize:15,color:hol?"#b8860b":dow===0?"#c0392b":dow===6?"#1b2a5e":C.text}}>
@@ -2413,12 +2420,7 @@ export default function App(){
           );
         })()}
 
-        {!gmMode&&!loginStaff&&!shiftPreviewOpen&&(
-          <div style={{textAlign:"center",padding:"80px 20px",color:C.muted}}>
-            <div style={{width:80,height:80,borderRadius:12,background:"rgba(139,26,26,0.05)",display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:34,marginBottom:18,border:"1px solid rgba(139,26,26,0.1)"}}>👤</div>
-            <div style={{fontSize:14}}>上のリストから名前を選んでください</div>
-          </div>
-        )}
+        {/* 名前未選択時は案内文もアイコンも置かず、和柄をそのまま見せる */}
 
         {/* ── ③ シフト表 */}
         {gmMode&&view==="result"&&(
@@ -2518,7 +2520,7 @@ export default function App(){
                       if(resultStaffFilter) return null;
                       const bc2=dow===0?"rgba(192,57,43,0.06)":dow===6?"rgba(27,42,94,0.06)":"rgba(139,26,26,0.04)";
                       return(
-                        <div key={d} style={{background:"#fdfaf6",borderRadius:8,border:`1px solid ${bc2}`,padding:"10px 14px",marginBottom:8}}>
+                        <div key={d} style={{background:surfaceBg2,borderRadius:8,border:`1px solid ${bc2}`,padding:"10px 14px",marginBottom:8}}>
                           <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:8,opacity:0.55}}>
                             <span style={{fontWeight:800,fontFamily:serif,fontSize:15,color:hol?"#b8860b":dow===0?"#c0392b":dow===6?"#1b2a5e":C.text}}>
                               {month+1}/{d}（{DOW_JP[dow]}）{hol?"🎌":""}
@@ -2571,7 +2573,7 @@ export default function App(){
                     const totalS=(morningClosed?0:(sh.morning||0))+(sh.prep||0)+slots.reduce((s,t)=>s+(sh.night?.[t]||0),0)+allExtraSlots.reduce((s,t)=>s+(sh.night?.[t]||0),0)+(aiOn?sh.aisani||0:0)+(kitOn?sh.kitchen||0:0);
                     const bc=totalS>0?"rgba(192,57,43,0.2)":warns.length?"rgba(184,134,11,0.2)":hol?"rgba(184,134,11,0.12)":dow===0?"rgba(192,57,43,0.1)":dow===6?"rgba(27,42,94,0.1)":"rgba(139,26,26,0.06)";
                     return(
-                      <div key={d} style={{background:"#fff",borderRadius:8,border:`1px solid ${bc}`,padding:14,marginBottom:8}}>
+                      <div key={d} style={{background:surfaceBg,borderRadius:8,border:`1px solid ${bc}`,padding:14,marginBottom:8}}>
                         <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:8,flexWrap:"wrap"}}>
                           <span style={{fontWeight:800,fontFamily:serif,fontSize:15,color:hol?"#b8860b":dow===0?"#c0392b":dow===6?"#1b2a5e":C.text}}>
                             {month+1}/{d}（{DOW_JP[dow]}）{hol?"🎌":""}
