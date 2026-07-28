@@ -1321,10 +1321,34 @@ export default function App(){
     cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,letterSpacing:.5,transition:"all .25s ease",
     background:on?c:"transparent",color:on?"#fff":C.accent,
   });
-  // ヘッダー用ボタン。未選択時は塗りを持たず和柄を透かし、枠線と文字色だけで示す
-  const hbtn=(on,c=C.accent)=>({
-    ...btn(on,c),
-    ...(on?{border:"1px solid transparent"}:{background:"transparent",color:C.accent,border:`1px solid ${C.accent}4d`}),
+  // ── ヘッダー配色（コーラルピンク案・デモ用に切替）
+  const HEADER_VARIANT="C";
+  const HD={
+    // A: 明るいコーラルを全面に敷く。文字は白でくっきり
+    A:{bgImage:"linear-gradient(135deg,#f7a49c,#ed8177)",bgSize:"auto",bgPos:"center",bgRepeat:"no-repeat",
+       hairline:"rgba(255,255,255,0.55)",brand:"#fff1e4",title:"#fff",muted:"rgba(255,255,255,0.85)",
+       btnText:"#fff",btnBorder:"rgba(255,255,255,0.62)",groupBorder:"rgba(255,255,255,0.45)",
+       onBg:"rgba(255,255,255,0.96)",onText:"#c8564b",onUnderline:"#fff5e8",
+       logo:"linear-gradient(135deg,#c8564b,#a63e37)"},
+    // B: 和柄にコーラルの薄膜をかけ、柄を残したままピンクに寄せる
+    B:{bgImage:"linear-gradient(rgba(240,146,136,0.5),rgba(240,146,136,0.5)),url(/wagara-bg.jpg)",
+       bgSize:`auto,${1500}px auto`,bgPos:"center,25% 25%",bgRepeat:"no-repeat,repeat",
+       hairline:"rgba(255,255,255,0.6)",brand:"#8a2f28",title:"#6d211b",muted:"#8a4a43",
+       btnText:"#8a2f28",btnBorder:"rgba(138,47,40,0.42)",groupBorder:"rgba(138,47,40,0.25)",
+       onBg:"linear-gradient(135deg,#c8564b,#a63e37)",onText:"#fff",onUnderline:"#ffe3d5",
+       logo:"linear-gradient(135deg,#c8564b,#a63e37)"},
+    // C: 深めのコーラル〜サーモン。従来の濃色ヘッダーに近い重み
+    C:{bgImage:"linear-gradient(135deg,#e8776b,#cf5a52)",bgSize:"auto",bgPos:"center",bgRepeat:"no-repeat",
+       hairline:"rgba(255,224,200,0.6)",brand:"#ffe0cc",title:"#fff",muted:"rgba(255,255,255,0.8)",
+       btnText:"#fff",btnBorder:"rgba(255,255,255,0.55)",groupBorder:"rgba(255,255,255,0.38)",
+       onBg:"rgba(255,255,255,0.95)",onText:"#b04539",onUnderline:"#ffe0cc",
+       logo:"linear-gradient(135deg,#8f2f27,#6f1f1a)"},
+  }[HEADER_VARIANT];
+  // ヘッダー用ボタン。未選択時は塗りを持たず、枠線と文字色だけで示す
+  const hbtn=(on)=>({
+    ...btn(on),
+    ...(on?{background:HD.onBg,color:HD.onText,border:"1px solid transparent",fontWeight:800}
+         :{background:"transparent",color:HD.btnText,border:`1px solid ${HD.btnBorder}`}),
   });
   // カード面の不透明度。下げるほど下の和柄が透ける（文字色は変えないので可読性は保たれる）
   const CARD_ALPHA=0.42;
@@ -1502,21 +1526,20 @@ export default function App(){
       )}
 
       {/* ── ヘッダー */}
-      <div className="main-content" style={{background:"transparent",borderBottom:`1px solid ${C.gold}88`,padding:"14px 16px",position:"sticky",top:0,zIndex:30,overflow:"hidden"}}>
+      <div className="main-content" style={{background:"transparent",borderBottom:`1px solid ${HD.hairline}`,padding:"14px 16px",position:"sticky",top:0,zIndex:30,overflow:"hidden"}}>
         {/* ヘッダー自身の和柄。sticky top:0 なので上端は常に画面上端＝背景レイヤーと同じ基準になり、
             高さ100vh・同一のsize/positionで敷くと背面の柄とピクセル単位で連続する。
             不透明に敷くことで、スクロールした本文がヘッダーに透けるのを防いでいる。 */}
         <div aria-hidden="true" style={{position:"absolute",top:0,left:0,right:0,height:"100vh",pointerEvents:"none",
           backgroundColor:C.bg,
-          backgroundImage:`linear-gradient(rgba(247,239,228,${BG_HEAD_VEIL}),rgba(247,239,228,${BG_HEAD_VEIL})),url(/wagara-bg.jpg)`,
-          backgroundSize:`auto,${BG_TILE}px auto`,backgroundPosition:`center,${BG_POS}`,backgroundRepeat:"no-repeat,repeat"}}/>
+          backgroundImage:HD.bgImage,backgroundSize:HD.bgSize,backgroundPosition:HD.bgPos,backgroundRepeat:HD.bgRepeat}}/>
         <div style={{maxWidth:900,margin:"0 auto",position:"relative"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:(gmMode||(!gmMode&&loginStaff)||(!gmMode&&!loginStaff))?10:0}}>
             <div style={{display:"flex",alignItems:"center",gap:10}}>
-              <div style={{width:38,height:38,borderRadius:7,background:"linear-gradient(135deg,#5c0f0f,#8b1a1a)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,boxShadow:"0 2px 12px rgba(139,26,26,0.25)",flexShrink:0}}>🍶</div>
+              <div style={{width:38,height:38,borderRadius:7,background:HD.logo,display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,boxShadow:"0 2px 12px rgba(139,26,26,0.25)",flexShrink:0}}>🍶</div>
               <div>
-                <div style={{fontSize:8,letterSpacing:5,fontWeight:800,textTransform:"uppercase",color:C.gold}}>旬菜 いまり</div>
-                <div style={{fontSize:18,fontWeight:800,lineHeight:1.15,color:C.ink,fontFamily:serif,letterSpacing:1.5}}>{year}年{month+1}月</div>
+                <div style={{fontSize:8,letterSpacing:5,fontWeight:800,textTransform:"uppercase",color:HD.brand}}>旬菜 いまり</div>
+                <div style={{fontSize:18,fontWeight:800,lineHeight:1.15,color:HD.title,fontFamily:serif,letterSpacing:1.5}}>{year}年{month+1}月</div>
               </div>
               {gmMode&&<div style={{display:"flex",gap:3,marginLeft:2}}>
                 <button onClick={prevMonth} style={{...hbtn(false),padding:"5px 12px",fontSize:16,borderRadius:6}}>‹</button>
@@ -1524,7 +1547,7 @@ export default function App(){
               </div>}
             </div>
             <div style={{display:"flex",gap:6,alignItems:"center"}}>
-              <div style={{display:"flex",background:"transparent",borderRadius:6,padding:3,gap:2,border:`1px solid ${C.accent}22`}}>
+              <div style={{display:"flex",background:"transparent",borderRadius:6,padding:3,gap:2,border:`1px solid ${HD.groupBorder}`}}>
                 <button onClick={()=>{if(gmMode)return;setPwModal(true);}} style={{...hbtn(gmMode,"linear-gradient(135deg,#5c0f0f,#8b1a1a)"),fontSize:11,padding:"5px 14px",borderRadius:6}}>管理者</button>
                 <button onClick={()=>{gmMonthRef.current={y:year,m:month};saveGMMonth(year,month);setGmMode(false);setView("avail");setLoginStaff(null);const a=getAutoMonth();setYear(a.y);setMonth(a.m);pendingYmRef.current=`${a.y}_${a.m}`;const sYm=`${a.y}_${a.m}`;setNightSlotConfig(loadCfgLS(`nightSlotConfig_${sYm}`)||{});setAisaniConfig(loadCfgLS(`aisaniConfig_${sYm}`)||{});setKitchenConfig(loadCfgLS(`kitchenConfig_${sYm}`)||{});setDayTypeConfig(loadCfgLS(`dayTypeConfig_${sYm}`)||{});prevAvailRef.current={};const{_ts:_,...staffAvail}=loadCfgLS(`avail_${sYm}`)||{};setAvail(staffAvail);}} style={{...hbtn(!gmMode,"linear-gradient(135deg,#14204a,#1b2a5e)"),fontSize:11,padding:"5px 14px",borderRadius:6}}>スタッフ</button>
               </div>
@@ -1536,7 +1559,7 @@ export default function App(){
             <div style={{paddingBottom:6}}>
               {shiftPreviewOpen?(
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                  <div style={{fontSize:11,color:C.headMuted,fontWeight:700}}>📆 全体シフト確認中</div>
+                  <div style={{fontSize:11,color:HD.muted,fontWeight:700}}>📆 全体シフト確認中</div>
                   <button onClick={()=>setShiftPreviewOpen(false)}
                     style={{...hbtn(false),fontSize:10,padding:"4px 12px",borderRadius:6}}>
                     ✕ 閉じる
@@ -1556,18 +1579,18 @@ export default function App(){
           {!gmMode&&loginStaff&&(
             <div>
               <div style={{display:"flex",alignItems:"center",gap:8,paddingBottom:8}}>
-                <div style={{width:7,height:7,borderRadius:4,background:C.gold,boxShadow:`0 0 6px ${C.gold}`}}/>
-                <span style={{fontSize:11,color:C.headMuted}}>ログイン中：</span>
-                <span style={{fontWeight:800,fontSize:13,color:C.ink}}>{loginStaff.name}</span>
+                <div style={{width:7,height:7,borderRadius:4,background:HD.brand,boxShadow:`0 0 6px ${HD.brand}`}}/>
+                <span style={{fontSize:11,color:HD.muted}}>ログイン中：</span>
+                <span style={{fontWeight:800,fontSize:13,color:HD.title}}>{loginStaff.name}</span>
                 <button onClick={()=>setLoginStaff(null)} style={{...hbtn(false),fontSize:10,padding:"3px 10px"}}>変更</button>
               </div>
-              <div style={{display:"flex",gap:3,background:"transparent",borderRadius:8,padding:3,border:`1px solid ${C.accent}22`}}>
+              <div style={{display:"flex",gap:3,background:"transparent",borderRadius:8,padding:3,border:`1px solid ${HD.groupBorder}`}}>
                 {[["avail","📅 候補日入力"],["shift","📋 自分のシフト"],["full","📆 全体シフト"]].map(([v,l])=>(
                   <button key={v} onClick={()=>setStaffTab(v)}
                     style={{flex:1,padding:"9px 4px",borderRadius:7,border:"none",cursor:"pointer",fontSize:12,fontWeight:700,transition:"all .12s",
-                      background:staffTab===v?"linear-gradient(135deg,#5c0f0f,#8b1a1a)":"transparent",
-                      color:staffTab===v?"#fff":C.headMuted,
-                      boxShadow:staffTab===v?`inset 0 -2px 0 ${C.gold}`:"none"}}>
+                      background:staffTab===v?HD.onBg:"transparent",
+                      color:staffTab===v?HD.onText:HD.muted,
+                      boxShadow:staffTab===v?`inset 0 -2px 0 ${HD.onUnderline}`:"none"}}>
                     {l}
                   </button>
                 ))}
@@ -1576,13 +1599,13 @@ export default function App(){
           )}
 
           {gmMode&&(
-            <div style={{display:"flex",gap:3,marginTop:8,background:"transparent",borderRadius:8,padding:3,border:`1px solid ${C.accent}22`}}>
+            <div style={{display:"flex",gap:3,marginTop:8,background:"transparent",borderRadius:8,padding:3,border:`1px solid ${HD.groupBorder}`}}>
               {[["slots","① 夜枠設定"],["avail","② 候補日入力"],["result","③ シフト表"]].map(([v,l])=>(
                 <button key={v} onClick={()=>setView(v)}
                   style={{flex:1,padding:"9px 4px",borderRadius:7,border:"none",cursor:"pointer",fontSize:11,fontWeight:700,transition:"all .12s",
-                    background:view===v?"linear-gradient(135deg,#5c0f0f,#8b1a1a)":"transparent",
-                    color:view===v?"#fff":C.headMuted,
-                    boxShadow:view===v?`inset 0 -2px 0 ${C.gold}`:"none"}}>
+                    background:view===v?HD.onBg:"transparent",
+                    color:view===v?HD.onText:HD.muted,
+                    boxShadow:view===v?`inset 0 -2px 0 ${HD.onUnderline}`:"none"}}>
                   {l}
                 </button>
               ))}
@@ -2421,10 +2444,11 @@ export default function App(){
         {/* 名前選択: ヘッダーに寄せず、残りの画面高いっぱいを使って上下中央に置く */}
         {!gmMode&&!loginStaff&&!shiftPreviewOpen&&(
           <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:18,paddingBottom:24}}>
-            <div style={{fontSize:12,color:C.headMuted,letterSpacing:2}}>名前を選んでください</div>
+            {/* ここはヘッダーではなく本文（和柄のクリーム地）なので本文側の配色を使う */}
+            <div style={{fontSize:12,color:C.muted,letterSpacing:2}}>名前を選んでください</div>
             <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:"center"}}>
               {staffModeStaff.map(s=>(
-                <button key={s.id} onClick={()=>handleStaffSelect(s)} style={{...hbtn(false),fontSize:13,padding:"10px 22px",borderRadius:6}}>
+                <button key={s.id} onClick={()=>handleStaffSelect(s)} style={{...btn(false),fontSize:13,padding:"10px 22px",borderRadius:6}}>
                   {s.name}{s.password?<span style={{fontSize:9,marginLeft:4,opacity:.5}}>🔒</span>:""}
                 </button>
               ))}
