@@ -1322,7 +1322,7 @@ export default function App(){
     background:on?c:"transparent",color:on?"#fff":C.accent,
   });
   // ── ヘッダー配色（コーラルピンク案・デモ用に切替）
-  const HEADER_VARIANT="A";
+  const HEADER_VARIANT="C";
   const HD={
     // A: 明るいコーラルを全面に敷く。文字は白でくっきり
     A:{bgImage:"linear-gradient(135deg,#f7a49c,#ed8177)",bgSize:"auto",bgPos:"center",bgRepeat:"no-repeat",
@@ -2444,10 +2444,11 @@ export default function App(){
         {/* 名前選択: ヘッダーに寄せず、残りの画面高いっぱいを使って上下中央に置く */}
         {!gmMode&&!loginStaff&&!shiftPreviewOpen&&(
           <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:18,paddingBottom:24}}>
-            <div style={{fontSize:12,color:HD.muted,letterSpacing:2}}>名前を選んでください</div>
+            {/* ここはヘッダーではなく本文（和柄のクリーム地）なので本文側の配色を使う */}
+            <div style={{fontSize:12,color:C.muted,letterSpacing:2}}>名前を選んでください</div>
             <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:"center"}}>
               {staffModeStaff.map(s=>(
-                <button key={s.id} onClick={()=>handleStaffSelect(s)} style={{...hbtn(false),fontSize:13,padding:"10px 22px",borderRadius:6}}>
+                <button key={s.id} onClick={()=>handleStaffSelect(s)} style={{...btn(false),fontSize:13,padding:"10px 22px",borderRadius:6}}>
                   {s.name}{s.password?<span style={{fontSize:9,marginLeft:4,opacity:.5}}>🔒</span>:""}
                 </button>
               ))}
