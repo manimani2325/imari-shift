@@ -1327,12 +1327,13 @@ export default function App(){
     ...(on?{border:"1px solid transparent"}:{background:"rgba(255,255,255,0.55)",color:C.accent,border:`1px solid ${C.accent}33`}),
   });
   // カード面の不透明度。下げるほど下の和柄が透ける（文字色は変えないので可読性は保たれる）
-  const CARD_ALPHA=0.62;
+  const CARD_ALPHA=0.42;
   const surfaceBg=`rgba(255,255,255,${CARD_ALPHA})`;
   const surfaceBg2=`rgba(253,250,246,${CARD_ALPHA})`;
   // 横スクロールで固定される表のヘッダー・日/曜列は透かせない（下の行が透けてしまう）ため、
-  // 透過カードと同じ見えになる不透明色を使って違和感が出ないようにする
-  const solidBg="#fbf7f2";
+  // 白をCARD_ALPHAで背景色に重ねた結果と同じ不透明色を使い、透過カードと地続きに見せる
+  const mixOnBg=(w,b)=>Math.round(w*CARD_ALPHA+b*(1-CARD_ALPHA));
+  const solidBg=`rgb(${mixOnBg(255,247)},${mixOnBg(255,239)},${mixOnBg(255,228)})`;
   const card={background:surfaceBg,borderRadius:6,border:"1px solid rgba(139,26,26,0.13)",borderTop:`2px solid ${C.gold}77`,padding:20};
 
   const [selectedStaffTab,setSelectedStaffTab]=useState(null);
@@ -1839,11 +1840,11 @@ export default function App(){
                     {isJ&&<span style={{fontSize:10,color:"#f87171",background:"rgba(248,113,113,0.08)",borderRadius:6,padding:"3px 10px",border:"1px solid rgba(248,113,113,0.2)"}}>金土日祝の夜は原則NG</span>}
                   </div>
                   <div style={{overflowX:"auto",overflowY:"auto",maxHeight:"58vh",borderRadius:8,border:"1px solid rgba(139,26,26,0.1)"}}>
-                    <table style={{borderCollapse:"collapse",width:"100%",minWidth:540,background:solidBg}}>
+                    <table style={{borderCollapse:"collapse",width:"100%",minWidth:540,background:"transparent"}}>
                       <thead>
                         <tr>
                           <th className="sth" style={{fontSize:10,color:C.muted,fontWeight:600,padding:"9px 4px",textAlign:"center",width:30,background:solidBg,position:"sticky",left:0,zIndex:6}}>日</th>
-                          <th className="sth" style={{fontSize:10,color:C.muted,fontWeight:600,width:22,textAlign:"center",background:solidBg,position:"sticky",left:38,zIndex:6}}>曜</th>
+                          <th className="sth" style={{fontSize:10,color:C.muted,fontWeight:600,width:22,textAlign:"center",background:solidBg,position:"sticky",left:30,zIndex:6}}>曜</th>
                           <th className="sth" style={{fontSize:10,color:"#b07d12",fontWeight:700,padding:"9px 8px",textAlign:"center",background:solidBg}}>朝<br/><span style={{fontSize:8,opacity:.6}}>7:00〜</span></th>
                           <th className="sth" style={{fontSize:10,color:"#276749",fontWeight:700,padding:"9px 8px",textAlign:"center",background:solidBg}}>朝仕込<br/><span style={{fontSize:8,opacity:.6}}>8:30〜</span></th>
                           <th className="sth" style={{fontSize:10,color:"#5b7fa6",fontWeight:700,padding:"9px 4px",textAlign:"center",background:solidBg}}>仕込み</th>
@@ -1872,14 +1873,17 @@ export default function App(){
                           const morningClosed=dayTypeConfig[d]==="morning_closed";
                           const allClosed=closed||manualClosed;
                           const slots=nightSlotConfig[d]||[];
-                          const rowBg=allClosed?"#f5f0eb":morningClosed?"rgba(251,146,60,0.04)":hol?"rgba(184,134,11,0.04)":dow===0?"rgba(192,57,43,0.03)":dow===6?"rgba(27,42,94,0.03)":solidBg;
+                          // 通常セルは和柄が透けるよう色を敷かない。曜日等の色味は半透明のまま重ねる
+                          const rowBg=allClosed?"rgba(245,240,235,0.55)":morningClosed?"rgba(251,146,60,0.04)":hol?"rgba(184,134,11,0.04)":dow===0?"rgba(192,57,43,0.03)":dow===6?"rgba(27,42,94,0.03)":"transparent";
+                          // 日/曜列は横スクロール時に固定されるため、同じ色味を不透明な下地の上に重ねる
+                          const stickyBg=`linear-gradient(${rowBg},${rowBg}), ${solidBg}`;
                           return(
                             <tr key={d} className="avail-row" style={{borderBottom:"1px solid rgba(139,26,26,0.06)"}}>
-                              <td style={{background:rowBg,textAlign:"center",fontSize:12,fontWeight:800,padding:"5px 2px",opacity:allClosed?0.4:1,position:"sticky",left:0,zIndex:2,
+                              <td style={{background:stickyBg,textAlign:"center",fontSize:12,fontWeight:800,padding:"5px 2px",opacity:allClosed?0.4:1,position:"sticky",left:0,zIndex:2,
                                 color:allClosed?"#b0a090":morningClosed?"#ea580c":hol?"#b8860b":dow===0?"#c0392b":dow===6?"#1b2a5e":C.text}}>
                                 {d}{hol?"🎌":""}{allClosed?"🔒":morningClosed?"☀":""}
                               </td>
-                              <td style={{background:rowBg,textAlign:"center",fontSize:10,opacity:allClosed?0.4:1,color:allClosed?"#b0a090":C.muted,position:"sticky",left:38,zIndex:2}}>{DOW_JP[dow]}</td>
+                              <td style={{background:stickyBg,textAlign:"center",fontSize:10,opacity:allClosed?0.4:1,color:allClosed?"#b0a090":C.muted,position:"sticky",left:30,zIndex:2}}>{DOW_JP[dow]}</td>
                               {allClosed?(
                                 <>
                                   <td colSpan={3+NIGHT_TIMES.length} style={{background:rowBg,textAlign:"center",fontSize:10,color:"#b0a090",padding:"6px",opacity:0.4}}>{manualClosed?"休業日":"定休日"}</td>
