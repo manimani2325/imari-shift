@@ -1548,7 +1548,7 @@ export default function App(){
                       📆 シフト確認
                     </button>
                   </div>
-                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap",justifyContent:"center"}}>
                     {staffModeStaff.map(s=>(
                       <button key={s.id} onClick={()=>handleStaffSelect(s)} style={{...hbtn(false),fontSize:12,padding:"8px 18px",borderRadius:6}}>
                         {s.name}{s.password?<span style={{fontSize:9,marginLeft:4,opacity:.5}}>🔒</span>:""}
