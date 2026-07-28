@@ -1305,10 +1305,13 @@ export default function App(){
   const C={
     bg:"#f7efe4",text:"#1a0a00",muted:"#8c7b6b",accent:"#8b1a1a",
     navy:"#1b2a5e",gold:"#b8860b",red:"#8b1a1a",cream:"#fdf6ec",
-    ink:"#2b1014",headMuted:"#c7ada6",
+    ink:"#2b1014",headMuted:"#7a6555",
   };
   // 和柄背景に重ねるクリーム膜の不透明度（1に近いほど柄が薄くなる / 0で画像そのままの発色）
   const BG_VEIL=0.72;
+  // ヘッダーの柄の濃さ。本文と同値にすると画面全体で柄が完全に連続する。
+  // ヘッダーの小さな文字が読みにくい場合はここだけ上げて明るくできる
+  const BG_HEAD_VEIL=0.72;
   // 和柄タイル1枚の表示幅(px)。タイルは元絵2枚分なので、実際の丸紋はこの約1/5.4の大きさになる
   const BG_TILE=1500;
   // タイルの中央と端は鏡像の対称軸になるため、軸が画面中央に来ないよう1/4だけずらす
@@ -1318,10 +1321,10 @@ export default function App(){
     cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,letterSpacing:.5,transition:"all .25s ease",
     background:on?c:"transparent",color:on?"#fff":C.accent,
   });
-  // ヘッダー（濃色背景）用ボタン
+  // ヘッダー（和柄の明るい面）用ボタン。柄の上でも輪郭が出るよう白を薄く敷く
   const hbtn=(on,c=C.accent)=>({
     ...btn(on,c),
-    ...(on?{border:"1px solid transparent"}:{background:"rgba(255,255,255,0.05)",color:C.headMuted,border:"1px solid rgba(255,255,255,0.18)"}),
+    ...(on?{border:"1px solid transparent"}:{background:"rgba(255,255,255,0.55)",color:C.accent,border:`1px solid ${C.accent}33`}),
   });
   const card={background:"#fff",borderRadius:6,border:"1px solid rgba(139,26,26,0.13)",borderTop:`2px solid ${C.gold}77`,padding:20};
 
@@ -1488,14 +1491,21 @@ export default function App(){
       )}
 
       {/* ── ヘッダー */}
-      <div className="main-content" style={{background:C.ink,borderBottom:`1px solid ${C.gold}88`,padding:"14px 16px",position:"sticky",top:0,zIndex:30}}>
-        <div style={{maxWidth:900,margin:"0 auto"}}>
+      <div className="main-content" style={{background:"transparent",borderBottom:`1px solid ${C.gold}88`,padding:"14px 16px",position:"sticky",top:0,zIndex:30,overflow:"hidden"}}>
+        {/* ヘッダー自身の和柄。sticky top:0 なので上端は常に画面上端＝背景レイヤーと同じ基準になり、
+            高さ100vh・同一のsize/positionで敷くと背面の柄とピクセル単位で連続する。
+            不透明に敷くことで、スクロールした本文がヘッダーに透けるのを防いでいる。 */}
+        <div aria-hidden="true" style={{position:"absolute",top:0,left:0,right:0,height:"100vh",pointerEvents:"none",
+          backgroundColor:C.bg,
+          backgroundImage:`linear-gradient(rgba(247,239,228,${BG_HEAD_VEIL}),rgba(247,239,228,${BG_HEAD_VEIL})),url(/wagara-bg.jpg)`,
+          backgroundSize:`auto,${BG_TILE}px auto`,backgroundPosition:`center,${BG_POS}`,backgroundRepeat:"no-repeat,repeat"}}/>
+        <div style={{maxWidth:900,margin:"0 auto",position:"relative"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:(gmMode||(!gmMode&&loginStaff)||(!gmMode&&!loginStaff))?10:0}}>
             <div style={{display:"flex",alignItems:"center",gap:10}}>
               <div style={{width:38,height:38,borderRadius:7,background:"linear-gradient(135deg,#5c0f0f,#8b1a1a)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,boxShadow:"0 2px 12px rgba(139,26,26,0.25)",flexShrink:0}}>🍶</div>
               <div>
                 <div style={{fontSize:8,letterSpacing:5,fontWeight:800,textTransform:"uppercase",color:C.gold}}>旬菜 いまり</div>
-                <div style={{fontSize:18,fontWeight:800,lineHeight:1.15,color:C.cream,fontFamily:serif,letterSpacing:1.5}}>{year}年{month+1}月</div>
+                <div style={{fontSize:18,fontWeight:800,lineHeight:1.15,color:C.ink,fontFamily:serif,letterSpacing:1.5}}>{year}年{month+1}月</div>
               </div>
               {gmMode&&<div style={{display:"flex",gap:3,marginLeft:2}}>
                 <button onClick={prevMonth} style={{...hbtn(false),padding:"5px 12px",fontSize:16,borderRadius:6}}>‹</button>
@@ -1503,11 +1513,11 @@ export default function App(){
               </div>}
             </div>
             <div style={{display:"flex",gap:6,alignItems:"center"}}>
-              <div style={{display:"flex",background:"rgba(255,255,255,0.05)",borderRadius:6,padding:3,gap:2,border:"1px solid rgba(255,255,255,0.12)"}}>
+              <div style={{display:"flex",background:"rgba(255,255,255,0.5)",borderRadius:6,padding:3,gap:2,border:`1px solid ${C.accent}22`}}>
                 <button onClick={()=>{if(gmMode)return;setPwModal(true);}} style={{...hbtn(gmMode,"linear-gradient(135deg,#5c0f0f,#8b1a1a)"),fontSize:11,padding:"5px 14px",borderRadius:6}}>管理者</button>
                 <button onClick={()=>{gmMonthRef.current={y:year,m:month};saveGMMonth(year,month);setGmMode(false);setView("avail");setLoginStaff(null);const a=getAutoMonth();setYear(a.y);setMonth(a.m);pendingYmRef.current=`${a.y}_${a.m}`;const sYm=`${a.y}_${a.m}`;setNightSlotConfig(loadCfgLS(`nightSlotConfig_${sYm}`)||{});setAisaniConfig(loadCfgLS(`aisaniConfig_${sYm}`)||{});setKitchenConfig(loadCfgLS(`kitchenConfig_${sYm}`)||{});setDayTypeConfig(loadCfgLS(`dayTypeConfig_${sYm}`)||{});prevAvailRef.current={};const{_ts:_,...staffAvail}=loadCfgLS(`avail_${sYm}`)||{};setAvail(staffAvail);}} style={{...hbtn(!gmMode,"linear-gradient(135deg,#14204a,#1b2a5e)"),fontSize:11,padding:"5px 14px",borderRadius:6}}>スタッフ</button>
               </div>
-              {gmMode&&<button onClick={()=>setStaffPanelOpen(v=>!v)} style={{...hbtn(staffPanelOpen,"rgba(255,255,255,0.16)"),fontSize:11,padding:"7px 14px"}}>👥 スタッフ</button>}
+              {gmMode&&<button onClick={()=>setStaffPanelOpen(v=>!v)} style={{...hbtn(staffPanelOpen,"linear-gradient(135deg,#5c0f0f,#8b1a1a)"),fontSize:11,padding:"7px 14px"}}>👥 スタッフ</button>}
             </div>
           </div>
 
@@ -1546,10 +1556,10 @@ export default function App(){
               <div style={{display:"flex",alignItems:"center",gap:8,paddingBottom:8}}>
                 <div style={{width:7,height:7,borderRadius:4,background:C.gold,boxShadow:`0 0 6px ${C.gold}`}}/>
                 <span style={{fontSize:11,color:C.headMuted}}>ログイン中：</span>
-                <span style={{fontWeight:800,fontSize:13,color:C.cream}}>{loginStaff.name}</span>
+                <span style={{fontWeight:800,fontSize:13,color:C.ink}}>{loginStaff.name}</span>
                 <button onClick={()=>setLoginStaff(null)} style={{...hbtn(false),fontSize:10,padding:"3px 10px"}}>変更</button>
               </div>
-              <div style={{display:"flex",gap:3,background:"rgba(255,255,255,0.05)",borderRadius:8,padding:3,border:"1px solid rgba(255,255,255,0.1)"}}>
+              <div style={{display:"flex",gap:3,background:"rgba(255,255,255,0.5)",borderRadius:8,padding:3,border:`1px solid ${C.accent}22`}}>
                 {[["avail","📅 候補日入力"],["shift","📋 自分のシフト"],["full","📆 全体シフト"]].map(([v,l])=>(
                   <button key={v} onClick={()=>setStaffTab(v)}
                     style={{flex:1,padding:"9px 4px",borderRadius:7,border:"none",cursor:"pointer",fontSize:12,fontWeight:700,transition:"all .12s",
@@ -1564,7 +1574,7 @@ export default function App(){
           )}
 
           {gmMode&&(
-            <div style={{display:"flex",gap:3,marginTop:8,background:"rgba(255,255,255,0.05)",borderRadius:8,padding:3,border:"1px solid rgba(255,255,255,0.1)"}}>
+            <div style={{display:"flex",gap:3,marginTop:8,background:"rgba(255,255,255,0.5)",borderRadius:8,padding:3,border:`1px solid ${C.accent}22`}}>
               {[["slots","① 夜枠設定"],["avail","② 候補日入力"],["result","③ シフト表"]].map(([v,l])=>(
                 <button key={v} onClick={()=>setView(v)}
                   style={{flex:1,padding:"9px 4px",borderRadius:7,border:"none",cursor:"pointer",fontSize:11,fontWeight:700,transition:"all .12s",
