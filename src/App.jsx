@@ -1387,6 +1387,9 @@ export default function App(){
         .main-content{animation:mainIn .7s cubic-bezier(.22,1,.36,1)}
         @keyframes mainIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
         .sth{position:sticky;top:0;background:rgba(253,250,246,0.97);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:5}
+        /* 起動画面。縦画面は全面に敷き、横画面は「旬菜いまり」が切れないよう全体を収める */
+        .splash{background-image:url(/imari-splash.jpg);background-repeat:no-repeat;background-position:center top;background-size:cover}
+        @media (orientation:landscape){.splash{background-size:contain;background-position:center}}
         .avail-row:hover td{background:rgba(139,26,26,0.03)!important}
         .inp{outline:none;transition:border-color .2s,box-shadow .2s}
         .inp:focus{border-color:#8b1a1a!important;box-shadow:0 0 0 3px rgba(139,26,26,0.12)!important}
@@ -1400,13 +1403,13 @@ export default function App(){
         <div style={{position:"fixed",inset:0,zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",
           animation:loadingFading?"loadOut .65s cubic-bezier(.4,0,1,1) forwards":"none",
           pointerEvents:loadingFading?"none":"auto"}}>
-          <div style={{position:"absolute",inset:0,backgroundImage:"url(/imari.jpeg)",backgroundSize:"cover",backgroundPosition:"center top",backgroundRepeat:"no-repeat"}}/>
-          <div style={{position:"absolute",inset:0,background:"rgba(255,255,255,0.18)"}}/>
-          <div style={{position:"absolute",bottom:"12vh",left:0,right:0,zIndex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:10}}>
-            <div style={{background:"rgba(255,255,255,0.85)",borderRadius:6,padding:"10px 36px",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",boxShadow:"0 4px 24px rgba(139,26,26,0.12)"}}>
-              <div style={{fontSize:13,letterSpacing:6,color:C.accent,fontWeight:700,fontFamily:"serif",textAlign:"center"}}>読み込み中...</div>
+          {/* 元絵が明るい和柄なので、白い膜は重ねずそのまま見せる */}
+          <div className="splash" style={{position:"absolute",inset:0,backgroundColor:C.bg}}/>
+          <div style={{position:"absolute",bottom:"10vh",left:0,right:0,zIndex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:8}}>
+            <div style={{background:"rgba(253,250,246,0.72)",borderRadius:6,padding:"9px 32px",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",border:`1px solid ${C.gold}55`}}>
+              <div style={{fontSize:12,letterSpacing:6,color:C.accent,fontWeight:700,fontFamily:serif,textAlign:"center"}}>読み込み中...</div>
             </div>
-            <div style={{fontSize:11,letterSpacing:4,color:"rgba(139,26,26,0.55)",fontFamily:"sans-serif",fontWeight:600}}>Loading...</div>
+            <div style={{fontSize:10,letterSpacing:4,color:"rgba(139,26,26,0.45)",fontWeight:600}}>Loading...</div>
           </div>
         </div>
       )}
