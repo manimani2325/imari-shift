@@ -1024,6 +1024,12 @@ export default function App(){
       startupAvailPending.current=true;
       pendingKeys.current.add(avKey);
     }
+    // 枠設定もキャッシュから復元しておく。Firebase到達前は夜枠が未設定扱いになり、
+    // 候補日入力の夜の列がすべて「―」（枠なし）に見えてしまうため
+    const ns=loadCfgLS(`nightSlotConfig_${ymRef.current}`); if(ns) setNightSlotConfig(ns);
+    const ai=loadCfgLS(`aisaniConfig_${ymRef.current}`);    if(ai) setAisaniConfig(ai);
+    const kt=loadCfgLS(`kitchenConfig_${ymRef.current}`);   if(kt) setKitchenConfig(kt);
+    const dt=loadCfgLS(`dayTypeConfig_${ymRef.current}`);   if(dt) setDayTypeConfig(dt);
   },[]);
 
   // ── avail変更時にシフト結果を同期（候補消去→除去、候補追加→不足補充）
