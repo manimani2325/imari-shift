@@ -1366,8 +1366,10 @@ export default function App(){
     :loginStaff;
 
   // スタッフのシフト閲覧専用: allDataRefから対象月のconfirmedShiftを取得
+  // Firebase未到達時（通信が不安定・起動直後）はlocalStorageのキャッシュにフォールバックし、
+  // 公開済みのシフトが「公開されていません」と表示されないようにする（下のコメントと同じ方針）
   const staffShiftViewYm=`${staffShiftViewY}_${staffShiftViewM}`;
-  const staffViewCS=deserializeConfirmedShift(allDataRef.current[`confirmedShift_${staffShiftViewYm}`])||null;
+  const staffViewCS=deserializeConfirmedShift(allDataRef.current[`confirmedShift_${staffShiftViewYm}`]||loadCfgLS(`confirmedShift_${staffShiftViewYm}`))||null;
   // コメントも表示月に合わせてallDataRef経由で取得（GMが別月に切り替えても消えないように）
   const staffViewDayComments=allDataRef.current[`dayComments_${staffShiftViewYm}`]||loadCfgLS(`dayComments_${staffShiftViewYm}`)||{};
   const staffShiftViewPrev=()=>{const [y,m]=staffShiftViewM===0?[staffShiftViewY-1,11]:[staffShiftViewY,staffShiftViewM-1];setStaffShiftViewY(y);setStaffShiftViewM(m);};
