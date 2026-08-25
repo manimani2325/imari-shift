@@ -80,14 +80,15 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
   const workedMorning = {}; // 朝/夜バランス用
   const workedNight   = {};
   const workedDays    = {}; // 日数ベース達成率用
-  const workedW       = {}; // 重み付き実績（達成率ソート用: 朝仕込み=2, 他=1）
+  const workedW       = {}; // 重み付き実績（達成率ソート用: 朝仕込み=1.5, 他=1）
   const candDays      = {}; // 候補数
   staff.forEach(s=>{ worked[s.id]=0; workedMorning[s.id]=0; workedNight[s.id]=0; workedDays[s.id]=new Set(); workedW[s.id]=0; candDays[s.id]=0; });
 
   const isAvail = (sid,key) => !!avail[sid]?.[key];
 
   // 事前に候補数を集計
-  // 朝仕込み(_prep, または朝+仕込み両チェック)=2
+  // 朝+仕込み両チェック=2（朝と朝仕込のどちらにも入れるため）
+  // 朝仕込み(_prep)のみ=1.5
   // 朝/夜/アイサニ/キッチン/仕込み夜など有効なシフトあり=1
   // 仕込みのみ・前日夜→翌朝のみ=0
   staff.forEach(s=>{
@@ -99,8 +100,10 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
       const hasAisani=s.aisaniOK&&isAvail(s.id,`${d}_aisani`);
       const hasKitchen=s.kitchenOK&&isAvail(s.id,`${d}_kitchen`);
       if(!hasMorning&&!hasPrep&&!hasShimikomi&&!hasNight&&!hasAisani&&!hasKitchen) continue;
-      if(hasPrep||(hasMorning&&hasShimikomi)){
-        candDays[s.id]+=2; // 朝仕込み=2
+      if(hasMorning&&hasShimikomi){
+        candDays[s.id]+=2;   // 朝・朝仕込のどちらにも入れる
+      } else if(hasPrep){
+        candDays[s.id]+=1.5; // 朝仕込のみ
       } else {
         const hadPrevNight=d>1&&NIGHT_TIMES.some(t=>isAvail(s.id,`${d-1}_night_${t}`));
         const activeMorning=hasMorning&&!hadPrevNight; // 前日夜がある場合、朝は0（夜朝カウント済み）
@@ -172,8 +175,8 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
     workedDays[s.id].add(d);
     if(type==='morning') workedMorning[s.id]++;
     else if(type==='night') workedNight[s.id]++;
-    // 重み付き実績: 朝仕込み（_prep または 朝+仕込み両チェック）は2、それ以外は1
-    const w=type==='prep'&&(isAvail(s.id,`${d}_prep`)||(isAvail(s.id,`${d}_morning`)&&isAvail(s.id,`${d}_shimikomi`)))?2:1;
+    // 重み付き実績: 朝仕込み（_prep または 朝+仕込み両チェック）に入った日は1.5、それ以外は1
+    const w=type==='prep'&&(isAvail(s.id,`${d}_prep`)||(isAvail(s.id,`${d}_morning`)&&isAvail(s.id,`${d}_shimikomi`)))?1.5:1;
     workedW[s.id]+=w;
   };
 
@@ -401,7 +404,7 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
     warnings[d]=dayW;
   }
 
-  // 勤務実績カウント: 朝仕込み(_prep avail)=2, 朝=1, 仕込みのみ=1, 夜=1, アイサニ/キッチン=1
+  // 勤務実績カウント: 朝仕込み(_prep avail)=1.5, 朝=1, 仕込みのみ=1, 夜=1, アイサニ/キッチン=1
   // 組み合わせは各1を加算（朝夜=1+1=2, 仕込み夜=1+1=2）
   const workedCounts={};
   staff.forEach(s=>{ workedCounts[s.id]=0; });
@@ -416,8 +419,8 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
       const inKitchen=dayR.kitchen===s.id;
       if(inPrep){
         // 朝仕込み判定: _prep avail または (朝+仕込み両チェック=shimikomiMorning)
-        const is2Count=isAvail(s.id,`${d}_prep`)||(isAvail(s.id,`${d}_morning`)&&isAvail(s.id,`${d}_shimikomi`));
-        workedCounts[s.id]+=is2Count?2:1;
+        const isMorningPrep=isAvail(s.id,`${d}_prep`)||(isAvail(s.id,`${d}_morning`)&&isAvail(s.id,`${d}_shimikomi`));
+        workedCounts[s.id]+=isMorningPrep?1.5:1;
       }
       if(inMorning) workedCounts[s.id]+=1;
       if(inNight) workedCounts[s.id]+=1;
@@ -433,8 +436,11 @@ function generateShifts(staff, year, month, avail, nightSlotConfig, aisaniConfig
 
 function staffById_local(staffArr,id){ return staffArr.find(s=>s.id===id); }
 
+// 朝仕込みを1.5で数えるため実績・候補数は小数になりうる。整数なら整数のまま表示する
+const fmtCount=n=>Number.isInteger(n)?`${n}`:n.toFixed(1);
+
 // 勤務実績数をシフト結果から動的計算
-// 朝仕込み(_prep avail)=2, 朝=1, 仕込みのみ=1, 夜=1, アイサニ/キッチン=1（各加算）
+// 朝仕込み(_prep avail)=1.5, 朝=1, 仕込みのみ=1, 夜=1, アイサニ/キッチン=1（各加算）
 function calcWorkedCount(sid, shifts, avail){
   let count=0;
   Object.entries(shifts||{}).forEach(([dStr,dayR])=>{
@@ -447,8 +453,8 @@ function calcWorkedCount(sid, shifts, avail){
     const inKitchen=dayR.kitchen===sid;
     if(inPrep){
       // 朝仕込み判定: _prep avail または (朝+仕込み両チェック=shimikomiMorning)
-      const is2Count=avail[sid]?.[`${d}_prep`]||(avail[sid]?.[`${d}_morning`]&&avail[sid]?.[`${d}_shimikomi`]);
-      count+=is2Count?2:1;
+      const isMorningPrep=avail[sid]?.[`${d}_prep`]||(avail[sid]?.[`${d}_morning`]&&avail[sid]?.[`${d}_shimikomi`]);
+      count+=isMorningPrep?1.5:1;
     }
     if(inMorning) count+=1;
     if(inNight) count+=1;
@@ -458,7 +464,7 @@ function calcWorkedCount(sid, shifts, avail){
 }
 
 // 候補数をavailから動的計算
-// 朝仕込み(_prep)=2, 朝=1, 夜=1, アイサニ=+1, キッチン=+1
+// 朝+仕込み両チェック=2, 朝仕込み(_prep)のみ=1.5, 朝=1, 夜=1, アイサニ=+1, キッチン=+1
 // 仕込みのみ(_shimikomi)=0, 朝夜/仕込み夜/夜朝=1, 前日夜→翌朝は夜側でカウント済み
 function calcCandCount(s, avail, year, month){
   const days=daysIn(year,month);
@@ -471,8 +477,10 @@ function calcCandCount(s, avail, year, month){
     const hasAisani=s.aisaniOK&&!!avail[s.id]?.[`${d}_aisani`];
     const hasKitchen=s.kitchenOK&&!!avail[s.id]?.[`${d}_kitchen`];
     if(!hasMorning&&!hasPrep&&!hasShimikomi&&!hasNight&&!hasAisani&&!hasKitchen) continue;
-    if(hasPrep||(hasMorning&&hasShimikomi)){
-      count+=2; // 朝仕込み=2
+    if(hasMorning&&hasShimikomi){
+      count+=2;   // 朝・朝仕込のどちらにも入れる
+    } else if(hasPrep){
+      count+=1.5; // 朝仕込のみ
     } else {
       const hadPrevNight=d>1&&NIGHT_TIMES.some(t=>!!avail[s.id]?.[`${d-1}_night_${t}`]);
       const activeMorning=hasMorning&&!hadPrevNight;
@@ -1024,6 +1032,12 @@ export default function App(){
       startupAvailPending.current=true;
       pendingKeys.current.add(avKey);
     }
+    // 枠設定もキャッシュから復元しておく。Firebase到達前は夜枠が未設定扱いになり、
+    // 候補日入力の夜の列がすべて「―」（枠なし）に見えてしまうため
+    const ns=loadCfgLS(`nightSlotConfig_${ymRef.current}`); if(ns) setNightSlotConfig(ns);
+    const ai=loadCfgLS(`aisaniConfig_${ymRef.current}`);    if(ai) setAisaniConfig(ai);
+    const kt=loadCfgLS(`kitchenConfig_${ymRef.current}`);   if(kt) setKitchenConfig(kt);
+    const dt=loadCfgLS(`dayTypeConfig_${ymRef.current}`);   if(dt) setDayTypeConfig(dt);
   },[]);
 
   // ── avail変更時にシフト結果を同期（候補消去→除去、候補追加→不足補充）
@@ -1366,8 +1380,10 @@ export default function App(){
     :loginStaff;
 
   // スタッフのシフト閲覧専用: allDataRefから対象月のconfirmedShiftを取得
+  // Firebase未到達時（通信が不安定・起動直後）はlocalStorageのキャッシュにフォールバックし、
+  // 公開済みのシフトが「公開されていません」と表示されないようにする（下のコメントと同じ方針）
   const staffShiftViewYm=`${staffShiftViewY}_${staffShiftViewM}`;
-  const staffViewCS=deserializeConfirmedShift(allDataRef.current[`confirmedShift_${staffShiftViewYm}`])||null;
+  const staffViewCS=deserializeConfirmedShift(allDataRef.current[`confirmedShift_${staffShiftViewYm}`]||loadCfgLS(`confirmedShift_${staffShiftViewYm}`))||null;
   // コメントも表示月に合わせてallDataRef経由で取得（GMが別月に切り替えても消えないように）
   const staffViewDayComments=allDataRef.current[`dayComments_${staffShiftViewYm}`]||loadCfgLS(`dayComments_${staffShiftViewYm}`)||{};
   const staffShiftViewPrev=()=>{const [y,m]=staffShiftViewM===0?[staffShiftViewY-1,11]:[staffShiftViewY,staffShiftViewM-1];setStaffShiftViewY(y);setStaffShiftViewM(m);};
@@ -2525,7 +2541,7 @@ export default function App(){
                               border:`1.5px solid ${sel?C.accent:GRADE_COLOR[s.grade]+"22"}`,minWidth:84,cursor:"pointer",transition:"all .15s",
                               boxShadow:sel?"0 2px 12px rgba(139,26,26,0.18)":"none"}}>
                             <div style={{fontSize:10,fontWeight:700,color:GRADE_COLOR[s.grade]}}>{s.name}</div>
-                            <div style={{fontSize:19,fontWeight:800,fontFamily:serif,marginTop:4,color:C.text}}>{w}<span style={{fontSize:10,color:C.muted,fontWeight:400}}>/{c}</span></div>
+                            <div style={{fontSize:19,fontWeight:800,fontFamily:serif,marginTop:4,color:C.text}}>{fmtCount(w)}<span style={{fontSize:10,color:C.muted,fontWeight:400}}>/{fmtCount(c)}</span></div>
                             <div style={{fontSize:12,fontWeight:800,color:dc}}>{pct}%</div>
                             <div style={{fontSize:8,color:C.muted,opacity:.6,marginTop:2}}>実績/候補数</div>
                           </div>
