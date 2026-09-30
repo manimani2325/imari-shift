@@ -891,7 +891,7 @@ export default function App(){
   };
 
   // GMパスワード
-  const GM_PASSWORD="20030625";
+  const GM_PASSWORD="137913";
   const SHIFT_PREVIEW_PASSWORD="0125";
   const [pwModal,setPwModal]=useState(false);
   const [pwInput,setPwInput]=useState("");
