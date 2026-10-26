@@ -2121,9 +2121,9 @@ export default function App(){
             }
             if(inNight){
               const nightMembers=[];
-              NIGHT_ORDER.forEach(t=>{const id=day.night[t];if(id!=null){const s=staffMap[id]||staffMap[Number(id)];if(s) nightMembers.push({person:s,time:t,isStar:(id===myNStar||Number(id)===myNStar),isJ:s.grade==='J',isKimono:isKimonoId(id)});}});
+              NIGHT_ORDER.forEach(t=>{const id=day.night[t];if(id!=null){const s=staffMap[id]||staffMap[Number(id)];if(s) nightMembers.push({person:s,time:t,isStar:(id===myNStar||Number(id)===myNStar),isJ:s.grade==='J'&&s.showClover!==false,isKimono:isKimonoId(id)});}});
               // カスタム夜枠（17時以降）も含める
-              [...extraNightEntries].sort(byTimeEntry).forEach(([t,id])=>{const s=staffMap[id]||staffMap[Number(id)];const meta=(day.nightMeta||{})[t];if(s) nightMembers.push({person:s,time:`${slotDisplayTime(t)}${meta?.end?`〜${meta.end}`:''}${slotNameTag(meta)}`,isStar:false,isJ:s.grade==='J',isKimono:isKimonoId(id)});});
+              [...extraNightEntries].sort(byTimeEntry).forEach(([t,id])=>{const s=staffMap[id]||staffMap[Number(id)];const meta=(day.nightMeta||{})[t];if(s) nightMembers.push({person:s,time:`${slotDisplayTime(t)}${meta?.end?`〜${meta.end}`:''}${slotNameTag(meta)}`,isStar:false,isJ:s.grade==='J'&&s.showClover!==false,isKimono:isKimonoId(id)});});
               groups.push({label:"夜",color:"#3b82f6",night:true,members:nightMembers});
             }
             if(inAisani){const s=staffMap[day.aisani]||staffMap[Number(day.aisani)];groups.push({label:"アイサニ",color:"#10b981",members:s?[s]:[]});}
