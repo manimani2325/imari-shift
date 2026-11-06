@@ -646,6 +646,13 @@ export default function App(){
   const [dayTypeConfig,setDayTypeConfig]=useState({});
   const [result,_setResultRaw]=useState(null);
   const resultRef=useRef(null);
+  // ── 操作履歴（1手ずつ戻す用）
+  // シフトを書き換える操作の直前の状態を積んでおく。端末ごとに持ち、
+  // リロードしても残るよう localStorage にも保存する
+  const UNDO_MAX=10;
+  const undoKeyOf=ym=>`imari_undo_${ym}`;
+  const undoRef=useRef([]);
+  const [undoInfo,setUndoInfo]=useState(null); // {n, label} 表示用
   // setResult: resultRefを同期更新してからReact stateを更新（updaterの非同期問題を回避）
   const setResult=(valOrFn)=>{
     const next=typeof valOrFn==='function'?valOrFn(resultRef.current):valOrFn;
@@ -740,6 +747,49 @@ export default function App(){
     updateAvail({...avail,[sid]:next},sid);
   };
 
+  // 書き換える直前の状態を履歴に積む。label は「何を取り消すか」の表示に使う
+  const pushUndo=useCallback((label)=>{
+    const prev=resultRef.current;
+    if(!prev) return;
+    const ym=ymRef.current;
+    const stack=undoRef.current;
+    stack.push({label,at:Date.now(),data:serializeResult(prev)});
+    while(stack.length>UNDO_MAX) stack.shift();
+    const persist=()=>{try{localStorage.setItem(undoKeyOf(ym),JSON.stringify(stack));return true;}catch(_){return false;}};
+    // 容量オーバーなら古い履歴を捨てて入れ直す
+    if(!persist()){while(stack.length>3){stack.shift();if(persist())break;}}
+    setUndoInfo({n:stack.length,label});
+  },[]);
+
+  // 1手だけ戻す
+  const undoLast=useCallback(()=>{
+    const stack=undoRef.current;
+    if(!stack.length) return;
+    const entry=stack[stack.length-1];
+    if(!window.confirm(`「${entry.label}」を取り消して、その前の状態に戻します。よろしいですか？`)) return;
+    const restored=deserializeResult(entry.data);
+    if(!restored){alert("この履歴は読み込めませんでした");return;}
+    stack.pop();
+    const ym=ymRef.current;
+    // 他の端末にも反映されるよう savedAt を更新してから保存する
+    const next={...restored,savedAt:Date.now()};
+    setResult(next);
+    saveResultLS(next,ym);
+    const rbKey=`resultBackup_${ym}`;
+    pendingKeys.current.add(rbKey);
+    saveKey(rbKey,serializeResult(next)).catch(()=>{}).finally(()=>pendingKeys.current.delete(rbKey));
+    try{localStorage.setItem(undoKeyOf(ym),JSON.stringify(stack));}catch(_){}
+    setUndoInfo(stack.length?{n:stack.length,label:stack[stack.length-1].label}:null);
+  },[]);
+
+  // 表示月が変わったら、その月の履歴に差し替える
+  const loadUndo=useCallback((ym)=>{
+    let stack=[];
+    try{const raw=localStorage.getItem(undoKeyOf(ym));const v=raw?JSON.parse(raw):[];if(Array.isArray(v)) stack=v;}catch(_){}
+    undoRef.current=stack;
+    setUndoInfo(stack.length?{n:stack.length,label:stack[stack.length-1].label}:null);
+  },[]);
+
   const swapShiftAssignment=useCallback((d,slotType,slotTime,newId,removeId=null,force=false,meta=null)=>{
     const prev=resultRef.current;
     if(!prev) return;
@@ -797,6 +847,7 @@ export default function App(){
     const totalW=staff.reduce((a,s)=>a+wd[s.id].size,0);
     const totalC=staff.reduce((a,s)=>a+(prev.candW[s.id]||0),0);
     const newAvgRate=totalC>0?Math.round(totalW/totalC*100):0;
+    pushUndo(slotType==='morning'?'朝の変更':slotType==='prep'?'朝仕込の変更':slotType==='aisani'?'アイサニの変更':slotType==='kitchen'?'キッチンの変更':'夜の変更');
     const next={...prev,shifts:newShifts,worked:newWorked,workedDays:wd,shortage:newShortage,avgRate:newAvgRate,savedAt:Date.now()};
     setResult(next);
     saveResultLS(next,ymRef.current);
@@ -814,6 +865,7 @@ export default function App(){
     const newShortage={...prev.shortage,[d]:{...prev.shortage[d],night:{...(prev.shortage[d]?.night||{})}}};
     delete newShortage[d].night[t];
     const totalW=staff.reduce((a,s)=>a+wd[s.id].size,0);const totalC=staff.reduce((a,s)=>a+(prev.candW[s.id]||0),0);
+    pushUndo('追加枠の削除');
     const next={...prev,shifts:newShifts,worked:newWorked,workedDays:wd,shortage:newShortage,avgRate:totalC>0?Math.round(totalW/totalC*100):0,savedAt:Date.now()};
     setResult(next);saveResultLS(next,ymRef.current);debounceSave(`resultBackup_${ymRef.current}`,serializeResult(next));
   },[staff]);
@@ -821,6 +873,7 @@ export default function App(){
   const handleGenerate=()=>{
     const genYm=`${year}_${month}`;
     const prevResult=resultRef.current;
+    pushUndo('再生成');
     setGenerating(true);
     setTimeout(()=>{
       const r={...generateShifts(staff,year,month,avail,nightSlotConfig,aisaniConfig,kitchenConfig,dayTypeConfig),year,month,savedAt:Date.now()};
@@ -882,6 +935,7 @@ export default function App(){
         kitchen:(kitchenConfig[d]?.enabled&&!kitchen)?1:0,
       };
     }
+    pushUndo('公開中のシフトへ復元');
     const next={...(prev||{worked:{},candW:{},avgRate:0}),shifts,shortage,warnings:{},workedDays:{},year,month,savedAt:Date.now()};
     setResult(next);
     saveResultLS(next,ymRef.current);
@@ -1062,6 +1116,7 @@ export default function App(){
   useEffect(()=>{
     const r=loadResultLS(ymRef.current);
     if(r) setResult(r);
+    loadUndo(ymRef.current);
     const avKey=`avail_${ymRef.current}`;
     const savedRaw=loadCfgLS(avKey);
     if(savedRaw){
@@ -1207,6 +1262,7 @@ export default function App(){
     });
 
     if(!anyChanged) return;
+    pushUndo('候補日の変更を反映');
     const next={...prev,shifts:newShifts,shortage:newShortage,savedAt:Date.now()};
     setResult(next);
     saveResultLS(next,ymRef.current);
@@ -1306,6 +1362,7 @@ export default function App(){
     setConfirmedShift(rawCS?deserializeConfirmedShift(rawCS):null);
     prevAvailRef.current={};
     setResult(loadResultLS(newYm)||null);
+    loadUndo(newYm);   // 履歴は月ごとに持つ
   };
   const updateDayComments=val=>{
     setDayComments(val);
@@ -1338,6 +1395,7 @@ export default function App(){
     const newShortage={...prev.shortage,[d]:{...(prev.shortage[d]||{})}};
     if(slotType==='night') newShortage[d]={...newShortage[d],night:{...(newShortage[d]?.night||{}),[slotTime]:0}};
     else newShortage[d]={...newShortage[d],[slotType]:0};
+    pushUndo('不足表示の消し込み');
     const next={...prev,shortage:newShortage,savedAt:Date.now()};
     setResult(next);
     saveResultLS(next,ymRef.current);
@@ -2522,6 +2580,17 @@ export default function App(){
               </div>
             ):(
               <div>
+                {undoInfo&&(
+                  <div style={{marginBottom:12}}>
+                    <button onClick={undoLast}
+                      style={{width:"100%",padding:"12px",borderRadius:7,border:`1px solid ${C.navy}45`,cursor:"pointer",fontSize:13,fontWeight:800,background:"rgba(27,42,94,0.06)",color:C.navy}}>
+                      ↩ 元に戻す（{undoInfo.label}）
+                    </button>
+                    <div style={{fontSize:10,color:C.muted,marginTop:5,textAlign:"center",opacity:.8}}>
+                      あと{undoInfo.n}回まで、1つずつさかのぼれます
+                    </div>
+                  </div>
+                )}
                 <div style={{display:"flex",gap:8,marginBottom:16}}>
                   <button onClick={()=>{if(window.confirm("シフトを作り直します。いま画面に出ている手動の調整はすべて消えます。よろしいですか？")) handleGenerate();}} style={{flex:1,padding:"12px",borderRadius:7,border:"1px solid rgba(139,26,26,0.2)",background:"rgba(139,26,26,0.04)",color:C.accent,cursor:"pointer",fontSize:13,fontWeight:700}}>
                     🔄 再生成
