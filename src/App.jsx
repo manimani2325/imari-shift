@@ -852,6 +852,45 @@ export default function App(){
     },500);
   };
 
+  // ── 公開中のシフトを作業中のシフト表へ書き戻す
+  // 再生成や手動編集で作業中の内容が崩れたときの復旧用。公開済みデータ(confirmedShift)は
+  // 公開/公開取り消し以外では書き換わらないため、直前に公開していれば必ずここに残っている
+  const restoreFromConfirmed=()=>{
+    const cs=confirmedShift;
+    if(!cs||!cs.shifts){alert("公開中のシフトがないため復元できません");return;}
+    if(cs.year!==year||cs.month!==month){alert(`公開中のシフトは${cs.year}年${cs.month+1}月のものです。復元したい月に切り替えてから実行してください`);return;}
+    if(!window.confirm(`いま画面に出ているシフト表を破棄して、公開中の${year}年${month+1}月のシフトに戻します。よろしいですか？`)) return;
+    const prev=resultRef.current;
+    const shifts={},shortage={};
+    for(let d=1;d<=days;d++){
+      const day=cs.shifts[d]||cs.shifts[String(d)];
+      const morning=[...(day?.morning||[])],prep=[...(day?.prep||[])];
+      const night={...(day?.night||{})},nightMeta={...(day?.nightMeta||{})};
+      const aisani=day?.aisani??null,kitchen=day?.kitchen??null;
+      shifts[d]={morning,prep,night,nightMeta,aisani,kitchen};
+      // 不足数は保存されていないので、枠の設定と照らして数え直す
+      const closed=isClosed(year,month,d)||dayTypeConfig[d]==="closed";
+      const morningClosed=dayTypeConfig[d]==="morning_closed";
+      const ns={};
+      (nightSlotConfig[d]||[]).forEach(t=>{ns[t]=night[t]?0:1;});
+      Object.entries(night).forEach(([t,id])=>{if(!(t in ns)) ns[t]=id?0:1;});
+      shortage[d]=closed?{morning:0,prep:0,night:{},aisani:0,kitchen:0}:{
+        morning:morningClosed?0:Math.max(0,2-morning.length),
+        prep:Math.max(0,1-prep.length),
+        night:ns,
+        aisani:(aisaniConfig[d]?.enabled&&!aisani)?1:0,
+        kitchen:(kitchenConfig[d]?.enabled&&!kitchen)?1:0,
+      };
+    }
+    const next={...(prev||{worked:{},candW:{},avgRate:0}),shifts,shortage,warnings:{},workedDays:{},year,month,savedAt:Date.now()};
+    setResult(next);
+    saveResultLS(next,ymRef.current);
+    const rbKey=`resultBackup_${ymRef.current}`;
+    pendingKeys.current.add(rbKey);
+    saveKey(rbKey,serializeResult(next)).catch(()=>{}).finally(()=>{pendingKeys.current.delete(rbKey);});
+    alert("公開中のシフトに戻しました");
+  };
+
   const handleExport=async()=>{
     if(!shiftRef.current)return;
     setExporting(true);
@@ -2484,7 +2523,7 @@ export default function App(){
             ):(
               <div>
                 <div style={{display:"flex",gap:8,marginBottom:16}}>
-                  <button onClick={handleGenerate} style={{flex:1,padding:"12px",borderRadius:7,border:"1px solid rgba(139,26,26,0.2)",background:"rgba(139,26,26,0.04)",color:C.accent,cursor:"pointer",fontSize:13,fontWeight:700}}>
+                  <button onClick={()=>{if(window.confirm("シフトを作り直します。いま画面に出ている手動の調整はすべて消えます。よろしいですか？")) handleGenerate();}} style={{flex:1,padding:"12px",borderRadius:7,border:"1px solid rgba(139,26,26,0.2)",background:"rgba(139,26,26,0.04)",color:C.accent,cursor:"pointer",fontSize:13,fontWeight:700}}>
                     🔄 再生成
                   </button>
                   <button onClick={handleExport} disabled={exporting}
@@ -2511,6 +2550,17 @@ export default function App(){
                     </button>
                   )}
                 </div>
+                {confirmedShift&&confirmedShift.year===year&&confirmedShift.month===month&&(
+                  <div style={{marginBottom:16}}>
+                    <button onClick={restoreFromConfirmed}
+                      style={{width:"100%",padding:"11px",borderRadius:7,border:`1px solid ${C.navy}40`,cursor:"pointer",fontSize:12,fontWeight:700,background:"rgba(27,42,94,0.05)",color:C.navy}}>
+                      ⏮ 公開中のシフトに戻す
+                    </button>
+                    <div style={{fontSize:10,color:C.muted,marginTop:5,textAlign:"center",opacity:.8}}>
+                      再生成や編集で崩れたときに、いま公開中の内容へ戻せます
+                    </div>
+                  </div>
+                )}
 
                 <div ref={shiftRef} style={{background:C.bg,padding:16,borderRadius:10}}>
                   <div style={{textAlign:"center",marginBottom:18}}>
