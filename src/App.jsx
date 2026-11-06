@@ -682,7 +682,6 @@ export default function App(){
   const [addSlotState,setAddSlotState]=useState(null); // {d, time, endTime, name} | null
   const [generating,setGenerating]=useState(false);
   const [resultStaffFilter,setResultStaffFilter]=useState(null);
-  const [exporting,setExporting]=useState(false);
   const shiftRef=useRef(null);
 
   const days=daysIn(year,month);
@@ -945,23 +944,78 @@ export default function App(){
     alert("公開中のシフトに戻しました");
   };
 
-  const handleExport=async()=>{
-    if(!shiftRef.current)return;
-    setExporting(true);
-    try{
-      if(!window.html2canvas){
-        await new Promise((res,rej)=>{
-          const s=document.createElement("script");
-          s.src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
-          s.onload=res;s.onerror=rej;document.head.appendChild(s);
-        });
+  // ── 生成済みのシフトを、そのまま貼れる文章に起こす
+  const buildShiftText=()=>{
+    const r=resultRef.current;
+    if(!r||!r.shifts) return "";
+    const nm=id=>{const s=staffMap[id]||staffMap[Number(id)];return s?s.name:null;};
+    const lines=[`旬菜いまり ${year}年${month+1}月 シフト表`,""];
+    for(let d=1;d<=days;d++){
+      const day=r.shifts[d];
+      const dow=DOW_JP[getDow(year,month,d)];
+      const hol=isHol(year,month,d)?"🎌":"";
+      const head=`${month+1}/${d}（${dow}）${hol}`;
+      const manualClosed=dayTypeConfig[d]==="closed";
+      const morningClosed=dayTypeConfig[d]==="morning_closed";
+      if(isClosed(year,month,d)||manualClosed){lines.push(`${head} ${manualClosed?"休業日":"定休日"}`,"");continue;}
+      if(!day){lines.push(head,"（未設定）","");continue;}
+      const kd=isKimonoDay(year,month,d);
+      const km=id=>(kd&&(kimonoOverrides[d]||{})[id])?"👘":"";
+      const clover=id=>{const s=staffMap[id]||staffMap[Number(id)];return (s&&s.grade==="J"&&s.showClover!==false)?"🍀":"";};
+      // 🌟は画面と同じ基準（朝=最高等級1人 / 夜=J以外の最上位、手動指定が優先）
+      const mp=(day.morning||[]).map(id=>staffMap[id]).filter(Boolean);
+      const mAuto=mp.length?mp.reduce((b,s)=>GRADE_SORT[s.grade]<GRADE_SORT[b.grade]?s:b):null;
+      const mOv=(starOverrides[d]||{}).morning;
+      const mStar=mOv==="none"?null:mOv??mAuto?.id??null;
+      const nc=Object.entries(day.night||{}).filter(([t,id])=>id&&extraSlotCategory(t)==='night').map(([,id])=>staffMap[id]).filter(s=>s&&s.grade!=='J');
+      nc.sort((a,b)=>(GRADE_SORT[a.grade]??5)-(GRADE_SORT[b.grade]??5));
+      const nOv=(starOverrides[d]||{}).night;
+      const nStar=nOv==="none"?null:nOv??nc[0]?.id??null;
+      const label=(id,starId)=>`${(id===starId||Number(id)===starId)?"🌟":""}${km(id)}${clover(id)}${nm(id)}`;
+      const body=[];
+      if(morningClosed) body.push("※ 朝の営業はお休み");
+      if(!morningClosed){
+        const ms=(day.morning||[]).filter(id=>nm(id)).map(id=>label(id,mStar));
+        body.push(`朝 7:00〜11:00：${ms.join("、")||"（未定）"}`);
       }
-      const canvas=await window.html2canvas(shiftRef.current,{backgroundColor:"#030712",scale:2,useCORS:true,logging:false});
-      const a=document.createElement("a");
-      a.download=`シフト表_${year}年${month+1}月.png`;
-      a.href=canvas.toDataURL("image/png");a.click();
-    }catch{alert("画像出力に失敗しました");}
-    setExporting(false);
+      const ps=(day.prep||[]).filter(id=>nm(id)).map(id=>label(id,null));
+      body.push(`${morningClosed?"仕込み":"朝仕込"} 8:30〜16:00：${ps.join("、")||"（未定）"}`);
+      // 夜と追加枠（追加枠は時間帯で朝/仕込み/夜に振り分けて表示される）
+      const slots=nightSlotConfig[d]||[];
+      const entries=Object.entries(day.night||{});
+      const extras=entries.filter(([t])=>!slots.includes(t));
+      extras.filter(([t])=>extraSlotCategory(t)!=='night').sort(([a],[b])=>byTimeStr(a,b)).forEach(([t,id])=>{
+        const meta=(day.nightMeta||{})[t];
+        body.push(`追加 ${slotTimeRange(t,meta)}${slotNameTag(meta)}：${id&&nm(id)?label(id,null):"（未定）"}`);
+      });
+      [...slots].sort(byTimeStr).forEach(t=>{
+        const id=(day.night||{})[t];
+        body.push(`夜 ${t}〜：${id&&nm(id)?label(id,nStar):"（未定）"}`);
+      });
+      extras.filter(([t])=>extraSlotCategory(t)==='night').sort(([a],[b])=>byTimeStr(a,b)).forEach(([t,id])=>{
+        const meta=(day.nightMeta||{})[t];
+        body.push(`夜 ${slotTimeRange(t,meta)}${slotNameTag(meta)}：${id&&nm(id)?label(id,nStar):"（未定）"}`);
+      });
+      if(aisaniConfig[d]?.enabled) body.push(`アイサニ：${day.aisani&&nm(day.aisani)?label(day.aisani,null):"（未定）"}`);
+      if(kitchenConfig[d]?.enabled) body.push(`キッチン：${day.kitchen&&nm(day.kitchen)?label(day.kitchen,null):"（未定）"}`);
+      const note=(dayComments||{})[d];
+      if(note&&String(note).trim()) body.push(`📝 ${String(note).trim()}`);
+      lines.push(head,...body,"");
+    }
+    return lines.join("\n").replace(/\n+$/,"\n");
+  };
+
+  const [copyFallback,setCopyFallback]=useState(null); // コピーできなかったときに本文を出す
+  const handleCopyText=async()=>{
+    const text=buildShiftText();
+    if(!text){alert("シフトがまだありません");return;}
+    try{
+      await navigator.clipboard.writeText(text);
+      alert("シフトを文字でコピーしました。LINEなどに貼り付けてください");
+    }catch(_){
+      // 権限や対応状況でコピーできない端末向けに、選択できる形で出す
+      setCopyFallback(text);
+    }
   };
 
   const addStaff=()=>{
@@ -1552,6 +1606,24 @@ export default function App(){
       )}
 
       {/* GMパスワードモーダル */}
+      {/* コピーが端末側で許可されなかったとき用。選択してコピーできるように本文を出す */}
+      {copyFallback!==null&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}
+          onClick={e=>{if(e.target===e.currentTarget) setCopyFallback(null);}}>
+          <div style={{...card,width:"100%",maxWidth:560,maxHeight:"84vh",display:"flex",flexDirection:"column",gap:10}}>
+            <div style={{fontSize:14,fontWeight:800,fontFamily:serif,color:C.accent}}>シフト表（文字）</div>
+            <div style={{fontSize:11,color:C.muted,lineHeight:1.6}}>
+              自動コピーがこの端末では使えませんでした。下の枠を長押しして「すべて選択」→「コピー」してください。
+            </div>
+            <textarea readOnly value={copyFallback}
+              onFocus={e=>e.target.select()}
+              style={{width:"100%",flex:1,minHeight:240,padding:"10px 12px",borderRadius:6,border:"1px solid rgba(139,26,26,0.2)",background:"#fff",color:C.text,fontSize:12,lineHeight:1.7,fontFamily:"inherit",resize:"vertical"}}/>
+            <button onClick={()=>setCopyFallback(null)}
+              style={{...btn(true),width:"100%",padding:"12px",borderRadius:7,fontSize:13}}>閉じる</button>
+          </div>
+        </div>
+      )}
+
       {pwModal&&(
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center"}}
           onClick={e=>{if(e.target===e.currentTarget){setPwModal(false);setPwInput("");setPwError(false);}}}>
@@ -2592,11 +2664,10 @@ export default function App(){
                   </div>
                 )}
                 <div style={{display:"flex",gap:8,marginBottom:16}}>
-                  <button onClick={handleExport} disabled={exporting}
-                    style={{flex:1,padding:"12px",borderRadius:7,border:"none",cursor:exporting?"wait":"pointer",fontSize:13,fontWeight:700,
-                      background:exporting?"#f5f0eb":"linear-gradient(135deg,#1b2a5e,#8b1a1a)",
-                      color:exporting?"#b0a090":"#fff",boxShadow:exporting?"none":"0 4px 14px rgba(27,42,94,0.3)"}}>
-                    {exporting?"⏳ 出力中...":"📷 画像で保存"}
+                  <button onClick={handleCopyText}
+                    style={{flex:1,padding:"12px",borderRadius:7,border:"none",cursor:"pointer",fontSize:13,fontWeight:700,
+                      background:"linear-gradient(135deg,#1b2a5e,#8b1a1a)",color:"#fff",boxShadow:"0 4px 14px rgba(27,42,94,0.3)"}}>
+                    📋 文字でコピー
                   </button>
                 </div>
                 <div style={{display:"flex",gap:8,marginBottom:16}}>
