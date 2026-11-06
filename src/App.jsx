@@ -1,27 +1,6 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { subscribeAll, saveKey, updateKeys, cleanupStaleKeys } from './firebase.js'
 
-// ── 誤公開からの復旧用スナップショット
-// 公開済みシフトの端末キャッシュは、Firebaseの購読が届いた瞬間に上書きされる。
-// 購読はコンポーネントのマウント後に走るので、それより前（モジュール読み込み時）に
-// いまの端末キャッシュを別キーへ退避しておく。既に退避済みなら絶対に上書きしない
-// （最初の1回＝事故前の内容を守るため）。
-(function snapshotConfirmedShifts(){
-  try{
-    const keys=[];
-    for(let i=0;i<localStorage.length;i++){
-      const k=localStorage.key(i);
-      if(k&&k.startsWith('imari_cfg_confirmedShift_')&&!k.endsWith('__rescue')) keys.push(k);
-    }
-    keys.forEach(k=>{
-      const rk=`${k}__rescue`;
-      if(localStorage.getItem(rk)!=null) return;
-      const v=localStorage.getItem(k);
-      if(v&&v!=='null') localStorage.setItem(rk,v);
-    });
-  }catch(_){}
-})();
-
 // ── 祝日データ 2024〜2026
 const HOLIDAYS = new Set([
   "2024-01-01","2024-01-08","2024-02-11","2024-02-12","2024-02-23","2024-03-20",
@@ -674,8 +653,6 @@ export default function App(){
     _setResultRaw(next);
   };
   const [confirmedShift,setConfirmedShift]=useState(null);
-  // 誤公開からの復旧候補（事故後にまだ開いていない端末から拾い上げた公開前のシフト）
-  const [rescueShift,setRescueShift]=useState(null);
   const [dayComments,setDayComments]=useState({});
   const [starOverrides,setStarOverrides]=useState({}); // {[d]:{morning:sid|"none",night:sid|"none"}}
   const [kimonoOverrides,setKimonoOverrides]=useState({}); // {[d]:{[sid]:true}} ※2026/7/16限定
@@ -878,11 +855,11 @@ export default function App(){
   // ── 公開中のシフトを作業中のシフト表へ書き戻す
   // 再生成や手動編集で作業中の内容が崩れたときの復旧用。公開済みデータ(confirmedShift)は
   // 公開/公開取り消し以外では書き換わらないため、直前に公開していれば必ずここに残っている
-  const restoreFromConfirmed=(src=null,label="公開中")=>{
-    const cs=src||confirmedShift;
-    if(!cs||!cs.shifts){alert(`${label}のシフトがないため復元できません`);return;}
-    if(cs.year!==year||cs.month!==month){alert(`${label}のシフトは${cs.year}年${cs.month+1}月のものです。復元したい月に切り替えてから実行してください`);return;}
-    if(!window.confirm(`いま画面に出ているシフト表を破棄して、${label}の${year}年${month+1}月のシフトに戻します。よろしいですか？`)) return;
+  const restoreFromConfirmed=()=>{
+    const cs=confirmedShift;
+    if(!cs||!cs.shifts){alert("公開中のシフトがないため復元できません");return;}
+    if(cs.year!==year||cs.month!==month){alert(`公開中のシフトは${cs.year}年${cs.month+1}月のものです。復元したい月に切り替えてから実行してください`);return;}
+    if(!window.confirm(`いま画面に出ているシフト表を破棄して、公開中の${year}年${month+1}月のシフトに戻します。よろしいですか？`)) return;
     const prev=resultRef.current;
     const shifts={},shortage={};
     for(let d=1;d<=days;d++){
@@ -911,7 +888,7 @@ export default function App(){
     const rbKey=`resultBackup_${ymRef.current}`;
     pendingKeys.current.add(rbKey);
     saveKey(rbKey,serializeResult(next)).catch(()=>{}).finally(()=>{pendingKeys.current.delete(rbKey);});
-    alert(`${label}のシフトに戻しました`);
+    alert("公開中のシフトに戻しました");
   };
 
   const handleExport=async()=>{
@@ -1049,21 +1026,6 @@ export default function App(){
         const cs=deserializeConfirmedShift(data[csKey]);
         if(cs){setConfirmedShift(cs);saveCfgLS(csKey,data[csKey]);}
       }
-      // 誤公開からの復旧: この端末に残っていた「公開前」のシフトが、いまFirebaseにある
-      // 公開内容と違っていれば、復旧候補として一度だけ退避する。スタッフ端末でも動くので、
-      // 事故後にまだ開いていない端末が1台でもあれば、そこから拾い上げられる
-      try{
-        const rsKey=`rescueShift_${fbYm}`;
-        const raw=localStorage.getItem(`imari_cfg_confirmedShift_${fbYm}__rescue`);
-        if(raw&&!data[rsKey]&&!pendingKeys.current.has(rsKey)){
-          const snap=JSON.parse(raw);
-          if(snap&&snap.shifts&&JSON.stringify(snap)!==JSON.stringify(data[csKey])){
-            pendingKeys.current.add(rsKey);
-            saveKey(rsKey,snap).catch(()=>{}).finally(()=>pendingKeys.current.delete(rsKey));
-          }
-        }
-        setRescueShift(data[rsKey]?deserializeConfirmedShift(data[rsKey]):null);
-      }catch(_){}
       if(loadGm){
         const rbKey=`resultBackup_${fbYm}`;
         if(!pendingKeys.current.has(rbKey)&&data[rbKey]){
@@ -2590,25 +2552,13 @@ export default function App(){
                 </div>
                 {confirmedShift&&confirmedShift.year===year&&confirmedShift.month===month&&(
                   <div style={{marginBottom:16}}>
-                    <button onClick={()=>restoreFromConfirmed()}
+                    <button onClick={restoreFromConfirmed}
                       style={{width:"100%",padding:"11px",borderRadius:7,border:`1px solid ${C.navy}40`,cursor:"pointer",fontSize:12,fontWeight:700,background:"rgba(27,42,94,0.05)",color:C.navy}}>
                       ⏮ 公開中のシフトに戻す
                     </button>
                     <div style={{fontSize:10,color:C.muted,marginTop:5,textAlign:"center",opacity:.8}}>
                       再生成や編集で崩れたときに、いま公開中の内容へ戻せます
                     </div>
-                  </div>
-                )}
-                {rescueShift&&rescueShift.year===year&&rescueShift.month===month&&(
-                  <div style={{marginBottom:16,padding:"12px 14px",borderRadius:7,border:"1px solid rgba(184,134,11,0.45)",background:"rgba(184,134,11,0.07)"}}>
-                    <div style={{fontSize:12,fontWeight:800,color:"#8a6508",marginBottom:4}}>🛟 公開前のシフトが見つかりました</div>
-                    <div style={{fontSize:11,color:"#8a6508",lineHeight:1.6,marginBottom:9,opacity:.95}}>
-                      事故より前の状態が、まだ同期していなかった端末に残っていました。いまの内容を捨てて、こちらに戻せます。
-                    </div>
-                    <button onClick={()=>restoreFromConfirmed(rescueShift,"復旧データ")}
-                      style={{width:"100%",padding:"11px",borderRadius:7,border:"none",cursor:"pointer",fontSize:12,fontWeight:800,background:"linear-gradient(135deg,#b8860b,#8a6508)",color:"#fff"}}>
-                      ⏮ この内容に戻す
-                    </button>
                   </div>
                 )}
 
