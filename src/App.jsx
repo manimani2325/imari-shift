@@ -2592,9 +2592,6 @@ export default function App(){
                   </div>
                 )}
                 <div style={{display:"flex",gap:8,marginBottom:16}}>
-                  <button onClick={()=>{if(window.confirm("シフトを作り直します。いま画面に出ている手動の調整はすべて消えます。よろしいですか？")) handleGenerate();}} style={{flex:1,padding:"12px",borderRadius:7,border:"1px solid rgba(139,26,26,0.2)",background:"rgba(139,26,26,0.04)",color:C.accent,cursor:"pointer",fontSize:13,fontWeight:700}}>
-                    🔄 再生成
-                  </button>
                   <button onClick={handleExport} disabled={exporting}
                     style={{flex:1,padding:"12px",borderRadius:7,border:"none",cursor:exporting?"wait":"pointer",fontSize:13,fontWeight:700,
                       background:exporting?"#f5f0eb":"linear-gradient(135deg,#1b2a5e,#8b1a1a)",
